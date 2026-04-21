@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Desktop Board</title>
+    <link rel="icon" href="./assets/app-icon.ico" sizes="any" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="toolbar" aria-label="Панель управления">
+        <div class="brand">
+          <img class="brand-mark" src="./assets/app-logo.png" alt="" aria-hidden="true" />
+          <div>
+            <strong>Desktop Board</strong>
+            <span id="modeLabel">Режим редактирования</span>
+          </div>
+        </div>
+
+        <nav class="toolbar-actions" aria-label="Действия">
+          <div class="tool-group" aria-label="Текстовые элементы">
+            <button id="addNoteButton" class="icon-button" type="button" aria-label="Добавить заметку" data-tooltip="Заметка">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v4h4"/><path d="M9 11h6M9 15h6"/></svg>
+            </button>
+            <button id="addTasksButton" class="icon-button" type="button" aria-label="Добавить список задач" data-tooltip="Задачи">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7l2 2 4-4"/><path d="M13 7h6"/><path d="M5 15l2 2 4-4"/><path d="M13 15h6"/></svg>
+            </button>
+            <button id="addScheduleButton" class="icon-button" type="button" aria-label="Добавить расписание" data-tooltip="Расписание">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v15H5z"/><path d="M8 3v4M16 3v4M5 9h14"/><path d="M8 13h2M12 13h2M16 13h2M8 17h2M12 17h2"/></svg>
+            </button>
+            <button id="addBookmarkButton" class="icon-button" type="button" aria-label="Добавить список ссылок" data-tooltip="Ссылки">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h8"/><path d="M8 12h8"/><path d="M8 17h5"/><path d="M6 4h12v16l-3-2-3 2-3-2-3 2z"/></svg>
+            </button>
+            <button id="addProgressButton" class="icon-button" type="button" aria-label="Добавить прогресс" data-tooltip="Прогресс">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-3"/></svg>
+            </button>
+            <button id="addTimerButton" class="icon-button" type="button" aria-label="Добавить таймер" data-tooltip="Таймер">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-2"/><path d="M9 3h6"/><path d="M12 6V4"/></svg>
+            </button>
+          </div>
+
+          <div class="tool-group" aria-label="Медиа">
+            <button id="addImageButton" class="icon-button" type="button" aria-label="Добавить картинку" data-tooltip="Картинка">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5z"/><path d="M8 15l3-3 3 3 2-2 3 4"/><circle cx="9" cy="9" r="1.5"/></svg>
+            </button>
+            <button id="addVideoButton" class="icon-button" type="button" aria-label="Добавить видео" data-tooltip="Видео">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h11v10H5z"/><path d="M16 10l4-2v8l-4-2z"/></svg>
+            </button>
+            <button id="addAudioButton" class="icon-button" type="button" aria-label="Добавить аудио" data-tooltip="Аудио">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14a3 3 0 0 0 6 0V6a2 2 0 1 1 4 0v6"/><circle cx="12" cy="14" r="3"/><path d="M18 10v6"/><path d="M20 11.5v3"/><path d="M16 11.5v3"/></svg>
+            </button>
+            <button id="addFileButton" class="icon-button" type="button" aria-label="Добавить файл" data-tooltip="Файл">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v4h4"/><path d="M9 13h6M9 17h5"/></svg>
+            </button>
+            <button id="addWebButton" class="icon-button" type="button" aria-label="Добавить URL" data-tooltip="URL / сайт">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c2 2.2 3 4.8 3 8s-1 5.8-3 8"/><path d="M12 4c-2 2.2-3 4.8-3 8s1 5.8 3 8"/></svg>
+            </button>
+          </div>
+
+          <div class="tool-group" aria-label="Доска">
+            <button id="addConnectionButton" class="icon-button" type="button" aria-label="Добавить соединение" data-tooltip="Соединение">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17L17 5"/><path d="M13 5h4v4"/><path d="M5 17h4v-4"/></svg>
+            </button>
+            <button id="addGroupButton" class="icon-button" type="button" aria-label="Добавить группу" data-tooltip="Группа">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v12H5z" stroke-dasharray="3 2"/><path d="M8 9h4v3H8zM12 12h4v3h-4z"/></svg>
+            </button>
+            <button id="searchButton" class="icon-button" type="button" aria-label="Поиск" data-tooltip="Поиск">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+            </button>
+            <button id="settingsButton" class="icon-button" type="button" aria-label="Открыть настройки" data-tooltip="Настройки">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 0 1-4 0v-.1a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 0 1 0-4h.1a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 0 1 4 0v.1a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 0 1 0 4h-.1a1 1 0 0 0-.9.6z"/></svg>
+            </button>
+            <button id="lockButton" class="icon-button" type="button" aria-label="Закрепить доску" data-tooltip="Закрепить">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11h10v9H7z"/><path d="M9 11V8a3 3 0 0 1 6 0v3"/><path d="M12 15v2"/></svg>
+            </button>
+            <button id="hideButton" class="icon-button" type="button" aria-label="Скрыть окно" data-tooltip="Скрыть">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3-5 9-5 9 5 9 5-3 5-9 5-9-5-9-5z"/><circle cx="12" cy="12" r="2.5"/><path d="M4 20L20 4"/></svg>
+            </button>
+          </div>
+
+          <span id="zoomLabel" class="zoom-label">100%</span>
+        </nav>
+      </header>
+
+      <main id="board" class="board" aria-label="Доска рабочего стола">
+        <div id="workspace" class="workspace"></div>
+        <div id="selectionBox" class="selection-box" hidden></div>
+      </main>
+    </div>
+
+    <div id="settingsModal" class="modal" hidden>
+      <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <header class="settings-header">
+          <h2 id="settingsTitle">Настройки</h2>
+          <button id="closeSettingsButton" type="button" aria-label="Закрыть настройки">x</button>
+        </header>
+
+        <label class="settings-row">
+          <span id="themeModeLabel">Тема интерфейса</span>
+          <select id="themeModeInput">
+            <option value="system">Системная</option>
+            <option value="light">Светлая</option>
+            <option value="dark">Темная</option>
+          </select>
+        </label>
+
+        <label class="settings-row">
+          <span id="languageModeLabel">Язык интерфейса</span>
+          <select id="languageModeInput">
+            <option value="system">Системный</option>
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+
+        <label class="settings-row">
+          <span id="timeFormatLabel">Формат времени</span>
+          <select id="timeFormatInput">
+            <option value="24h">24-hour</option>
+            <option value="12h">12-hour</option>
+          </select>
+        </label>
+
+        <label class="settings-row">
+          <span id="backgroundColorLabel">Цвет фона</span>
+          <input id="backgroundColorInput" type="color" value="#f4f5f0" />
+        </label>
+
+        <label class="settings-row">
+          <span id="connectionColorLabel">Цвет соединений</span>
+          <input id="connectionColorInput" type="color" value="#171916" />
+        </label>
+
+        <div class="settings-row settings-row-stack">
+          <span id="storagePathLabel">Путь хранения</span>
+          <div class="settings-inline-actions settings-path-actions">
+            <input id="storagePathInput" type="text" readonly />
+            <button id="pickStoragePathButton" type="button">Указать путь</button>
+            <button id="openStoragePathButton" type="button">Открыть папку</button>
+          </div>
+        </div>
+        <p id="storagePathHelp" class="settings-help">Смена папки переключает источник доски и файлов.</p>
+
+        <label class="settings-row settings-checkbox">
+          <span id="diagnosticsEnabledLabel">Локальный диагностический лог</span>
+          <input id="diagnosticsEnabledInput" type="checkbox" checked />
+        </label>
+
+        <div class="settings-row settings-row-stack">
+          <span id="logsFolderLabel">Логи</span>
+          <div class="settings-inline-actions">
+            <button id="openLogsButton" type="button">Открыть папку логов</button>
+          </div>
+        </div>
+
+        <details id="colorRulesDetails" class="settings-block" aria-label="Цвета новых элементов">
+          <summary><span id="newElementColorsTitle">Цвета новых элементов</span></summary>
+
+          <div class="color-rule-grid">
+            <span></span>
+            <strong id="headerColorColumnLabel">Хедер</strong>
+            <strong id="bodyColorColumnLabel">Фон</strong>
+
+            <span id="noteColorRuleLabel">Заметки</span>
+            <input id="noteHeaderColorInput" type="color" value="#f2c94c" aria-label="Хедер заметок" />
+            <input id="noteBodyColorInput" type="color" value="#fff8d7" aria-label="Фон заметок" />
+
+            <span id="tasksColorRuleLabel">Задачи</span>
+            <input id="tasksHeaderColorInput" type="color" value="#2f7d57" aria-label="Хедер задач" />
+            <input id="tasksBodyColorInput" type="color" value="#e7f3ec" aria-label="Фон задач" />
+
+            <span id="scheduleColorRuleLabel">Расписание</span>
+            <input id="scheduleHeaderColorInput" type="color" value="#3a8f9f" aria-label="Хедер расписания" />
+            <input id="scheduleBodyColorInput" type="color" value="#e6f6f8" aria-label="Фон расписания" />
+
+            <span id="bookmarkColorRuleLabel">Ссылки</span>
+            <input id="bookmarkHeaderColorInput" type="color" value="#f2c94c" aria-label="Хедер списка ссылок" />
+            <input id="bookmarkBodyColorInput" type="color" value="#fff8d7" aria-label="Фон списка ссылок" />
+
+            <span id="progressColorRuleLabel">Прогресс</span>
+            <input id="progressHeaderColorInput" type="color" value="#2f7d57" aria-label="Хедер прогресса" />
+            <input id="progressBodyColorInput" type="color" value="#e7f3ec" aria-label="Фон прогресса" />
+
+            <span id="timerColorRuleLabel">Таймер</span>
+            <input id="timerHeaderColorInput" type="color" value="#3a8f9f" aria-label="Хедер таймера" />
+            <input id="timerBodyColorInput" type="color" value="#e6f6f8" aria-label="Фон таймера" />
+
+            <span id="imageColorRuleLabel">Картинка</span>
+            <input id="imageHeaderColorInput" type="color" value="#7453a6" aria-label="Хедер картинки" />
+            <input id="imageBodyColorInput" type="color" value="#f0ebf8" aria-label="Фон картинки" />
+
+            <span id="videoColorRuleLabel">Видео</span>
+            <input id="videoHeaderColorInput" type="color" value="#7453a6" aria-label="Хедер видео" />
+            <input id="videoBodyColorInput" type="color" value="#f0ebf8" aria-label="Фон видео" />
+
+            <span id="audioColorRuleLabel">Аудио</span>
+            <input id="audioHeaderColorInput" type="color" value="#7453a6" aria-label="Хедер аудио" />
+            <input id="audioBodyColorInput" type="color" value="#f0ebf8" aria-label="Фон аудио" />
+
+            <span id="fileColorRuleLabel">Файл</span>
+            <input id="fileHeaderColorInput" type="color" value="#7453a6" aria-label="Хедер файла" />
+            <input id="fileBodyColorInput" type="color" value="#f0ebf8" aria-label="Фон файла" />
+
+            <span id="webColorRuleLabel">URL / сайт</span>
+            <input id="webHeaderColorInput" type="color" value="#7453a6" aria-label="Хедер URL" />
+            <input id="webBodyColorInput" type="color" value="#f0ebf8" aria-label="Фон URL" />
+
+            <span id="groupColorRuleLabel">Группы</span>
+            <input id="groupHeaderColorInput" type="color" value="#7aa884" aria-label="Хедер групп" />
+            <input id="groupBodyColorInput" type="color" value="#d4e6da" aria-label="Фон групп" />
+          </div>
+        </details>
+
+        <details id="quickCreateDetails" class="settings-block" aria-label="Быстрое создание">
+          <summary><span id="quickCreateTitle">Быстрое создание</span></summary>
+
+          <div id="quickCreateKindsGrid" class="settings-toggle-grid"></div>
+          <p id="quickCreateHelp" class="settings-help">Выберите типы карточек, которые будут видны в контекстном меню по правой кнопке мыши.</p>
+        </details>
+
+        <label class="settings-row settings-checkbox">
+          <span id="snapToGridLabel">Притягивать к сетке</span>
+          <input id="snapToGridInput" type="checkbox" checked />
+        </label>
+
+        <label class="settings-row">
+          <span id="toggleHotkeyLabel">Показать/скрыть</span>
+          <input id="toggleHotkeyInput" type="text" value="Ctrl+Alt+B" />
+        </label>
+
+        <label class="settings-row">
+          <span id="lockHotkeyLabel">Закрепить/редактировать</span>
+          <input id="lockHotkeyInput" type="text" value="Ctrl+Alt+L" />
+        </label>
+
+        <p id="settingsHelp" class="settings-help">Формат: Ctrl+Alt+B, Ctrl+Shift+Space, Alt+Q.</p>
+        <section class="settings-block">
+          <div class="settings-row settings-row-stack settings-update-row">
+            <span id="updatesLabel">App updates</span>
+            <div class="settings-inline-actions settings-update-actions">
+              <button id="checkUpdatesButton" type="button">Check updates</button>
+              <button id="installUpdateButton" type="button" hidden>Install update</button>
+            </div>
+          </div>
+          <p id="updatesHelp" class="settings-help">Auto-updates work only in the installed app build.</p>
+          <p id="updatesStatus" class="settings-status" aria-live="polite"></p>
+        </section>
+
+        <p id="settingsStatus" class="settings-status" aria-live="polite"></p>
+
+        <footer class="settings-actions">
+          <button id="saveSettingsButton" type="button">Сохранить</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="urlModal" class="modal" hidden>
+      <section class="url-panel" role="dialog" aria-modal="true" aria-labelledby="urlModalTitle">
+        <header class="settings-header">
+          <h2 id="urlModalTitle">URL / сайт</h2>
+          <button id="closeUrlButton" type="button" aria-label="Закрыть окно URL">x</button>
+        </header>
+
+        <label class="settings-row">
+          <span>Адрес</span>
+          <input id="urlInput" type="url" placeholder="https://example.com" />
+        </label>
+
+        <p id="urlStatus" class="settings-status" aria-live="polite"></p>
+
+        <footer class="settings-actions">
+          <button id="cancelUrlButton" type="button">Отмена</button>
+          <button id="saveUrlButton" type="button">Добавить</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="searchModal" class="modal" hidden>
+      <section class="search-panel" role="dialog" aria-modal="true" aria-labelledby="searchTitle">
+        <header class="settings-header">
+          <h2 id="searchTitle">Поиск</h2>
+          <button id="closeSearchButton" type="button" aria-label="Закрыть поиск">x</button>
+        </header>
+
+        <label class="settings-row search-query-row">
+          <span id="searchQueryLabel">Запрос</span>
+          <input id="searchInput" type="text" autocomplete="off" />
+        </label>
+
+        <p id="searchHelp" class="settings-help">Ctrl+K, введите название, тег или ID элемента.</p>
+        <div id="searchResults" class="search-results" role="listbox" aria-label="Результаты поиска"></div>
+        <p id="searchStatus" class="settings-status" aria-live="polite"></p>
+
+        <footer class="settings-actions">
+          <button id="cancelSearchButton" type="button">Закрыть</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="metaModal" class="modal" hidden>
+      <section class="meta-panel" role="dialog" aria-modal="true" aria-labelledby="metaModalTitle">
+        <header class="settings-header">
+          <h2 id="metaModalTitle">Теги и ссылки</h2>
+          <button id="closeMetaButton" type="button" aria-label="Закрыть окно тегов и ссылок">x</button>
+        </header>
+
+        <label class="settings-row">
+          <span id="metaTagsLabel">Теги</span>
+          <input id="metaTagsInput" type="text" autocomplete="off" />
+        </label>
+
+        <p id="metaTagsHelp" class="settings-help">Через запятую: идеи, work, важное</p>
+
+        <section class="settings-block meta-block">
+          <div class="meta-block-header">
+            <strong id="metaReferencesLabel">Прямые ссылки</strong>
+            <button id="addReferenceButton" type="button">Добавить ссылку</button>
+          </div>
+          <div id="metaReferencesList" class="meta-list"></div>
+        </section>
+
+        <section class="settings-block meta-block">
+          <div class="meta-block-header">
+            <strong id="metaBacklinksLabel">Обратные ссылки</strong>
+          </div>
+          <div id="metaBacklinksList" class="meta-list"></div>
+        </section>
+
+        <label class="settings-row">
+          <span id="metaLinkLabel">Ссылка на элемент</span>
+          <input id="metaLinkInput" type="text" readonly />
+        </label>
+
+        <footer class="settings-actions">
+          <button id="copyMetaLinkButton" type="button">Копировать ссылку</button>
+          <button id="cancelMetaButton" type="button">Отмена</button>
+          <button id="saveMetaButton" type="button">Сохранить</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="contextMenu" class="context-menu" hidden role="menu" aria-label="Контекстное меню"></div>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
