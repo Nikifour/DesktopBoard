@@ -33,7 +33,7 @@
         "provider": "github",
         "owner": "Nikifour",
         "repo": "DesktopBoard",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ],
     "win": {
