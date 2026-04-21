@@ -113,6 +113,8 @@ const pickStoragePathButton = document.getElementById("pickStoragePathButton");
 const openStoragePathButton = document.getElementById("openStoragePathButton");
 const diagnosticsEnabledInput = document.getElementById("diagnosticsEnabledInput");
 const openLogsButton = document.getElementById("openLogsButton");
+const exportBoardButton = document.getElementById("exportBoardButton");
+const importBoardButton = document.getElementById("importBoardButton");
 const updatesLabel = document.getElementById("updatesLabel");
 const updatesHelp = document.getElementById("updatesHelp");
 const updatesStatus = document.getElementById("updatesStatus");
@@ -147,6 +149,7 @@ const minTimerDurationMinutes = 1;
 const defaultTimerDurationMinutes = 25;
 const maxTimerDurationMinutes = 10080;
 const timerTickIntervalMs = 1000;
+const historyLimit = 100;
 const svgNamespace = "http://www.w3.org/2000/svg";
 const connectionCanvasOffset = 100000;
 const connectionCanvasSize = 200000;
@@ -393,6 +396,9 @@ let activeAction = null;
 let saveTimer = null;
 let selectedIds = new Set();
 let selectedConnectionId = null;
+let undoStack = [];
+let redoStack = [];
+let lastCommittedHistorySnapshot = null;
 let pendingUrlResolver = null;
 let pendingSearchResolver = null;
 let connectionMode = false;
@@ -845,6 +851,14 @@ Object.assign(translations.ru, {
   diagnosticsSaveError: "Не удалось сохранить настройки диагностики.",
   logsFolder: "Логи",
   openLogsFolder: "Открыть папку логов",
+  boardArchive: "Архив доски",
+  boardArchiveHelp: "Экспорт сохраняет текущую доску и связанные файлы в один архив. Импорт заменяет текущую доску в выбранной папке хранения.",
+  exportBoard: "Экспортировать",
+  importBoard: "Импортировать",
+  boardArchiveExported: "Архив сохранен: {name}. Карточек: {cards}, файлов: {assets}.",
+  boardArchiveImported: "Архив импортирован: {name}. Карточек: {cards}, файлов: {assets}.",
+  boardArchiveMissingAssets: "Отсутствующих файлов: {count}.",
+  boardArchiveFailed: "Не удалось выполнить операцию с архивом доски.",
   timeFormat: "Формат времени",
   timeFormat24: "24 часа",
   timeFormat12: "12 часов",
@@ -869,6 +883,14 @@ Object.assign(translations.en, {
   diagnosticsSaveError: "Could not save diagnostics settings.",
   logsFolder: "Logs",
   openLogsFolder: "Open logs folder",
+  boardArchive: "Board archive",
+  boardArchiveHelp: "Export saves the current board and linked files into one archive. Import replaces the current board in the selected storage folder.",
+  exportBoard: "Export",
+  importBoard: "Import",
+  boardArchiveExported: "Archive saved: {name}. Cards: {cards}, files: {assets}.",
+  boardArchiveImported: "Archive imported: {name}. Cards: {cards}, files: {assets}.",
+  boardArchiveMissingAssets: "Missing files: {count}.",
+  boardArchiveFailed: "Could not complete the board archive operation.",
   timeFormat: "Time format",
   timeFormat24: "24-hour",
   timeFormat12: "12-hour",
@@ -1217,6 +1239,12 @@ function refreshAppConfigUi() {
   }
   if (openLogsButton) {
     openLogsButton.disabled = !window.desktopBoard?.openLogsDirectory;
+  }
+  if (exportBoardButton) {
+    exportBoardButton.disabled = !window.desktopBoard?.exportBoardArchive;
+  }
+  if (importBoardButton) {
+    importBoardButton.disabled = !window.desktopBoard?.importBoardArchive;
   }
 }
 
@@ -1732,12 +1760,160 @@ function isConnectionUsable(connection, cardIds = new Set(state.cards.map((card)
   return anchors.every((anchor) => anchor.type !== "card" || cardIds.has(anchor.cardId));
 }
 
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveState, 180);
+function createHistoryState(source = state) {
+  return {
+    schemaVersion: source.schemaVersion,
+    settings: clone(source.settings),
+    cards: clone(source.cards),
+    connections: clone(source.connections)
+  };
 }
 
-async function saveState() {
+function snapshotHistoryState(source = state) {
+  return JSON.stringify(createHistoryState(source));
+}
+
+function trimHistoryStack(stack) {
+  if (stack.length > historyLimit) {
+    stack.splice(0, stack.length - historyLimit);
+  }
+}
+
+function resetHistoryTracking(source = state) {
+  undoStack = [];
+  redoStack = [];
+  lastCommittedHistorySnapshot = snapshotHistoryState(source);
+}
+
+function commitHistorySnapshot() {
+  const currentSnapshot = snapshotHistoryState(state);
+  if (lastCommittedHistorySnapshot === null) {
+    lastCommittedHistorySnapshot = currentSnapshot;
+    return;
+  }
+
+  if (currentSnapshot === lastCommittedHistorySnapshot) {
+    return;
+  }
+
+  undoStack.push(lastCommittedHistorySnapshot);
+  trimHistoryStack(undoStack);
+  redoStack = [];
+  lastCommittedHistorySnapshot = currentSnapshot;
+}
+
+function normalizeHistorySnapshot(snapshot) {
+  if (!snapshot) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(snapshot);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function applyHistorySnapshot(snapshot) {
+  const nextState = normalizeHistorySnapshot(snapshot);
+  if (!nextState) {
+    return false;
+  }
+
+  clearTimeout(saveTimer);
+  closeContextMenu();
+  if (!searchModal.hidden) {
+    closeSearchModal(null);
+  }
+  if (!urlModal.hidden) {
+    closeUrlModal("");
+  }
+  if (!metaModal.hidden) {
+    closeMetaModal();
+  }
+
+  const preservedViewport = clone(state.viewport);
+  const preservedLocked = state.locked;
+  activeAction = null;
+  connectionDraft = null;
+  connectionMode = false;
+  selectedIds.clear();
+  selectedConnectionId = null;
+  board.classList.remove("is-panning", "is-selecting");
+  selectionBox.hidden = true;
+
+  state = normalizeState({
+    ...state,
+    ...nextState,
+    viewport: preservedViewport,
+    locked: preservedLocked
+  });
+  lastCommittedHistorySnapshot = snapshotHistoryState(state);
+  applySystemTheme(currentSystemTheme);
+  render();
+  applySettings();
+  void saveState({ skipHistory: true });
+  return true;
+}
+
+function undoStateChange() {
+  const currentSnapshot = snapshotHistoryState(state);
+
+  if (lastCommittedHistorySnapshot && currentSnapshot !== lastCommittedHistorySnapshot) {
+    redoStack.push(currentSnapshot);
+    trimHistoryStack(redoStack);
+    return applyHistorySnapshot(lastCommittedHistorySnapshot);
+  }
+
+  const targetSnapshot = undoStack.pop();
+  if (!targetSnapshot) {
+    return false;
+  }
+
+  redoStack.push(currentSnapshot);
+  trimHistoryStack(redoStack);
+  return applyHistorySnapshot(targetSnapshot);
+}
+
+function redoStateChange() {
+  const currentSnapshot = snapshotHistoryState(state);
+  if (lastCommittedHistorySnapshot && currentSnapshot !== lastCommittedHistorySnapshot) {
+    redoStack = [];
+    return false;
+  }
+
+  const targetSnapshot = redoStack.pop();
+  if (!targetSnapshot) {
+    return false;
+  }
+
+  undoStack.push(currentSnapshot);
+  trimHistoryStack(undoStack);
+  return applyHistorySnapshot(targetSnapshot);
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  if (redoStack.length && lastCommittedHistorySnapshot !== null) {
+    const currentSnapshot = snapshotHistoryState(state);
+    if (currentSnapshot !== lastCommittedHistorySnapshot) {
+      redoStack = [];
+    }
+  }
+  saveTimer = setTimeout(() => {
+    void saveState();
+  }, 180);
+}
+
+async function saveState(options = {}) {
+  if (!options.skipHistory) {
+    commitHistorySnapshot();
+  }
+
   if (!window.desktopBoard) {
     localStorage.setItem("desktop-board-state", JSON.stringify(state));
     return;
@@ -1750,11 +1926,13 @@ async function loadState() {
   if (window.desktopBoard) {
     const persisted = await window.desktopBoard.loadState();
     state = normalizeState(persisted);
+    resetHistoryTracking(state);
     return;
   }
 
   const local = localStorage.getItem("desktop-board-state");
   state = normalizeState(local ? JSON.parse(local) : null);
+  resetHistoryTracking(state);
 }
 
 function applyViewport() {
@@ -1809,6 +1987,8 @@ function applyTranslations() {
   setText("storagePathHelp", "storagePathHelp");
   setText("diagnosticsEnabledLabel", "diagnosticsEnabled");
   setText("logsFolderLabel", "logsFolder");
+  setText("boardArchiveLabel", "boardArchive");
+  setText("boardArchiveHelp", "boardArchiveHelp");
   setText("updatesLabel", "updatesLabel");
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
@@ -1852,6 +2032,12 @@ function applyTranslations() {
   }
   if (openLogsButton) {
     openLogsButton.textContent = t("openLogsFolder");
+  }
+  if (exportBoardButton) {
+    exportBoardButton.textContent = t("exportBoard");
+  }
+  if (importBoardButton) {
+    importBoardButton.textContent = t("importBoard");
   }
   if (checkUpdatesButton) {
     checkUpdatesButton.textContent = t("checkUpdates");
@@ -4180,6 +4366,7 @@ function handleConnectionPointerDown(event) {
     return;
   }
 
+  blurActiveEditor();
   event.preventDefault();
   event.stopImmediatePropagation();
 
@@ -4288,6 +4475,22 @@ function toggleCardSelection(card) {
 
 function isEditableTarget(target) {
   return Boolean(target.closest("input, textarea, button, select, audio, video, iframe, webview, .resize-handle, .context-menu, .card-header-toggle"));
+}
+
+function isTextInputTarget(target) {
+  return Boolean(target?.closest?.("input, textarea, select"));
+}
+
+function isBoardDeleteShortcutBlocked(target) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (isTextInputTarget(target)) {
+    return true;
+  }
+
+  return Boolean(target.closest(".modal"));
 }
 
 function selectCardFromPointer(event, card) {
@@ -4422,6 +4625,8 @@ function startCardMove(event, card) {
     return;
   }
 
+  blurActiveEditor();
+
   if (event.shiftKey || event.ctrlKey || event.metaKey) {
     event.preventDefault();
     event.stopPropagation();
@@ -4461,6 +4666,7 @@ function startResize(event, card, direction = "se") {
     return;
   }
 
+  blurActiveEditor();
   event.preventDefault();
   event.stopPropagation();
 
@@ -4492,6 +4698,7 @@ function startPan(event) {
     return;
   }
 
+  blurActiveEditor();
   event.preventDefault();
   board.setPointerCapture(event.pointerId);
   board.classList.add("is-panning");
@@ -5885,6 +6092,7 @@ function openContextMenu(event) {
     return;
   }
 
+  blurActiveEditor();
   event.preventDefault();
   closeContextMenu();
 
@@ -5942,6 +6150,7 @@ async function switchStorageDirectory() {
     }
     if (result?.state) {
       state = normalizeState(result.state);
+      resetHistoryTracking(state);
       applySystemTheme(currentSystemTheme);
       render();
     }
@@ -5977,6 +6186,76 @@ async function openLogsFolder() {
     await window.desktopBoard.openLogsDirectory();
   } catch (error) {
     reportError("logs.open", error);
+  }
+}
+
+function formatBoardArchiveStatus(result, actionKey) {
+  const fileName = String(result?.filePath || "").split(/[/\\]/).pop() || "board";
+  const assets = actionKey === "boardArchiveImported"
+    ? Number(result?.importedAssetCount || 0)
+    : Number(result?.exportedAssetCount || 0);
+  let message = t(actionKey, {
+    name: fileName,
+    cards: Number(result?.cardCount || 0),
+    assets
+  });
+
+  if (Number(result?.missingAssetCount || 0) > 0) {
+    message += ` ${t("boardArchiveMissingAssets", { count: Number(result.missingAssetCount) })}`;
+  }
+
+  return message;
+}
+
+async function exportBoardArchiveFromSettings() {
+  if (!window.desktopBoard?.exportBoardArchive) {
+    return;
+  }
+
+  try {
+    const result = await window.desktopBoard.exportBoardArchive(state);
+    if (!result) {
+      return;
+    }
+    settingsStatus.textContent = formatBoardArchiveStatus(result, "boardArchiveExported");
+  } catch (error) {
+    reportError("archive.export", error);
+    settingsStatus.textContent = t("boardArchiveFailed");
+  }
+}
+
+async function importBoardArchiveFromSettings() {
+  if (!window.desktopBoard?.importBoardArchive) {
+    return;
+  }
+
+  try {
+    const result = await window.desktopBoard.importBoardArchive();
+    if (!result?.state) {
+      return;
+    }
+
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+
+    state = normalizeState(result.state);
+    resetHistoryTracking(state);
+    clearSelection();
+    selectedConnectionId = null;
+    connectionDraft = null;
+    connectionMode = false;
+    activeAction = null;
+    selectionBox.hidden = true;
+    board.classList.remove("is-panning", "is-selecting");
+    applySystemTheme(currentSystemTheme);
+    render();
+    applySettings();
+    settingsStatus.textContent = formatBoardArchiveStatus(result, "boardArchiveImported");
+  } catch (error) {
+    reportError("archive.import", error);
+    settingsStatus.textContent = t("boardArchiveFailed");
   }
 }
 
@@ -6124,6 +6403,8 @@ board.addEventListener("dragover", (event) => event.preventDefault());
 board.addEventListener("drop", handleDroppedFiles);
 
 window.addEventListener("keydown", (event) => {
+  const typingTarget = isTextInputTarget(document.activeElement);
+
   if (!searchModal.hidden) {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -6174,19 +6455,35 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === "KeyZ" && !typingTarget) {
+    event.preventDefault();
+    if (event.shiftKey) {
+      redoStateChange();
+    } else {
+      undoStateChange();
+    }
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === "KeyY" && !typingTarget) {
+    event.preventDefault();
+    redoStateChange();
+    return;
+  }
+
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === "KeyK") {
     event.preventDefault();
     openSearchModal({ mode: "navigate" });
     return;
   }
 
-  if (event.key === "Delete" && selectedIds.size > 0 && !isEditableTarget(document.activeElement)) {
+  if (event.key === "Delete" && selectedIds.size > 0 && !isBoardDeleteShortcutBlocked(document.activeElement)) {
     event.preventDefault();
     deleteSelectedCards();
     return;
   }
 
-  if (event.key === "Delete" && selectedConnectionId && !isEditableTarget(document.activeElement)) {
+  if (event.key === "Delete" && selectedConnectionId && !isBoardDeleteShortcutBlocked(document.activeElement)) {
     const connection = state.connections.find((item) => item.id === selectedConnectionId);
     if (connection) {
       event.preventDefault();
@@ -6241,6 +6538,8 @@ saveSettingsButton.addEventListener("click", saveSettings);
 pickStoragePathButton?.addEventListener("click", switchStorageDirectory);
 openStoragePathButton?.addEventListener("click", openCurrentStorageFolder);
 openLogsButton?.addEventListener("click", openLogsFolder);
+exportBoardButton?.addEventListener("click", exportBoardArchiveFromSettings);
+importBoardButton?.addEventListener("click", importBoardArchiveFromSettings);
 checkUpdatesButton?.addEventListener("click", checkForUpdatesFromSettings);
 installUpdateButton?.addEventListener("click", installDownloadedUpdateFromSettings);
 closeUrlButton.addEventListener("click", () => closeUrlModal(""));
@@ -6317,6 +6616,7 @@ loadSystemTheme().then(loadAppRuntimeConfig).then(loadAppUpdateState).then(loadS
 }).catch((error) => {
   reportError("app.init", error);
   state = clone(defaultState);
+  resetHistoryTracking(state);
   applySystemTheme(currentSystemTheme);
   render();
 });

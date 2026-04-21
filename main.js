@@ -21,6 +21,9 @@ let autoUpdateState = null;
 
 const appId = "com.desktopboard.app";
 const stateSchemaVersion = 4;
+const boardArchiveVersion = 1;
+const boardArchiveStateEntry = "board-state.json";
+const boardArchiveMetaEntry = "desktop-board-export.json";
 const mediaKinds = new Set(["image", "video", "audio"]);
 const storedAssetKinds = new Set(["image", "video", "audio", "file"]);
 const sessionId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -99,6 +102,61 @@ function getAppConfigForRenderer() {
   };
 }
 
+function normalizeBoardRelativePath(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return "";
+  }
+
+  const raw = value.trim().replace(/\\/g, "/");
+  if (!raw || raw.startsWith("/")) {
+    return "";
+  }
+
+  const normalized = path.posix.normalize(raw);
+  if (!normalized || normalized === "." || normalized === ".." || normalized.startsWith("../")) {
+    return "";
+  }
+
+  return normalized;
+}
+
+function normalizeAssetRelativePath(value) {
+  const normalized = normalizeBoardRelativePath(value);
+  return normalized.startsWith("assets/") ? normalized : "";
+}
+
+function resolveBoardRelativePath(basePath, relativePath) {
+  return path.join(basePath, ...String(relativePath || "").split("/"));
+}
+
+function getBoardArchiveDefaultPath() {
+  const now = new Date();
+  const stamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0")
+  ].join("-");
+  return path.join(app.getPath("documents"), `desktop-board-${stamp}.desktopboard`);
+}
+
+function collectReferencedAssetPaths(state) {
+  const assetPaths = new Set();
+  const cards = Array.isArray(state?.cards) ? state.cards : [];
+  cards.forEach((card) => {
+    if (!isStoredAssetKind(card?.kind)) {
+      return;
+    }
+
+    const assetRelativePath = normalizeAssetRelativePath(card.assetRelativePath);
+    if (assetRelativePath) {
+      assetPaths.add(assetRelativePath);
+    }
+  });
+  return [...assetPaths];
+}
+
 async function ensureDirectory(directoryPath) {
   await fs.mkdir(directoryPath, { recursive: true });
   return directoryPath;
@@ -131,14 +189,26 @@ const updateMessages = {
     updateReadyMessage: "Версия {version} уже скачана.",
     updateReadyDetail: "Приложение может перезапуститься и установить обновление сейчас.",
     updateInstallNow: "Установить сейчас",
-    updateLater: "Позже"
+    updateLater: "Позже",
+    archiveExportTitle: "Экспорт доски",
+    archiveImportTitle: "Импорт доски",
+    archiveImportMessage: "Импортировать доску из архива?",
+    archiveImportDetail: "Текущая доска в выбранной папке хранения будет заменена.\n\nАрхив: {fileName}",
+    archiveImportNow: "Импортировать",
+    archiveImportCancel: "Отмена"
   },
   en: {
     updateReadyTitle: "Update ready",
     updateReadyMessage: "Version {version} has been downloaded.",
     updateReadyDetail: "The app can restart and install the update now.",
     updateInstallNow: "Install now",
-    updateLater: "Later"
+    updateLater: "Later",
+    archiveExportTitle: "Export board archive",
+    archiveImportTitle: "Import board archive",
+    archiveImportMessage: "Import the board from this archive?",
+    archiveImportDetail: "The current board in the selected storage folder will be replaced.\n\nArchive: {fileName}",
+    archiveImportNow: "Import",
+    archiveImportCancel: "Cancel"
   }
 };
 
@@ -1121,6 +1191,220 @@ async function openLogsDirectory() {
   return true;
 }
 
+async function pickBoardArchiveExportPath() {
+  const result = await dialog.showSaveDialog(mainWindow || undefined, {
+    title: tMain("archiveExportTitle"),
+    defaultPath: getBoardArchiveDefaultPath(),
+    filters: [
+      { name: "Desktop Board archive", extensions: ["desktopboard"] },
+      { name: "Zip archive", extensions: ["zip"] }
+    ]
+  });
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  return result.filePath;
+}
+
+async function pickBoardArchiveImportPath() {
+  const result = await dialog.showOpenDialog(mainWindow || undefined, {
+    title: tMain("archiveImportTitle"),
+    defaultPath: app.getPath("documents"),
+    properties: ["openFile"],
+    filters: [
+      { name: "Desktop Board archive", extensions: ["desktopboard", "zip"] }
+    ]
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0];
+}
+
+async function promptImportBoardArchive(filePath) {
+  const result = await dialog.showMessageBox(mainWindow || undefined, {
+    type: "warning",
+    buttons: [tMain("archiveImportNow"), tMain("archiveImportCancel")],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+    title: tMain("archiveImportTitle"),
+    message: tMain("archiveImportMessage"),
+    detail: tMain("archiveImportDetail", { fileName: path.basename(filePath || "") })
+  });
+
+  return result.response === 0;
+}
+
+async function exportBoardArchive(currentState = null) {
+  const filePath = await pickBoardArchiveExportPath();
+  if (!filePath) {
+    return null;
+  }
+
+  const sourceState = currentState || lastKnownState || await readState();
+  if (!sourceState) {
+    throw new Error("No board state to export.");
+  }
+
+  const preparedState = await prepareStateForStorage(sourceState);
+  const referencedAssetPaths = collectReferencedAssetPaths(preparedState);
+  const zip = new JSZip();
+  const missingAssets = [];
+  let exportedAssetCount = 0;
+
+  zip.file(boardArchiveStateEntry, JSON.stringify(preparedState, null, 2));
+
+  for (const assetRelativePath of referencedAssetPaths) {
+    const absolutePath = getAbsoluteAssetPath(assetRelativePath);
+    if (!await pathExists(absolutePath)) {
+      missingAssets.push(assetRelativePath);
+      continue;
+    }
+
+    zip.file(assetRelativePath, await fs.readFile(absolutePath));
+    exportedAssetCount += 1;
+  }
+
+  zip.file(boardArchiveMetaEntry, JSON.stringify({
+    archiveVersion: boardArchiveVersion,
+    appVersion: app.getVersion(),
+    exportedAt: new Date().toISOString(),
+    schemaVersion: preparedState.schemaVersion || stateSchemaVersion,
+    cardCount: Array.isArray(preparedState.cards) ? preparedState.cards.length : 0,
+    referencedAssetCount: referencedAssetPaths.length,
+    exportedAssetCount,
+    missingAssets
+  }, null, 2));
+
+  const archiveBuffer = await zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 }
+  });
+
+  await fs.writeFile(filePath, archiveBuffer);
+  await logEvent("info", "archive.export", "Exported board archive", {
+    filePath,
+    cardCount: Array.isArray(preparedState.cards) ? preparedState.cards.length : 0,
+    referencedAssetCount: referencedAssetPaths.length,
+    exportedAssetCount,
+    missingAssetCount: missingAssets.length
+  });
+
+  return {
+    filePath,
+    cardCount: Array.isArray(preparedState.cards) ? preparedState.cards.length : 0,
+    referencedAssetCount: referencedAssetPaths.length,
+    exportedAssetCount,
+    missingAssetCount: missingAssets.length
+  };
+}
+
+async function extractArchiveAssets(zip, tempRoot, allowedAssetPaths) {
+  const extractedAssetPaths = [];
+  const tasks = [];
+  const allowedSet = allowedAssetPaths instanceof Set ? allowedAssetPaths : new Set(allowedAssetPaths || []);
+
+  zip.forEach((relativePath, entry) => {
+    if (entry.dir) {
+      return;
+    }
+
+    const normalizedPath = normalizeAssetRelativePath(relativePath);
+    if (!normalizedPath || (allowedSet.size > 0 && !allowedSet.has(normalizedPath))) {
+      return;
+    }
+
+    const targetPath = resolveBoardRelativePath(tempRoot, normalizedPath);
+    extractedAssetPaths.push(normalizedPath);
+    tasks.push(
+      entry.async("nodebuffer").then(async (content) => {
+        await ensureDirectory(path.dirname(targetPath));
+        await fs.writeFile(targetPath, content);
+      })
+    );
+  });
+
+  await Promise.all(tasks);
+  return extractedAssetPaths;
+}
+
+async function importBoardArchive() {
+  const filePath = await pickBoardArchiveImportPath();
+  if (!filePath) {
+    return null;
+  }
+
+  if (!await promptImportBoardArchive(filePath)) {
+    return null;
+  }
+
+  const targetRoot = getStorageRoot();
+  const tempRoot = await fs.mkdtemp(path.join(app.getPath("temp"), "desktop-board-import-"));
+
+  try {
+    const archiveBuffer = await fs.readFile(filePath);
+    const zip = await JSZip.loadAsync(archiveBuffer);
+    const stateEntry = zip.file(boardArchiveStateEntry);
+
+    if (!stateEntry) {
+      throw new Error(`Archive is missing ${boardArchiveStateEntry}`);
+    }
+
+    const parsedState = JSON.parse(await stateEntry.async("string"));
+    const preparedState = await prepareStateForStorage(parsedState);
+    const referencedAssetPaths = collectReferencedAssetPaths(preparedState);
+    const referencedAssetSet = new Set(referencedAssetPaths);
+    const extractedAssetPaths = await extractArchiveAssets(zip, tempRoot, referencedAssetSet);
+    const tempAssetsPath = getAssetsPath(tempRoot);
+
+    await ensureDirectory(targetRoot);
+    await ensureDirectory(getAssetsPath(targetRoot));
+
+    for (const assetRelativePath of referencedAssetPaths) {
+      const targetAssetPath = getAbsoluteAssetPath(assetRelativePath, targetRoot);
+      if (await pathExists(targetAssetPath)) {
+        await fs.rm(targetAssetPath, { force: true });
+      }
+    }
+
+    if (await pathExists(tempAssetsPath)) {
+      await fs.cp(tempAssetsPath, getAssetsPath(targetRoot), { recursive: true, force: true });
+    }
+
+    await writeRawState(preparedState, targetRoot);
+    const loadedState = await readState(targetRoot);
+
+    await logEvent("info", "archive.import", "Imported board archive", {
+      filePath,
+      targetRoot,
+      cardCount: Array.isArray(preparedState.cards) ? preparedState.cards.length : 0,
+      referencedAssetCount: referencedAssetPaths.length,
+      importedAssetCount: extractedAssetPaths.length,
+      missingAssetCount: Math.max(0, referencedAssetPaths.length - extractedAssetPaths.length)
+    });
+
+    return {
+      state: loadedState,
+      filePath,
+      cardCount: Array.isArray(preparedState.cards) ? preparedState.cards.length : 0,
+      referencedAssetCount: referencedAssetPaths.length,
+      importedAssetCount: extractedAssetPaths.length,
+      missingAssetCount: Math.max(0, referencedAssetPaths.length - extractedAssetPaths.length)
+    };
+  } catch (error) {
+    await logError("archive.import", error, { filePath, targetRoot });
+    throw error;
+  } finally {
+    await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function handleRendererLog(payload = {}) {
   const allowedLevels = new Set(["info", "warn", "error"]);
   const level = allowedLevels.has(payload.level) ? payload.level : "info";
@@ -1210,6 +1494,8 @@ app.whenReady().then(async () => {
   ipcMain.handle("storage:pick-directory", () => pickStorageDirectory());
   ipcMain.handle("storage:set-directory", (_event, directoryPath, state) => setStorageDirectory(String(directoryPath || ""), state || null));
   ipcMain.handle("storage:open-directory", () => openCurrentStorageDirectory());
+  ipcMain.handle("archive:export", (_event, state) => exportBoardArchive(state || null));
+  ipcMain.handle("archive:import", () => importBoardArchive());
   ipcMain.handle("logs:open-directory", () => openLogsDirectory());
   ipcMain.handle("log:event", (_event, payload) => handleRendererLog(payload || {}));
   ipcMain.handle("hotkeys:update", (_event, settings) => registerHotkeys(settings));

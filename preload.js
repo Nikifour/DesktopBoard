@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld("desktopBoard", {
   pickStorageDirectory: () => ipcRenderer.invoke("storage:pick-directory"),
   setStorageDirectory: (directoryPath, state) => ipcRenderer.invoke("storage:set-directory", directoryPath, state),
   openStorageDirectory: () => ipcRenderer.invoke("storage:open-directory"),
+  exportBoardArchive: (state) => ipcRenderer.invoke("archive:export", state),
+  importBoardArchive: () => ipcRenderer.invoke("archive:import"),
   openLogsDirectory: () => ipcRenderer.invoke("logs:open-directory"),
   logEvent: (payload) => ipcRenderer.invoke("log:event", payload),
   pickMedia: (kind, options) => ipcRenderer.invoke("media:pick", kind, options),

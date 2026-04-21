@@ -94,8 +94,8 @@ npm.cmd run dist:win
 
 Результат появляется в `dist`:
 
-- `Desktop Board 0.1.0.exe` - portable exe без установки.
-- `Desktop Board Setup 0.1.0.exe` - установщик Windows.
+- `Desktop Board 0.1.1.exe` - portable exe без установки.
+- `Desktop Board Setup 0.1.1.exe` - установщик Windows.
 - `win-unpacked\Desktop Board.exe` - распакованная сборка для быстрой локальной проверки.
 
 Сборка использует локальный Electron из `node_modules/electron/dist`, чтобы не скачивать Electron заново с GitHub. Для бинарников NSIS в npm-скрипте задано зеркало `electron-builder-binaries`.

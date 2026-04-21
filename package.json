@@ -1,6 +1,6 @@
 {
   "name": "desktop-board",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Windows desktop board for notes, schedule blocks, and quick personal widgets.",
   "author": "Desktop Board",
   "main": "main.js",
@@ -27,6 +27,15 @@
       "preload.js",
       "src/**/*",
       "package.json"
+    ],
+    "fileAssociations": [
+      {
+        "ext": "desktopboard",
+        "name": "Desktop Board Archive",
+        "description": "Desktop Board board archive",
+        "icon": "src/assets/app-icon.ico",
+        "role": "Editor"
+      }
     ],
     "publish": [
       {
