@@ -12,9 +12,16 @@
       <header class="toolbar" aria-label="Панель управления">
         <div class="brand">
           <img class="brand-mark" src="./assets/app-logo.png" alt="" aria-hidden="true" />
-          <div>
-            <strong>Desktop Board</strong>
-            <span id="modeLabel">Режим редактирования</span>
+          <div class="brand-content">
+            <div class="brand-header">
+              <div class="brand-text">
+                <strong>Desktop Board</strong>
+                <span id="modeLabel">Режим редактирования</span>
+              </div>
+              <select id="toolbarBoardSelect" class="toolbar-board-select" aria-label="Boards" title="Boards">
+                <option value="main">Main board</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -37,6 +44,9 @@
             </button>
             <button id="addTimerButton" class="icon-button" type="button" aria-label="Добавить таймер" data-tooltip="Таймер">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-2"/><path d="M9 3h6"/><path d="M12 6V4"/></svg>
+            </button>
+            <button id="addReminderButton" class="icon-button" type="button" aria-label="Добавить напоминание" data-tooltip="Напоминание">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 0 1 4 4v2.2c0 1.3.4 2.6 1.2 3.7l1.1 1.6H5.7l1.1-1.6A6.4 6.4 0 0 0 8 9.2V7a4 4 0 0 1 4-4"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>
             </button>
           </div>
 
@@ -142,6 +152,31 @@
         </div>
         <p id="storagePathHelp" class="settings-help">Смена папки переключает источник доски и файлов.</p>
 
+        <section class="settings-block">
+          <div class="settings-row settings-row-stack settings-update-row">
+            <span id="boardsLabel">Boards</span>
+            <div class="settings-inline-actions settings-update-actions">
+              <button id="createBoardButton" type="button">Create</button>
+              <button id="switchBoardButton" type="button">Open</button>
+              <button id="renameBoardButton" type="button">Rename</button>
+              <button id="deleteBoardButton" type="button">Delete</button>
+            </div>
+          </div>
+          <label class="settings-row">
+            <span id="boardNameFieldLabel">Board name</span>
+            <input id="boardNameInput" type="text" maxlength="120" />
+          </label>
+          <div id="boardsList" class="boards-list"></div>
+          <p id="boardsHelp" class="settings-help">Create separate spaces and switch between them without changing the storage folder.</p>
+          <p id="boardsStatus" class="settings-status" aria-live="polite"></p>
+        </section>
+
+        <label class="settings-row settings-checkbox">
+          <span id="autoStartWithWindowsLabel">Автозапуск с Windows</span>
+          <input id="autoStartWithWindowsInput" type="checkbox" />
+        </label>
+        <p id="autoStartHelp" class="settings-help">Приложение будет запускаться автоматически после входа в Windows.</p>
+
         <label class="settings-row settings-checkbox">
           <span id="diagnosticsEnabledLabel">Локальный диагностический лог</span>
           <input id="diagnosticsEnabledInput" type="checkbox" checked />
@@ -165,6 +200,19 @@
           <p id="boardArchiveHelp" class="settings-help">Экспорт сохраняет текущую доску и связанные файлы в один архив. Импорт заменяет текущую доску в выбранной папке хранения.</p>
         </section>
 
+        <section class="settings-block">
+          <div class="settings-row settings-row-stack settings-update-row">
+            <span id="assetManagerLabel">Asset manager</span>
+            <div class="settings-inline-actions settings-update-actions">
+              <button id="analyzeAssetsButton" type="button">Analyze</button>
+              <button id="cleanupAssetsButton" type="button">Clean unused</button>
+            </div>
+          </div>
+          <p id="assetManagerHelp" class="settings-help">Check stored files, find broken references, and remove unused assets.</p>
+          <div id="assetManagerSummary" class="asset-summary"></div>
+          <div id="assetManagerIssues" class="asset-issues"></div>
+          <p id="assetManagerStatus" class="settings-status" aria-live="polite"></p>
+        </section>
         <details id="colorRulesDetails" class="settings-block" aria-label="Цвета новых элементов">
           <summary><span id="newElementColorsTitle">Цвета новых элементов</span></summary>
 
@@ -196,6 +244,10 @@
             <span id="timerColorRuleLabel">Таймер</span>
             <input id="timerHeaderColorInput" type="color" value="#3a8f9f" aria-label="Хедер таймера" />
             <input id="timerBodyColorInput" type="color" value="#e6f6f8" aria-label="Фон таймера" />
+
+            <span id="reminderColorRuleLabel">Напоминание</span>
+            <input id="reminderHeaderColorInput" type="color" value="#d96b5f" aria-label="Хедер напоминания" />
+            <input id="reminderBodyColorInput" type="color" value="#fdebe7" aria-label="Фон напоминания" />
 
             <span id="imageColorRuleLabel">Картинка</span>
             <input id="imageHeaderColorInput" type="color" value="#7453a6" aria-label="Хедер картинки" />

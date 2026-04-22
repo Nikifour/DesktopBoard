@@ -1,5 +1,6 @@
 const board = document.getElementById("board");
 const workspace = document.getElementById("workspace");
+const toolbarBoardSelect = document.getElementById("toolbarBoardSelect");
 const modeLabel = document.getElementById("modeLabel");
 const lockButton = document.getElementById("lockButton");
 const hideButton = document.getElementById("hideButton");
@@ -9,6 +10,7 @@ const addScheduleButton = document.getElementById("addScheduleButton");
 const addBookmarkButton = document.getElementById("addBookmarkButton");
 const addProgressButton = document.getElementById("addProgressButton");
 const addTimerButton = document.getElementById("addTimerButton");
+const addReminderButton = document.getElementById("addReminderButton");
 const addImageButton = document.getElementById("addImageButton");
 const addVideoButton = document.getElementById("addVideoButton");
 const addAudioButton = document.getElementById("addAudioButton");
@@ -71,6 +73,8 @@ const progressHeaderColorInput = document.getElementById("progressHeaderColorInp
 const progressBodyColorInput = document.getElementById("progressBodyColorInput");
 const timerHeaderColorInput = document.getElementById("timerHeaderColorInput");
 const timerBodyColorInput = document.getElementById("timerBodyColorInput");
+const reminderHeaderColorInput = document.getElementById("reminderHeaderColorInput");
+const reminderBodyColorInput = document.getElementById("reminderBodyColorInput");
 const imageHeaderColorInput = document.getElementById("imageHeaderColorInput");
 const imageBodyColorInput = document.getElementById("imageBodyColorInput");
 const videoHeaderColorInput = document.getElementById("videoHeaderColorInput");
@@ -90,6 +94,7 @@ const colorInputRefs = {
   bookmark: { header: bookmarkHeaderColorInput, body: bookmarkBodyColorInput },
   progress: { header: progressHeaderColorInput, body: progressBodyColorInput },
   timer: { header: timerHeaderColorInput, body: timerBodyColorInput },
+  reminder: { header: reminderHeaderColorInput, body: reminderBodyColorInput },
   image: { header: imageHeaderColorInput, body: imageBodyColorInput },
   video: { header: videoHeaderColorInput, body: videoBodyColorInput },
   audio: { header: audioHeaderColorInput, body: audioBodyColorInput },
@@ -111,10 +116,29 @@ const connectionColorInput = document.getElementById("connectionColorInput");
 const storagePathInput = document.getElementById("storagePathInput");
 const pickStoragePathButton = document.getElementById("pickStoragePathButton");
 const openStoragePathButton = document.getElementById("openStoragePathButton");
+const boardsLabel = document.getElementById("boardsLabel");
+const boardNameFieldLabel = document.getElementById("boardNameFieldLabel");
+const boardNameInput = document.getElementById("boardNameInput");
+const boardsList = document.getElementById("boardsList");
+const boardsHelp = document.getElementById("boardsHelp");
+const boardsStatus = document.getElementById("boardsStatus");
+const createBoardButton = document.getElementById("createBoardButton");
+const switchBoardButton = document.getElementById("switchBoardButton");
+const renameBoardButton = document.getElementById("renameBoardButton");
+const deleteBoardButton = document.getElementById("deleteBoardButton");
+const autoStartWithWindowsInput = document.getElementById("autoStartWithWindowsInput");
+const autoStartHelp = document.getElementById("autoStartHelp");
 const diagnosticsEnabledInput = document.getElementById("diagnosticsEnabledInput");
 const openLogsButton = document.getElementById("openLogsButton");
 const exportBoardButton = document.getElementById("exportBoardButton");
 const importBoardButton = document.getElementById("importBoardButton");
+const assetManagerLabel = document.getElementById("assetManagerLabel");
+const assetManagerHelp = document.getElementById("assetManagerHelp");
+const assetManagerSummary = document.getElementById("assetManagerSummary");
+const assetManagerIssues = document.getElementById("assetManagerIssues");
+const assetManagerStatus = document.getElementById("assetManagerStatus");
+const analyzeAssetsButton = document.getElementById("analyzeAssetsButton");
+const cleanupAssetsButton = document.getElementById("cleanupAssetsButton");
 const updatesLabel = document.getElementById("updatesLabel");
 const updatesHelp = document.getElementById("updatesHelp");
 const updatesStatus = document.getElementById("updatesStatus");
@@ -144,10 +168,15 @@ const minCardHeight = 150;
 const minZoom = 0.25;
 const maxZoom = 3;
 const gridSize = 24;
-const stateSchemaVersion = 4;
+const stateSchemaVersion = 6;
+const defaultBoardId = "main";
+const defaultBoardName = navigator.language?.toLowerCase().startsWith("ru") ? "Основная доска" : "Main board";
 const minTimerDurationMinutes = 1;
 const defaultTimerDurationMinutes = 25;
 const maxTimerDurationMinutes = 10080;
+const defaultReminderRepeatIntervalMinutes = 5;
+const minReminderRepeatIntervalMinutes = 1;
+const maxReminderRepeatIntervalMinutes = 1440;
 const timerTickIntervalMs = 1000;
 const historyLimit = 100;
 const svgNamespace = "http://www.w3.org/2000/svg";
@@ -220,6 +249,17 @@ const cardTypeRegistry = [
     defaultSize: { width: 320, height: 220 },
     toolbarButton: addTimerButton,
     icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13l3-2"/><path d="M9 3h6"/><path d="M12 6V4"/></svg>'
+  },
+  {
+    kind: "reminder",
+    labelKey: "reminder",
+    createLabelKey: "addReminder",
+    colorKind: "reminder",
+    quickCreateGroup: "text",
+    createMode: "card",
+    defaultSize: { width: 360, height: 280 },
+    toolbarButton: addReminderButton,
+    icon: '<svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 1 4 4v2.2c0 1.3.4 2.6 1.2 3.7l1.1 1.6H5.7l1.1-1.6A6.4 6.4 0 0 0 8 9.2V7a4 4 0 0 1 4-4"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>'
   },
   {
     kind: "image",
@@ -307,6 +347,7 @@ const defaultSettings = {
     bookmark: { header: "#f2c94c", body: "#fff8d7" },
     progress: { header: "#2f7d57", body: "#e7f3ec" },
     timer: { header: "#3a8f9f", body: "#e6f6f8" },
+    reminder: { header: "#d96b5f", body: "#fdebe7" },
     image: { header: "#7453a6", body: "#f0ebf8" },
     video: { header: "#7453a6", body: "#f0ebf8" },
     audio: { header: "#7453a6", body: "#f0ebf8" },
@@ -326,6 +367,8 @@ const defaultViewport = {
 
 const defaultState = {
   schemaVersion: stateSchemaVersion,
+  boardId: defaultBoardId,
+  boardName: defaultBoardName,
   locked: false,
   viewport: { ...defaultViewport },
   settings: clone(defaultSettings),
@@ -430,6 +473,14 @@ let currentSystemTheme = {
 let appRuntimeConfig = {
   storagePath: "",
   diagnosticsEnabled: true,
+  activeBoardId: defaultBoardId,
+  autoStartEnabled: false,
+  autoStart: {
+    supported: false,
+    reason: "unknown",
+    enabled: false,
+    effective: false
+  },
   storageInfo: null
 };
 const defaultAppUpdateState = {
@@ -445,6 +496,18 @@ const defaultAppUpdateState = {
   error: null
 };
 let appUpdateState = { ...defaultAppUpdateState };
+let boardManagerState = {
+  boards: [],
+  selectedBoardId: defaultBoardId,
+  loading: false
+};
+let assetManagerState = {
+  analysis: null,
+  analyzing: false,
+  cleaning: false,
+  statusMessage: "",
+  statusTone: ""
+};
 const imagePreviewExtensions = new Set(["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg", "avif", "ico"]);
 const videoPreviewExtensions = new Set(["mp4", "webm", "mov", "m4v", "ogv"]);
 const audioPreviewExtensions = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac"]);
@@ -663,6 +726,22 @@ const translations = {
 };
 
 Object.assign(translations.ru, {
+  autoStartWithWindows: "\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u0441 Windows",
+  autoStartHelpSupported: "\u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0431\u0443\u0434\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u043e\u0441\u043b\u0435 \u0432\u0445\u043e\u0434\u0430 \u0432 Windows.",
+  autoStartHelpUnpacked: "\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u043e\u0439 \u0438\u043b\u0438 portable-\u0441\u0431\u043e\u0440\u043a\u0435 \u043d\u0430 Windows. Dev-\u0440\u0435\u0436\u0438\u043c \u0432 \u0430\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u043d\u0435 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.",
+  autoStartHelpUnsupported: "\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 Windows.",
+  appConfigSaveError: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f."
+});
+
+Object.assign(translations.en, {
+  autoStartWithWindows: "Start with Windows",
+  autoStartHelpSupported: "The app will start automatically after you sign in to Windows.",
+  autoStartHelpUnpacked: "Available in installed or portable Windows builds. Dev mode is not added to startup.",
+  autoStartHelpUnsupported: "Auto-start is available only on Windows.",
+  appConfigSaveError: "Could not save app settings."
+});
+
+Object.assign(translations.ru, {
   search: "Поиск",
   searchTitle: "Поиск",
   searchQuery: "Запрос",
@@ -749,6 +828,56 @@ Object.assign(translations.en, {
 });
 
 Object.assign(translations.ru, {
+  assetManager: "\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u0430\u0441\u0441\u0435\u0442\u043e\u0432",
+  assetManagerHelp: "\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u0444\u0430\u0439\u043b\u043e\u0432 \u0432 \u0445\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0435: \u0431\u0438\u0442\u044b\u0435 \u0441\u0441\u044b\u043b\u043a\u0438, \u043d\u0435\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u044b\u0435 \u0444\u0430\u0439\u043b\u044b \u0438 \u0438\u0445 \u043e\u0447\u0438\u0441\u0442\u043a\u0430.",
+  analyzeAssets: "\u0410\u043d\u0430\u043b\u0438\u0437",
+  cleanupAssets: "\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c \u043d\u0435\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u043e\u0435",
+  assetScanIdle: "\u0410\u043d\u0430\u043b\u0438\u0437 \u0435\u0449\u0435 \u043d\u0435 \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u043b\u0441\u044f.",
+  assetScanRunning: "\u0410\u043d\u0430\u043b\u0438\u0437 \u0444\u0430\u0439\u043b\u043e\u0432...",
+  assetCleanupRunning: "\u0423\u0434\u0430\u043b\u044f\u044e \u043d\u0435\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u044b\u0435 \u0444\u0430\u0439\u043b\u044b...",
+  assetCleanupDone: "\u0423\u0434\u0430\u043b\u0435\u043d\u043e {count} \u0444\u0430\u0439\u043b. \u041e\u0441\u0432\u043e\u0431\u043e\u0436\u0434\u0435\u043d\u043e {size}.",
+  assetScanFailed: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u043e\u0430\u043d\u0430\u043b\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0430\u0441\u0441\u0435\u0442\u044b.",
+  assetCleanupFailed: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0447\u0438\u0441\u0442\u0438\u0442\u044c \u043d\u0435\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u044b\u0435 \u0444\u0430\u0439\u043b\u044b.",
+  assetNoIssues: "\u0411\u0438\u0442\u044b\u0445 \u0438 \u043b\u0438\u0448\u043d\u0438\u0445 \u0444\u0430\u0439\u043b\u043e\u0432 \u043d\u0435\u0442.",
+  assetBrokenGroup: "\u0411\u0438\u0442\u044b\u0435 \u0441\u0441\u044b\u043b\u043a\u0438",
+  assetUnusedGroup: "\u041d\u0435\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u044b\u0435 \u0444\u0430\u0439\u043b\u044b",
+  assetSummaryStored: "\u0424\u0430\u0439\u043b\u043e\u0432",
+  assetSummaryReferenced: "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u0442\u0441\u044f",
+  assetSummaryBroken: "\u0411\u0438\u0442\u044b\u0435",
+  assetSummaryUnused: "\u041b\u0438\u0448\u043d\u0438\u0435",
+  assetSummarySize: "\u041e\u0431\u044a\u0435\u043c",
+  assetUsedByCards: "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u044e\u0442 \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0438: {count}",
+  assetPath: "\u041f\u0443\u0442\u044c",
+  assetMissingPreview: "\u0424\u0430\u0439\u043b \u043e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442",
+  assetScannedAt: "\u041f\u0440\u043e\u0432\u0435\u0440\u0435\u043d\u043e: {time}"
+});
+
+Object.assign(translations.en, {
+  assetManager: "Asset manager",
+  assetManagerHelp: "Inspect files in the board storage, detect broken references, and remove unused assets.",
+  analyzeAssets: "Analyze",
+  cleanupAssets: "Clean unused",
+  assetScanIdle: "Analysis has not been run yet.",
+  assetScanRunning: "Analyzing files...",
+  assetCleanupRunning: "Removing unused files...",
+  assetCleanupDone: "Removed {count} files and freed {size}.",
+  assetScanFailed: "Could not analyze assets.",
+  assetCleanupFailed: "Could not clean unused files.",
+  assetNoIssues: "No broken or unused files found.",
+  assetBrokenGroup: "Broken references",
+  assetUnusedGroup: "Unused files",
+  assetSummaryStored: "Files",
+  assetSummaryReferenced: "Used",
+  assetSummaryBroken: "Broken",
+  assetSummaryUnused: "Unused",
+  assetSummarySize: "Size",
+  assetUsedByCards: "Used by cards: {count}",
+  assetPath: "Path",
+  assetMissingPreview: "File is missing",
+  assetScannedAt: "Scanned: {time}"
+});
+
+Object.assign(translations.ru, {
   bookmark: "Ссылки",
   progress: "Прогресс",
   timer: "Таймер",
@@ -788,16 +917,19 @@ Object.assign(translations.en, {
   bookmark: "Bookmarks",
   progress: "Progress",
   timer: "Timer",
+  reminder: "Reminder",
   audio: "Audio",
   file: "File",
   addBookmark: "Add bookmark list",
   addProgress: "Add progress",
   addTimer: "Add timer",
+  addReminder: "Add reminder",
   addAudio: "Add audio",
   addFile: "Add file",
   newBookmark: "New bookmarks",
   newProgress: "New progress",
   newTimer: "New timer",
+  newReminder: "New reminder",
   newFile: "New file",
   addLink: "Add link",
   bookmarkEmpty: "Add one or more links.",
@@ -818,6 +950,60 @@ Object.assign(translations.en, {
   fileMissing: "File not found",
   fileSize: "Size",
   fileStoredAt: "Storage"
+});
+
+Object.assign(translations.ru, {
+  reminder: "Напоминание",
+  addReminder: "Добавить напоминание",
+  newReminder: "Новое напоминание",
+  reminderDateTime: "Дата и время",
+  reminderMessage: "Сообщение",
+  reminderMessagePlaceholder: "Что нужно напомнить...",
+  reminderNotifyToast: "Windows-уведомление",
+  timerNotifyToast: "Windows-уведомление",
+  reminderPlaySound: "Звуковой сигнал",
+  timerPlaySound: "Звуковой сигнал",
+  reminderRepeatUntilAcknowledged: "Повторять до подтверждения",
+  reminderRepeatInterval: "Интервал повтора, мин",
+  reminderDateMissing: "Выберите дату и время напоминания.",
+  reminderScheduled: "Запланировано на {time}",
+  reminderDue: "Время наступило.",
+  reminderTriggered: "Уведомление отправлено: {time}",
+  reminderTriggeredRepeating: "Последнее уведомление: {time}. Повтор каждые {minutes} мин.",
+  reminderAcknowledged: "Подтверждено: {time}",
+  reminderAcknowledge: "Получено",
+  reminderResetAcknowledge: "Сбросить подтверждение",
+  reminderNotificationBody: "Напоминание на {time}",
+  timerFinishedNotificationBody: "Таймер \"{title}\" завершен.",
+  notificationActionOpen: "Открыть",
+  notificationActionAcknowledge: "Получено"
+});
+
+Object.assign(translations.en, {
+  reminder: "Reminder",
+  addReminder: "Add reminder",
+  newReminder: "New reminder",
+  reminderDateTime: "Date and time",
+  reminderMessage: "Message",
+  reminderMessagePlaceholder: "What should this remind you about?",
+  reminderNotifyToast: "Windows notification",
+  timerNotifyToast: "Windows notification",
+  reminderPlaySound: "Sound",
+  timerPlaySound: "Sound",
+  reminderRepeatUntilAcknowledged: "Repeat until acknowledged",
+  reminderRepeatInterval: "Repeat every, min",
+  reminderDateMissing: "Choose a reminder date and time.",
+  reminderScheduled: "Scheduled for {time}",
+  reminderDue: "Due now.",
+  reminderTriggered: "Notification sent: {time}",
+  reminderTriggeredRepeating: "Last notification: {time}. Repeats every {minutes} min.",
+  reminderAcknowledged: "Acknowledged: {time}",
+  reminderAcknowledge: "Acknowledge",
+  reminderResetAcknowledge: "Reset acknowledgement",
+  reminderNotificationBody: "Reminder for {time}",
+  timerFinishedNotificationBody: "Timer \"{title}\" is complete.",
+  notificationActionOpen: "Open",
+  notificationActionAcknowledge: "Acknowledge"
 });
 
 Object.assign(translations.ru, {
@@ -891,6 +1077,23 @@ Object.assign(translations.en, {
   boardArchiveImported: "Archive imported: {name}. Cards: {cards}, files: {assets}.",
   boardArchiveMissingAssets: "Missing files: {count}.",
   boardArchiveFailed: "Could not complete the board archive operation.",
+  boards: "Boards",
+  boardName: "Board name",
+  boardsHelp: "Create separate spaces and switch between them inside one storage folder.",
+  createBoard: "Create",
+  openBoard: "Open",
+  currentBoardBadge: "Current",
+  unsavedBoardBadge: "Unsaved",
+  boardCardsMeta: "Cards: {count}",
+  boardUpdatedMeta: "Updated: {time}",
+  boardNameRequired: "Enter a board name.",
+  boardsLoadFailed: "Could not load boards.",
+  boardActionFailed: "Could not complete the board action.",
+  boardCreatedStatus: "Board created.",
+  boardSwitchedStatus: "Board switched.",
+  boardRenamedStatus: "Board renamed.",
+  boardDeletedStatus: "Board deleted.",
+  boardDeleteLastError: "Cannot delete the last board.",
   timeFormat: "Time format",
   timeFormat24: "24-hour",
   timeFormat12: "12-hour",
@@ -900,6 +1103,26 @@ Object.assign(translations.en, {
   addScheduleEntry: "Add time",
   scheduleRemove: "Remove row",
   scheduleEmpty: "Add the first time slot."
+});
+
+Object.assign(translations.ru, {
+  boards: "\u0414\u043e\u0441\u043a\u0438",
+  boardName: "\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0434\u043e\u0441\u043a\u0438",
+  boardsHelp: "\u0421\u043e\u0437\u0434\u0430\u0432\u0430\u0439\u0442\u0435 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0435 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u0430 \u0438 \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0430\u0439\u0442\u0435\u0441\u044c \u043c\u0435\u0436\u0434\u0443 \u043d\u0438\u043c\u0438 \u0432\u043d\u0443\u0442\u0440\u0438 \u043e\u0434\u043d\u043e\u0439 \u043f\u0430\u043f\u043a\u0438 \u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f.",
+  createBoard: "\u0421\u043e\u0437\u0434\u0430\u0442\u044c",
+  openBoard: "\u041e\u0442\u043a\u0440\u044b\u0442\u044c",
+  currentBoardBadge: "\u0422\u0435\u043a\u0443\u0449\u0430\u044f",
+  unsavedBoardBadge: "\u0411\u0435\u0437 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f",
+  boardCardsMeta: "\u041a\u0430\u0440\u0442\u043e\u0447\u0435\u043a: {count}",
+  boardUpdatedMeta: "\u0418\u0437\u043c\u0435\u043d\u0435\u043d\u043e: {time}",
+  boardNameRequired: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0434\u043e\u0441\u043a\u0438.",
+  boardsLoadFailed: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0441\u043f\u0438\u0441\u043e\u043a \u0434\u043e\u0441\u043e\u043a.",
+  boardActionFailed: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0441 \u0434\u043e\u0441\u043a\u043e\u0439.",
+  boardCreatedStatus: "\u0414\u043e\u0441\u043a\u0430 \u0441\u043e\u0437\u0434\u0430\u043d\u0430.",
+  boardSwitchedStatus: "\u0414\u043e\u0441\u043a\u0430 \u043e\u0442\u043a\u0440\u044b\u0442\u0430.",
+  boardRenamedStatus: "\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0434\u043e\u0441\u043a\u0438 \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e.",
+  boardDeletedStatus: "\u0414\u043e\u0441\u043a\u0430 \u0443\u0434\u0430\u043b\u0435\u043d\u0430.",
+  boardDeleteLastError: "\u041d\u0435\u043b\u044c\u0437\u044f \u0443\u0434\u0430\u043b\u0438\u0442\u044c \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u044e\u044e \u0434\u043e\u0441\u043a\u0443."
 });
 
 Object.assign(translations.ru, {
@@ -1100,7 +1323,68 @@ function normalizeTimerFields(card = {}) {
   return {
     timerDurationMinutes,
     timerRemainingMs,
-    timerEndsAt
+    timerEndsAt,
+    timerNotifyToast: card.timerNotifyToast !== false,
+    timerPlaySound: card.timerPlaySound === true,
+    timerCompletionNotifiedAt: Number.isFinite(Number(card.timerCompletionNotifiedAt))
+      ? Number(card.timerCompletionNotifiedAt)
+      : null
+  };
+}
+
+function normalizeReminderRepeatIntervalMinutes(value) {
+  return clamp(
+    Math.round(Number(value) || defaultReminderRepeatIntervalMinutes),
+    minReminderRepeatIntervalMinutes,
+    maxReminderRepeatIntervalMinutes
+  );
+}
+
+function parseReminderTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function formatDateTimeInputValue(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return "";
+  }
+
+  const date = new Date(timestamp);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function normalizeReminderDateTime(value) {
+  const timestamp = parseReminderTimestamp(value);
+  return timestamp === null ? "" : formatDateTimeInputValue(timestamp);
+}
+
+function normalizeReminderFields(card = {}) {
+  return {
+    reminderAt: normalizeReminderDateTime(card.reminderAt),
+    reminderShowToast: card.reminderShowToast !== false,
+    reminderPlaySound: card.reminderPlaySound === true,
+    reminderRepeatUntilAcknowledged: card.reminderRepeatUntilAcknowledged !== false,
+    reminderRepeatIntervalMinutes: normalizeReminderRepeatIntervalMinutes(card.reminderRepeatIntervalMinutes),
+    reminderAcknowledgedAt: Number.isFinite(Number(card.reminderAcknowledgedAt))
+      ? Number(card.reminderAcknowledgedAt)
+      : null,
+    reminderLastTriggeredAt: Number.isFinite(Number(card.reminderLastTriggeredAt))
+      ? Number(card.reminderLastTriggeredAt)
+      : null
   };
 }
 
@@ -1199,6 +1483,56 @@ function setButtonLocale(button, tooltipKey, ariaKey = tooltipKey) {
   button.setAttribute("aria-label", t(ariaKey));
 }
 
+function formatDateTimeDisplay(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return "";
+  }
+
+  const locale = getActiveLanguage() === "ru" ? "ru-RU" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: state.settings?.timeFormat === "12h"
+  }).format(timestamp);
+}
+
+function buildBoardNotificationId(scope, cardId) {
+  return `${getCurrentBoardId()}:${scope}:${cardId}`;
+}
+
+async function requestDesktopNotification(payload) {
+  if (!window.desktopBoard?.showNotification) {
+    return null;
+  }
+
+  try {
+    return await window.desktopBoard.showNotification(payload);
+  } catch (error) {
+    reportError("notifications.show", error, {
+      cardId: payload?.cardId || null,
+      notificationId: payload?.notificationId || null
+    });
+    return null;
+  }
+}
+
+async function dismissNotificationsForCard(cardId) {
+  if (!window.desktopBoard?.dismissNotificationsForCard || !cardId) {
+    return false;
+  }
+
+  try {
+    await window.desktopBoard.dismissNotificationsForCard(cardId);
+    return true;
+  } catch (error) {
+    reportError("notifications.dismiss", error, { cardId });
+    return false;
+  }
+}
+
 function logClientEvent(level, scope, message, details = {}) {
   if (!window.desktopBoard?.logEvent) {
     return Promise.resolve(false);
@@ -1224,9 +1558,35 @@ function getCurrentStoragePath() {
   return appRuntimeConfig.storageInfo?.root || appRuntimeConfig.storagePath || "";
 }
 
+function getCurrentBoardId() {
+  return state.boardId || appRuntimeConfig.activeBoardId || defaultBoardId;
+}
+
+function getCurrentBoardName() {
+  return typeof state.boardName === "string" && state.boardName.trim() ? state.boardName.trim() : defaultBoardName;
+}
+
+function getAutoStartHelpKey() {
+  const autoStart = appRuntimeConfig.autoStart || {};
+  if (autoStart.supported) {
+    return "autoStartHelpSupported";
+  }
+  if (autoStart.reason === "unpacked") {
+    return "autoStartHelpUnpacked";
+  }
+  return "autoStartHelpUnsupported";
+}
+
 function refreshAppConfigUi() {
   if (storagePathInput) {
     storagePathInput.value = getCurrentStoragePath();
+  }
+  if (autoStartWithWindowsInput) {
+    autoStartWithWindowsInput.checked = appRuntimeConfig.autoStartEnabled === true;
+    autoStartWithWindowsInput.disabled = !appRuntimeConfig.autoStart?.supported;
+  }
+  if (autoStartHelp) {
+    autoStartHelp.textContent = t(getAutoStartHelpKey());
   }
   if (diagnosticsEnabledInput) {
     diagnosticsEnabledInput.checked = appRuntimeConfig.diagnosticsEnabled !== false;
@@ -1237,6 +1597,30 @@ function refreshAppConfigUi() {
   if (openStoragePathButton) {
     openStoragePathButton.disabled = !window.desktopBoard?.openStorageDirectory;
   }
+  if (createBoardButton) {
+    createBoardButton.disabled = !window.desktopBoard?.createBoard || boardManagerState.loading;
+  }
+  if (boardNameInput) {
+    boardNameInput.disabled = boardManagerState.loading;
+  }
+  if (toolbarBoardSelect) {
+    toolbarBoardSelect.disabled = !window.desktopBoard?.switchBoard
+      || boardManagerState.loading
+      || boardManagerState.boards.length <= 1;
+  }
+  if (switchBoardButton) {
+    const selectedBoard = boardManagerState.boards.find((board) => board.id === boardManagerState.selectedBoardId) || null;
+    switchBoardButton.disabled = !window.desktopBoard?.switchBoard || boardManagerState.loading || !selectedBoard || selectedBoard.isActive;
+  }
+  if (renameBoardButton) {
+    renameBoardButton.disabled = !window.desktopBoard?.renameBoard || boardManagerState.loading || !boardManagerState.selectedBoardId;
+  }
+  if (deleteBoardButton) {
+    deleteBoardButton.disabled = !window.desktopBoard?.deleteBoard
+      || boardManagerState.loading
+      || boardManagerState.boards.length <= 1
+      || !boardManagerState.selectedBoardId;
+  }
   if (openLogsButton) {
     openLogsButton.disabled = !window.desktopBoard?.openLogsDirectory;
   }
@@ -1245,6 +1629,499 @@ function refreshAppConfigUi() {
   }
   if (importBoardButton) {
     importBoardButton.disabled = !window.desktopBoard?.importBoardArchive;
+  }
+  if (analyzeAssetsButton) {
+    analyzeAssetsButton.disabled = !window.desktopBoard?.analyzeAssets || assetManagerState.analyzing || assetManagerState.cleaning;
+  }
+  if (cleanupAssetsButton) {
+    cleanupAssetsButton.disabled = !window.desktopBoard?.cleanupAssets
+      || assetManagerState.analyzing
+      || assetManagerState.cleaning
+      || Number(assetManagerState.analysis?.unusedAssetCount || 0) === 0;
+  }
+}
+
+function setStatusText(element, message = "", tone = "") {
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message || "";
+  if (!message || !tone || tone === "success") {
+    element.removeAttribute("data-tone");
+    return;
+  }
+  element.dataset.tone = tone;
+}
+
+function clearAssetManagerAnalysis() {
+  assetManagerState = {
+    analysis: null,
+    analyzing: false,
+    cleaning: false,
+    statusMessage: "",
+    statusTone: ""
+  };
+}
+
+function formatAssetScanTimestamp(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const locale = getActiveLanguage() === "ru" ? "ru-RU" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(date);
+}
+
+function appendAssetSummaryChip(container, label, value) {
+  const chip = document.createElement("div");
+  chip.className = "asset-summary-chip";
+
+  const title = document.createElement("span");
+  title.className = "asset-summary-chip-label";
+  title.textContent = label;
+
+  const content = document.createElement("strong");
+  content.className = "asset-summary-chip-value";
+  content.textContent = value;
+
+  chip.append(title, content);
+  container.appendChild(chip);
+}
+
+function appendAssetIssueItem(container, item, options = {}) {
+  const row = document.createElement("div");
+  row.className = "asset-issue-item";
+
+  const title = document.createElement("div");
+  title.className = "asset-issue-title";
+  title.textContent = item.fileName || item.assetRelativePath || t("file");
+
+  const pathRow = document.createElement("div");
+  pathRow.className = "asset-issue-meta";
+  pathRow.textContent = `${t("assetPath")}: ${item.assetRelativePath || "-"}`;
+
+  row.append(title, pathRow);
+
+  if (options.kind === "broken") {
+    const cardsRow = document.createElement("div");
+    cardsRow.className = "asset-issue-meta";
+    cardsRow.textContent = t("assetUsedByCards", { count: Number(item.cardCount || 0) });
+    row.appendChild(cardsRow);
+
+    if (Array.isArray(item.cardTitles) && item.cardTitles.length) {
+      const titlesRow = document.createElement("div");
+      titlesRow.className = "asset-issue-meta";
+      titlesRow.textContent = item.cardTitles.join(", ");
+      row.appendChild(titlesRow);
+    } else {
+      const missingRow = document.createElement("div");
+      missingRow.className = "asset-issue-meta";
+      missingRow.textContent = t("assetMissingPreview");
+      row.appendChild(missingRow);
+    }
+  } else {
+    const sizeRow = document.createElement("div");
+    sizeRow.className = "asset-issue-meta";
+    sizeRow.textContent = formatFileSize(item.sizeBytes);
+    row.appendChild(sizeRow);
+  }
+
+  container.appendChild(row);
+}
+
+function renderAssetIssueGroup(container, title, items, kind) {
+  if (!Array.isArray(items) || !items.length) {
+    return;
+  }
+
+  const section = document.createElement("section");
+  section.className = "asset-issue-group";
+
+  const header = document.createElement("div");
+  header.className = "asset-issue-group-title";
+  header.textContent = `${title} (${items.length})`;
+  section.appendChild(header);
+
+  const list = document.createElement("div");
+  list.className = "asset-issue-list";
+  items.forEach((item) => appendAssetIssueItem(list, item, { kind }));
+  section.appendChild(list);
+
+  container.appendChild(section);
+}
+
+function refreshAssetManagerUi() {
+  refreshAppConfigUi();
+
+  if (assetManagerLabel) {
+    assetManagerLabel.textContent = t("assetManager");
+  }
+  if (assetManagerHelp) {
+    assetManagerHelp.textContent = t("assetManagerHelp");
+  }
+  if (analyzeAssetsButton) {
+    analyzeAssetsButton.textContent = t("analyzeAssets");
+  }
+  if (cleanupAssetsButton) {
+    cleanupAssetsButton.textContent = t("cleanupAssets");
+  }
+
+  if (assetManagerSummary) {
+    assetManagerSummary.replaceChildren();
+  }
+  if (assetManagerIssues) {
+    assetManagerIssues.replaceChildren();
+  }
+
+  const analysis = assetManagerState.analysis;
+  if (!analysis) {
+    setStatusText(assetManagerStatus, assetManagerState.statusMessage || t("assetScanIdle"), assetManagerState.statusTone || "muted");
+    return;
+  }
+
+  if (assetManagerSummary) {
+    appendAssetSummaryChip(assetManagerSummary, t("assetSummaryStored"), String(Number(analysis.storedAssetCount || 0)));
+    appendAssetSummaryChip(assetManagerSummary, t("assetSummaryReferenced"), String(Number(analysis.referencedAssetCount || 0)));
+    appendAssetSummaryChip(assetManagerSummary, t("assetSummaryBroken"), String(Number(analysis.brokenAssetCount || 0)));
+    appendAssetSummaryChip(assetManagerSummary, t("assetSummaryUnused"), String(Number(analysis.unusedAssetCount || 0)));
+    appendAssetSummaryChip(assetManagerSummary, t("assetSummarySize"), formatFileSize(analysis.storedSizeBytes));
+  }
+
+  if (assetManagerIssues) {
+    renderAssetIssueGroup(assetManagerIssues, t("assetBrokenGroup"), analysis.brokenAssets, "broken");
+    renderAssetIssueGroup(assetManagerIssues, t("assetUnusedGroup"), analysis.unusedAssets, "unused");
+  }
+
+  const scannedAt = formatAssetScanTimestamp(analysis.lastScannedAt);
+  const statusParts = [];
+  if (Number(analysis.brokenAssetCount || 0) === 0 && Number(analysis.unusedAssetCount || 0) === 0) {
+    statusParts.push(t("assetNoIssues"));
+  }
+  if (scannedAt) {
+    statusParts.push(t("assetScannedAt", { time: scannedAt }));
+  }
+  const defaultTone = statusParts.length && Number(analysis.brokenAssetCount || 0) === 0 && Number(analysis.unusedAssetCount || 0) === 0 ? "muted" : "";
+  setStatusText(assetManagerStatus, assetManagerState.statusMessage || statusParts.join(" "), assetManagerState.statusTone || defaultTone);
+}
+
+function formatBoardTimestamp(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const locale = getActiveLanguage() === "ru" ? "ru-RU" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(date);
+}
+
+function getSelectedBoardEntry() {
+  return boardManagerState.boards.find((board) => board.id === boardManagerState.selectedBoardId) || null;
+}
+
+function syncBoardNameInput() {
+  if (!boardNameInput) {
+    return;
+  }
+
+  const selectedBoard = getSelectedBoardEntry();
+  boardNameInput.value = selectedBoard?.name || "";
+}
+
+function renderToolbarBoardSelect() {
+  if (!toolbarBoardSelect) {
+    return;
+  }
+
+  const currentBoardId = getCurrentBoardId();
+  const toolbarBoards = boardManagerState.boards.length
+    ? boardManagerState.boards
+    : [{
+        id: currentBoardId,
+        name: getCurrentBoardName(),
+        isActive: true
+      }];
+
+  toolbarBoardSelect.replaceChildren();
+  toolbarBoards.forEach((boardEntry) => {
+    const option = document.createElement("option");
+    option.value = boardEntry.id;
+    option.textContent = boardEntry.name || defaultBoardName;
+    toolbarBoardSelect.appendChild(option);
+  });
+
+  if (toolbarBoards.some((boardEntry) => boardEntry.id === currentBoardId)) {
+    toolbarBoardSelect.value = currentBoardId;
+  } else {
+    toolbarBoardSelect.selectedIndex = 0;
+  }
+
+  toolbarBoardSelect.title = `${t("boards")}: ${getCurrentBoardName()}`;
+  toolbarBoardSelect.setAttribute("aria-label", t("boards"));
+}
+
+function renderBoardsList() {
+  if (!boardsList) {
+    return;
+  }
+
+  boardsList.replaceChildren();
+
+  boardManagerState.boards.forEach((boardEntry) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "boards-list-item";
+    row.classList.toggle("is-selected", boardEntry.id === boardManagerState.selectedBoardId);
+    row.addEventListener("click", () => {
+      boardManagerState.selectedBoardId = boardEntry.id;
+      syncBoardNameInput();
+      refreshBoardsManagerUi();
+    });
+
+    const main = document.createElement("div");
+    main.className = "boards-list-item-main";
+
+    const title = document.createElement("div");
+    title.className = "boards-list-item-title";
+    title.textContent = boardEntry.name || defaultBoardName;
+
+    const meta = document.createElement("div");
+    meta.className = "boards-list-item-meta";
+    const metaParts = [t("boardCardsMeta", { count: Number(boardEntry.cardCount || 0) })];
+    if (boardEntry.updatedAt) {
+      metaParts.push(t("boardUpdatedMeta", { time: formatBoardTimestamp(boardEntry.updatedAt) }));
+    } else {
+      metaParts.push(t("unsavedBoardBadge"));
+    }
+    meta.textContent = metaParts.join(" • ");
+
+    main.append(title, meta);
+
+    const badge = document.createElement("span");
+    badge.className = "boards-list-item-badge";
+    badge.textContent = boardEntry.isActive ? t("currentBoardBadge") : t("openBoard");
+
+    row.append(main, badge);
+    boardsList.appendChild(row);
+  });
+}
+
+function refreshBoardsManagerUi() {
+  refreshAppConfigUi();
+
+  if (boardsLabel) {
+    boardsLabel.textContent = t("boards");
+  }
+  if (boardNameFieldLabel) {
+    boardNameFieldLabel.textContent = t("boardName");
+  }
+  if (boardsHelp) {
+    boardsHelp.textContent = t("boardsHelp");
+  }
+  if (createBoardButton) {
+    createBoardButton.textContent = t("createBoard");
+  }
+  if (switchBoardButton) {
+    switchBoardButton.textContent = t("openBoard");
+  }
+  if (renameBoardButton) {
+    renameBoardButton.textContent = t("rename");
+  }
+  if (deleteBoardButton) {
+    deleteBoardButton.textContent = t("delete");
+  }
+
+  renderToolbarBoardSelect();
+  renderBoardsList();
+}
+
+async function loadBoardsList() {
+  if (!window.desktopBoard?.listBoards) {
+    return;
+  }
+
+  boardManagerState.loading = true;
+  refreshBoardsManagerUi();
+
+  try {
+    const result = await window.desktopBoard.listBoards(state);
+    boardManagerState.boards = Array.isArray(result?.boards) ? result.boards : [];
+    boardManagerState.selectedBoardId = getCurrentBoardId();
+    syncBoardNameInput();
+    setStatusText(boardsStatus, "", "");
+  } catch (error) {
+    reportError("boards.list", error);
+    setStatusText(boardsStatus, t("boardsLoadFailed"), "error");
+  } finally {
+    boardManagerState.loading = false;
+    refreshBoardsManagerUi();
+  }
+}
+
+function applyLoadedBoardState(nextState) {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+
+  state = normalizeState(nextState);
+  resetHistoryTracking(state);
+  boardManagerState.selectedBoardId = getCurrentBoardId();
+  syncBoardNameInput();
+  clearSelection();
+  closeContextMenu();
+  selectedConnectionId = null;
+  connectionDraft = null;
+  connectionMode = false;
+  activeAction = null;
+  selectionBox.hidden = true;
+  board.classList.remove("is-panning", "is-selecting");
+  clearAssetManagerAnalysis();
+  applySystemTheme(currentSystemTheme);
+  render();
+  applySettings();
+}
+
+function applyBoardManagerResult(result, statusMessage = "") {
+  if (result?.appConfig) {
+    appRuntimeConfig = result.appConfig;
+  }
+  if (result?.state) {
+    applyLoadedBoardState(result.state);
+  } else {
+    refreshAppConfigUi();
+    refreshBoardsManagerUi();
+  }
+  if (Array.isArray(result?.boards)) {
+    boardManagerState.boards = result.boards;
+  }
+  boardManagerState.selectedBoardId = getCurrentBoardId();
+  syncBoardNameInput();
+  refreshBoardsManagerUi();
+  if (statusMessage) {
+    setStatusText(boardsStatus, statusMessage, "");
+  }
+}
+
+async function createBoardFromSettings() {
+  const name = boardNameInput?.value.trim() || "";
+  if (!name) {
+    setStatusText(boardsStatus, t("boardNameRequired"), "error");
+    return;
+  }
+  if (!window.desktopBoard?.createBoard) {
+    return;
+  }
+
+  boardManagerState.loading = true;
+  refreshBoardsManagerUi();
+
+  try {
+    const result = await window.desktopBoard.createBoard(name, state);
+    applyBoardManagerResult(result, t("boardCreatedStatus"));
+  } catch (error) {
+    reportError("boards.create", error);
+    setStatusText(boardsStatus, t("boardActionFailed"), "error");
+  } finally {
+    boardManagerState.loading = false;
+    refreshBoardsManagerUi();
+  }
+}
+
+async function switchBoardById(boardId, statusElement = boardsStatus) {
+  const normalizedBoardId = typeof boardId === "string" ? boardId.trim() : "";
+  if (!normalizedBoardId || normalizedBoardId === getCurrentBoardId() || !window.desktopBoard?.switchBoard) {
+    return;
+  }
+
+  boardManagerState.loading = true;
+  refreshBoardsManagerUi();
+
+  try {
+    const result = await window.desktopBoard.switchBoard(normalizedBoardId, state);
+    applyBoardManagerResult(result, statusElement ? t("boardSwitchedStatus") : "");
+  } catch (error) {
+    reportError("boards.switch", error);
+    if (statusElement) {
+      setStatusText(statusElement, t("boardActionFailed"), "error");
+    }
+  } finally {
+    boardManagerState.loading = false;
+    refreshBoardsManagerUi();
+  }
+}
+
+async function switchBoardFromSettings() {
+  const selectedBoard = getSelectedBoardEntry();
+  if (!selectedBoard || selectedBoard.isActive) {
+    return;
+  }
+
+  await switchBoardById(selectedBoard.id, boardsStatus);
+}
+
+async function renameBoardFromSettings() {
+  const selectedBoard = getSelectedBoardEntry();
+  const name = boardNameInput?.value.trim() || "";
+  if (!selectedBoard) {
+    return;
+  }
+  if (!name) {
+    setStatusText(boardsStatus, t("boardNameRequired"), "error");
+    return;
+  }
+  if (!window.desktopBoard?.renameBoard) {
+    return;
+  }
+
+  boardManagerState.loading = true;
+  refreshBoardsManagerUi();
+
+  try {
+    const result = await window.desktopBoard.renameBoard(selectedBoard.id, name, state);
+    applyBoardManagerResult(result, t("boardRenamedStatus"));
+  } catch (error) {
+    reportError("boards.rename", error);
+    setStatusText(boardsStatus, t("boardActionFailed"), "error");
+  } finally {
+    boardManagerState.loading = false;
+    refreshBoardsManagerUi();
+  }
+}
+
+async function deleteBoardFromSettings() {
+  const selectedBoard = getSelectedBoardEntry();
+  if (!selectedBoard || !window.desktopBoard?.deleteBoard) {
+    return;
+  }
+
+  boardManagerState.loading = true;
+  refreshBoardsManagerUi();
+
+  try {
+    const result = await window.desktopBoard.deleteBoard(selectedBoard.id, state);
+    applyBoardManagerResult(result, t("boardDeletedStatus"));
+  } catch (error) {
+    reportError("boards.delete", error);
+    setStatusText(boardsStatus, error?.message === "Cannot delete the last board" ? t("boardDeleteLastError") : t("boardActionFailed"), "error");
+  } finally {
+    boardManagerState.loading = false;
+    refreshBoardsManagerUi();
   }
 }
 
@@ -1517,6 +2394,8 @@ function normalizeState(input) {
   const settings = normalizeSettings(source.settings);
   const normalized = {
     schemaVersion: Number(source.schemaVersion) || stateSchemaVersion,
+    boardId: typeof source.boardId === "string" && source.boardId.trim() ? source.boardId.trim() : defaultBoardId,
+    boardName: typeof source.boardName === "string" && source.boardName.trim() ? source.boardName.trim().slice(0, 120) : defaultBoardName,
     locked: Boolean(source.locked),
     viewport: {
       ...defaultViewport,
@@ -1558,6 +2437,7 @@ function normalizeSettings(settings = {}) {
     bookmark: sourceColors.bookmark || sourceColors.note,
     progress: sourceColors.progress || sourceColors.tasks,
     timer: sourceColors.timer || sourceColors.schedule,
+    reminder: sourceColors.reminder || sourceColors.timer || sourceColors.schedule,
     image: sourceColors.image || sourceColors.media,
     video: sourceColors.video || sourceColors.media,
     audio: sourceColors.audio || sourceColors.media,
@@ -1689,6 +2569,11 @@ function normalizeCard(card, settings) {
 
   if (normalized.kind === "timer") {
     Object.assign(normalized, normalizeTimerFields(normalized));
+  }
+
+  if (normalized.kind === "reminder") {
+    normalized.text = typeof normalized.text === "string" ? normalized.text : "";
+    Object.assign(normalized, normalizeReminderFields(normalized));
   }
 
   if (normalized.kind === "image" || normalized.kind === "video" || normalized.kind === "audio" || normalized.kind === "file") {
@@ -1927,12 +2812,16 @@ async function loadState() {
     const persisted = await window.desktopBoard.loadState();
     state = normalizeState(persisted);
     resetHistoryTracking(state);
+    boardManagerState.selectedBoardId = getCurrentBoardId();
+    syncBoardNameInput();
     return;
   }
 
   const local = localStorage.getItem("desktop-board-state");
   state = normalizeState(local ? JSON.parse(local) : null);
   resetHistoryTracking(state);
+  boardManagerState.selectedBoardId = getCurrentBoardId();
+  syncBoardNameInput();
 }
 
 function applyViewport() {
@@ -1980,6 +2869,7 @@ function applyTranslations() {
   setText("settingsTitle", "settingsTitle");
   setText("themeModeLabel", "themeMode");
   setText("languageModeLabel", "languageMode");
+  setText("autoStartWithWindowsLabel", "autoStartWithWindows");
   setText("timeFormatLabel", "timeFormat");
   setText("backgroundColorLabel", "backgroundColor");
   setText("connectionColorLabel", "connectionColor");
@@ -1989,6 +2879,8 @@ function applyTranslations() {
   setText("logsFolderLabel", "logsFolder");
   setText("boardArchiveLabel", "boardArchive");
   setText("boardArchiveHelp", "boardArchiveHelp");
+  setText("assetManagerLabel", "assetManager");
+  setText("assetManagerHelp", "assetManagerHelp");
   setText("updatesLabel", "updatesLabel");
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
@@ -2002,6 +2894,7 @@ function applyTranslations() {
     ["bookmarkColorRuleLabel", "bookmark"],
     ["progressColorRuleLabel", "progress"],
     ["timerColorRuleLabel", "timer"],
+    ["reminderColorRuleLabel", "reminder"],
     ["imageColorRuleLabel", "image"],
     ["videoColorRuleLabel", "video"],
     ["audioColorRuleLabel", "audio"],
@@ -2039,6 +2932,12 @@ function applyTranslations() {
   if (importBoardButton) {
     importBoardButton.textContent = t("importBoard");
   }
+  if (analyzeAssetsButton) {
+    analyzeAssetsButton.textContent = t("analyzeAssets");
+  }
+  if (cleanupAssetsButton) {
+    cleanupAssetsButton.textContent = t("cleanupAssets");
+  }
   if (checkUpdatesButton) {
     checkUpdatesButton.textContent = t("checkUpdates");
   }
@@ -2048,7 +2947,9 @@ function applyTranslations() {
   if (updatesHelp) {
     updatesHelp.textContent = t("updatesHelp");
   }
+  refreshBoardsManagerUi();
   renderQuickCreateSettings();
+  refreshAssetManagerUi();
   refreshAppUpdateUi();
 
   urlModalTitle.textContent = t(urlInput.dataset.mode === "edit" ? "editUrlTitle" : "urlTitle");
@@ -2562,6 +3463,7 @@ function render() {
     });
 
   refreshVisibleTimerCards();
+  refreshVisibleReminderCards();
 }
 
 function getCardLayer(card) {
@@ -2705,6 +3607,10 @@ function renderCardBody(card) {
 
   if (card.kind === "timer") {
     return renderTimer(card);
+  }
+
+  if (card.kind === "reminder") {
+    return renderReminder(card);
   }
 
   if (card.kind === "schedule") {
@@ -3005,6 +3911,71 @@ function getTimerRemainingMs(card, now = Date.now()) {
   return clamp(Number.isFinite(remainingMs) ? remainingMs : durationMs, 0, durationMs);
 }
 
+function clearTimerCompletionNotification(card) {
+  card.timerCompletionNotifiedAt = null;
+}
+
+function resetReminderDeliveryState(card) {
+  card.reminderAcknowledgedAt = null;
+  card.reminderLastTriggeredAt = null;
+}
+
+function getReminderRepeatIntervalMs(card) {
+  return normalizeReminderRepeatIntervalMinutes(card?.reminderRepeatIntervalMinutes) * 60 * 1000;
+}
+
+function getReminderStatusText(card, now = Date.now()) {
+  const reminderAt = parseReminderTimestamp(card.reminderAt);
+  if (reminderAt === null) {
+    return t("reminderDateMissing");
+  }
+
+  if (Number.isFinite(card.reminderAcknowledgedAt)) {
+    return t("reminderAcknowledged", {
+      time: formatDateTimeDisplay(card.reminderAcknowledgedAt)
+    });
+  }
+
+  if (now < reminderAt) {
+    return t("reminderScheduled", {
+      time: formatDateTimeDisplay(reminderAt)
+    });
+  }
+
+  if (Number.isFinite(card.reminderLastTriggeredAt)) {
+    if (card.reminderRepeatUntilAcknowledged) {
+      return t("reminderTriggeredRepeating", {
+        time: formatDateTimeDisplay(card.reminderLastTriggeredAt),
+        minutes: normalizeReminderRepeatIntervalMinutes(card.reminderRepeatIntervalMinutes)
+      });
+    }
+
+    return t("reminderTriggered", {
+      time: formatDateTimeDisplay(card.reminderLastTriggeredAt)
+    });
+  }
+
+  return t("reminderDue");
+}
+
+function createCardCheckbox(labelKey, inputClassName, checked, onChange) {
+  const label = document.createElement("label");
+  label.className = "card-checkbox";
+
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.className = inputClassName;
+  input.checked = checked;
+  input.disabled = state.locked;
+  input.addEventListener("change", () => onChange(input.checked));
+
+  const text = document.createElement("span");
+  text.textContent = t(labelKey);
+
+  label.append(input, text);
+  return { label, input, text };
+}
+
 function updateTimerCardElement(element, card, now = Date.now()) {
   if (!element || !card) {
     return;
@@ -3018,6 +3989,8 @@ function updateTimerCardElement(element, card, now = Date.now()) {
   const progress = element.querySelector(".timer-progress-fill");
   const toggleButton = element.querySelector(".timer-toggle");
   const durationInput = element.querySelector(".timer-duration-input");
+  const notifyToastInput = element.querySelector(".timer-notify-toast");
+  const playSoundInput = element.querySelector(".timer-play-sound");
 
   if (display) {
     display.textContent = formatDuration(remainingMs);
@@ -3039,6 +4012,66 @@ function updateTimerCardElement(element, card, now = Date.now()) {
   if (durationInput && document.activeElement !== durationInput) {
     durationInput.value = String(normalizeTimerDurationMinutes(card.timerDurationMinutes));
   }
+
+  if (notifyToastInput) {
+    notifyToastInput.checked = card.timerNotifyToast !== false;
+    notifyToastInput.disabled = state.locked;
+  }
+
+  if (playSoundInput) {
+    playSoundInput.checked = card.timerPlaySound === true;
+    playSoundInput.disabled = state.locked;
+  }
+}
+
+function updateReminderCardElement(element, card, now = Date.now()) {
+  if (!element || !card) {
+    return;
+  }
+
+  const dateInput = element.querySelector(".reminder-date-input");
+  const repeatIntervalInput = element.querySelector(".reminder-repeat-input");
+  const status = element.querySelector(".reminder-status");
+  const acknowledgeButton = element.querySelector(".reminder-acknowledge");
+  const notifyToastInput = element.querySelector(".reminder-notify-toast");
+  const playSoundInput = element.querySelector(".reminder-play-sound");
+  const repeatInput = element.querySelector(".reminder-repeat-toggle");
+
+  if (dateInput && document.activeElement !== dateInput) {
+    dateInput.value = normalizeReminderDateTime(card.reminderAt);
+    dateInput.disabled = state.locked;
+  }
+
+  if (repeatIntervalInput && document.activeElement !== repeatIntervalInput) {
+    repeatIntervalInput.value = String(normalizeReminderRepeatIntervalMinutes(card.reminderRepeatIntervalMinutes));
+    repeatIntervalInput.disabled = state.locked || !card.reminderRepeatUntilAcknowledged;
+  }
+
+  if (notifyToastInput) {
+    notifyToastInput.checked = card.reminderShowToast !== false;
+    notifyToastInput.disabled = state.locked;
+  }
+
+  if (playSoundInput) {
+    playSoundInput.checked = card.reminderPlaySound === true;
+    playSoundInput.disabled = state.locked;
+  }
+
+  if (repeatInput) {
+    repeatInput.checked = card.reminderRepeatUntilAcknowledged !== false;
+    repeatInput.disabled = state.locked;
+  }
+
+  if (status) {
+    status.textContent = getReminderStatusText(card, now);
+  }
+
+  if (acknowledgeButton) {
+    const reminderAt = parseReminderTimestamp(card.reminderAt);
+    const acknowledged = Number.isFinite(card.reminderAcknowledgedAt);
+    acknowledgeButton.textContent = acknowledged ? t("reminderResetAcknowledge") : t("reminderAcknowledge");
+    acknowledgeButton.disabled = state.locked || reminderAt === null;
+  }
 }
 
 function refreshVisibleTimerCards(now = Date.now()) {
@@ -3050,28 +4083,107 @@ function refreshVisibleTimerCards(now = Date.now()) {
   });
 }
 
+function refreshVisibleReminderCards(now = Date.now()) {
+  workspace.querySelectorAll(".reminder-card[data-card-id]").forEach((element) => {
+    const card = getCardById(element.dataset.cardId);
+    if (card?.kind === "reminder") {
+      updateReminderCardElement(element, card, now);
+    }
+  });
+}
+
+function maybeTriggerTimerNotification(card, now) {
+  if (card.timerNotifyToast === false && card.timerPlaySound !== true) {
+    return false;
+  }
+
+  if (Number.isFinite(card.timerCompletionNotifiedAt)) {
+    return false;
+  }
+
+  card.timerCompletionNotifiedAt = now;
+  void requestDesktopNotification({
+    notificationId: buildBoardNotificationId("timer", card.id),
+    cardId: card.id,
+    title: card.title || t("newTimer"),
+    body: t("timerFinishedNotificationBody", {
+      title: card.title || t("newTimer")
+    }),
+    playSound: card.timerPlaySound === true,
+    allowAcknowledge: false,
+    persistent: false,
+    openLabel: t("notificationActionOpen")
+  });
+  return true;
+}
+
+function maybeTriggerReminderNotification(card, now) {
+  const reminderAt = parseReminderTimestamp(card.reminderAt);
+  if (reminderAt === null || Number.isFinite(card.reminderAcknowledgedAt) || now < reminderAt) {
+    return false;
+  }
+
+  const alreadyTriggered = Number.isFinite(card.reminderLastTriggeredAt);
+  if (alreadyTriggered) {
+    if (!card.reminderRepeatUntilAcknowledged) {
+      return false;
+    }
+
+    if (now - card.reminderLastTriggeredAt < getReminderRepeatIntervalMs(card)) {
+      return false;
+    }
+  }
+
+  if (card.reminderShowToast === false && card.reminderPlaySound !== true) {
+    return false;
+  }
+
+  card.reminderLastTriggeredAt = now;
+  void requestDesktopNotification({
+    notificationId: buildBoardNotificationId("reminder", card.id),
+    cardId: card.id,
+    title: card.title || t("newReminder"),
+    body: (card.text || "").trim() || t("reminderNotificationBody", {
+      time: formatDateTimeDisplay(reminderAt)
+    }),
+    playSound: card.reminderPlaySound === true,
+    allowAcknowledge: card.reminderRepeatUntilAcknowledged !== false,
+    persistent: card.reminderRepeatUntilAcknowledged !== false,
+    acknowledgeLabel: t("notificationActionAcknowledge"),
+    openLabel: t("notificationActionOpen")
+  });
+
+  return true;
+}
+
 function handleTimerTick() {
   const now = Date.now();
   let changed = false;
 
   state.cards.forEach((card) => {
-    if (card.kind !== "timer" || !Number.isFinite(card.timerEndsAt)) {
-      return;
+    if (card.kind === "timer" && Number.isFinite(card.timerEndsAt)) {
+      const remainingMs = clamp(card.timerEndsAt - now, 0, getTimerDurationMs(card));
+      if (remainingMs !== card.timerRemainingMs) {
+        card.timerRemainingMs = remainingMs;
+      }
+      if (remainingMs <= 0) {
+        card.timerEndsAt = null;
+        changed = true;
+        if (maybeTriggerTimerNotification(card, now)) {
+          changed = true;
+        }
+      }
     }
 
-    const remainingMs = clamp(card.timerEndsAt - now, 0, getTimerDurationMs(card));
-    if (remainingMs !== card.timerRemainingMs) {
-      card.timerRemainingMs = remainingMs;
-    }
-    if (remainingMs <= 0) {
-      card.timerEndsAt = null;
-      changed = true;
+    if (card.kind === "reminder") {
+      changed = maybeTriggerReminderNotification(card, now) || changed;
     }
   });
 
   refreshVisibleTimerCards(now);
+  refreshVisibleReminderCards(now);
   if (changed) {
-    scheduleSave();
+    void saveState({ skipHistory: true });
   }
 }
 
@@ -3085,6 +4197,8 @@ function setTimerDuration(card, minutesValue) {
   card.timerDurationMinutes = timerDurationMinutes;
   card.timerRemainingMs = durationMs;
   card.timerEndsAt = wasRunning ? now + durationMs : null;
+  clearTimerCompletionNotification(card);
+  void dismissNotificationsForCard(card.id);
   refreshVisibleTimerCards(now);
   scheduleSave();
 }
@@ -3101,6 +4215,7 @@ function toggleTimer(card) {
     const nextRemaining = remainingMs > 0 ? remainingMs : getTimerDurationMs(card);
     card.timerRemainingMs = nextRemaining;
     card.timerEndsAt = now + nextRemaining;
+    clearTimerCompletionNotification(card);
   }
 
   refreshVisibleTimerCards(now);
@@ -3112,6 +4227,8 @@ function resetTimer(card) {
   const now = Date.now();
   card.timerEndsAt = null;
   card.timerRemainingMs = getTimerDurationMs(card);
+  clearTimerCompletionNotification(card);
+  void dismissNotificationsForCard(card.id);
   refreshVisibleTimerCards(now);
   scheduleSave();
 }
@@ -3151,6 +4268,18 @@ function renderTimer(card) {
   durationInput.addEventListener("change", () => setTimerDuration(card, durationInput.value));
   durationRow.append(durationLabel, durationInput);
 
+  const options = document.createElement("div");
+  options.className = "timer-options";
+  const notifyToastOption = createCardCheckbox("timerNotifyToast", "timer-notify-toast", card.timerNotifyToast !== false, (checked) => {
+    card.timerNotifyToast = checked;
+    scheduleSave();
+  });
+  const playSoundOption = createCardCheckbox("timerPlaySound", "timer-play-sound", card.timerPlaySound === true, (checked) => {
+    card.timerPlaySound = checked;
+    scheduleSave();
+  });
+  options.append(notifyToastOption.label, playSoundOption.label);
+
   const actions = document.createElement("div");
   actions.className = "timer-actions";
 
@@ -3165,9 +4294,117 @@ function renderTimer(card) {
   resetButton.addEventListener("click", () => resetTimer(card));
 
   actions.append(toggleButton, resetButton);
-  controls.append(durationRow, actions);
+  controls.append(durationRow, options, actions);
   wrapper.append(display, status, meter, controls);
   updateTimerCardElement(wrapper, card);
+  return wrapper;
+}
+
+function renderReminder(card) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "reminder-card";
+  wrapper.dataset.cardId = card.id;
+
+  const dateLabel = document.createElement("label");
+  dateLabel.className = "schedule-time-wrap";
+  const dateCaption = document.createElement("span");
+  dateCaption.className = "schedule-item-label";
+  dateCaption.textContent = t("reminderDateTime");
+  const dateInput = document.createElement("input");
+  dateInput.type = "datetime-local";
+  dateInput.className = "card-field reminder-date-input";
+  dateInput.value = normalizeReminderDateTime(card.reminderAt);
+  dateInput.disabled = state.locked;
+  dateInput.addEventListener("change", () => {
+    card.reminderAt = normalizeReminderDateTime(dateInput.value);
+    resetReminderDeliveryState(card);
+    void dismissNotificationsForCard(card.id);
+    refreshVisibleReminderCards();
+    scheduleSave();
+  });
+  dateLabel.append(dateCaption, dateInput);
+
+  const messageLabel = document.createElement("label");
+  messageLabel.className = "schedule-note-wrap";
+  const messageCaption = document.createElement("span");
+  messageCaption.className = "schedule-item-label";
+  messageCaption.textContent = t("reminderMessage");
+  const messageInput = document.createElement("textarea");
+  messageInput.className = "card-field schedule-note-input reminder-message-input";
+  messageInput.rows = 2;
+  messageInput.value = card.text || "";
+  messageInput.placeholder = t("reminderMessagePlaceholder");
+  messageInput.readOnly = state.locked;
+  messageInput.spellcheck = true;
+  const resizeMessage = autoGrowTextarea(messageInput, 56);
+  messageInput.addEventListener("input", () => {
+    card.text = messageInput.value;
+    resizeMessage();
+    scheduleSave();
+  });
+  messageLabel.append(messageCaption, messageInput);
+
+  const options = document.createElement("div");
+  options.className = "reminder-options";
+  const notifyToastOption = createCardCheckbox("reminderNotifyToast", "reminder-notify-toast", card.reminderShowToast !== false, (checked) => {
+    card.reminderShowToast = checked;
+    scheduleSave();
+  });
+  const playSoundOption = createCardCheckbox("reminderPlaySound", "reminder-play-sound", card.reminderPlaySound === true, (checked) => {
+    card.reminderPlaySound = checked;
+    scheduleSave();
+  });
+  const repeatOption = createCardCheckbox("reminderRepeatUntilAcknowledged", "reminder-repeat-toggle", card.reminderRepeatUntilAcknowledged !== false, (checked) => {
+    card.reminderRepeatUntilAcknowledged = checked;
+    if (!checked) {
+      void dismissNotificationsForCard(card.id);
+    }
+    refreshVisibleReminderCards();
+    scheduleSave();
+  });
+  options.append(notifyToastOption.label, playSoundOption.label, repeatOption.label);
+
+  const repeatRow = document.createElement("label");
+  repeatRow.className = "timer-duration-row";
+  const repeatLabel = document.createElement("span");
+  repeatLabel.textContent = t("reminderRepeatInterval");
+  const repeatInput = document.createElement("input");
+  repeatInput.type = "number";
+  repeatInput.className = "card-field timer-duration-input reminder-repeat-input";
+  repeatInput.min = String(minReminderRepeatIntervalMinutes);
+  repeatInput.max = String(maxReminderRepeatIntervalMinutes);
+  repeatInput.step = "1";
+  repeatInput.value = String(normalizeReminderRepeatIntervalMinutes(card.reminderRepeatIntervalMinutes));
+  repeatInput.disabled = state.locked || !card.reminderRepeatUntilAcknowledged;
+  repeatInput.addEventListener("change", () => {
+    card.reminderRepeatIntervalMinutes = normalizeReminderRepeatIntervalMinutes(repeatInput.value);
+    repeatInput.value = String(card.reminderRepeatIntervalMinutes);
+    scheduleSave();
+  });
+  repeatRow.append(repeatLabel, repeatInput);
+
+  const status = document.createElement("div");
+  status.className = "reminder-status";
+
+  const actions = document.createElement("div");
+  actions.className = "reminder-actions";
+  const acknowledgeButton = document.createElement("button");
+  acknowledgeButton.type = "button";
+  acknowledgeButton.className = "reminder-acknowledge";
+  acknowledgeButton.addEventListener("click", () => {
+    if (Number.isFinite(card.reminderAcknowledgedAt)) {
+      resetReminderDeliveryState(card);
+    } else {
+      card.reminderAcknowledgedAt = Date.now();
+      void dismissNotificationsForCard(card.id);
+    }
+    render();
+    scheduleSave();
+  });
+  actions.appendChild(acknowledgeButton);
+
+  wrapper.append(dateLabel, messageLabel, options, repeatRow, status, actions);
+  updateReminderCardElement(wrapper, card);
   return wrapper;
 }
 
@@ -4920,7 +6157,23 @@ function addCard(kind, worldPoint = null) {
       title: t("newTimer"),
       timerDurationMinutes: defaultTimerDurationMinutes,
       timerRemainingMs: defaultTimerDurationMinutes * 60 * 1000,
-      timerEndsAt: null
+      timerEndsAt: null,
+      timerNotifyToast: true,
+      timerPlaySound: false,
+      timerCompletionNotifiedAt: null
+    });
+  } else if (kind === "reminder") {
+    state.cards.push({
+      ...base,
+      title: t("newReminder"),
+      text: "",
+      reminderAt: "",
+      reminderShowToast: true,
+      reminderPlaySound: false,
+      reminderRepeatUntilAcknowledged: true,
+      reminderRepeatIntervalMinutes: defaultReminderRepeatIntervalMinutes,
+      reminderAcknowledgedAt: null,
+      reminderLastTriggeredAt: null
     });
   } else if (kind === "schedule") {
     state.cards.push({
@@ -6123,10 +7376,11 @@ function openContextMenu(event) {
 function openSettings() {
   closeContextMenu();
   settingsStatus.textContent = "";
+  settingsModal.hidden = false;
+  applySettings();
   void loadAppRuntimeConfig();
   void loadAppUpdateState();
-  applySettings();
-  settingsModal.hidden = false;
+  void loadBoardsList();
 }
 
 function closeSettings() {
@@ -6145,16 +7399,9 @@ async function switchStorageDirectory() {
     }
 
     const result = await window.desktopBoard.setStorageDirectory(directoryPath, state);
-    if (result?.appConfig) {
-      appRuntimeConfig = result.appConfig;
-    }
-    if (result?.state) {
-      state = normalizeState(result.state);
-      resetHistoryTracking(state);
-      applySystemTheme(currentSystemTheme);
-      render();
-    }
-    refreshAppConfigUi();
+    applyBoardManagerResult(result);
+    clearAssetManagerAnalysis();
+    refreshAssetManagerUi();
     settingsStatus.textContent = t(result?.loadedExistingState ? "storageSwitchedLoaded" : "storageSwitchedSaved");
     void logClientEvent("info", "storage.switch", "Storage switched from settings", {
       root: appRuntimeConfig.storageInfo?.root || ""
@@ -6234,28 +7481,66 @@ async function importBoardArchiveFromSettings() {
     if (!result?.state) {
       return;
     }
-
-    if (saveTimer) {
-      clearTimeout(saveTimer);
-      saveTimer = null;
-    }
-
-    state = normalizeState(result.state);
-    resetHistoryTracking(state);
-    clearSelection();
-    selectedConnectionId = null;
-    connectionDraft = null;
-    connectionMode = false;
-    activeAction = null;
-    selectionBox.hidden = true;
-    board.classList.remove("is-panning", "is-selecting");
-    applySystemTheme(currentSystemTheme);
-    render();
-    applySettings();
+    applyBoardManagerResult(result);
+    clearAssetManagerAnalysis();
+    refreshAssetManagerUi();
     settingsStatus.textContent = formatBoardArchiveStatus(result, "boardArchiveImported");
   } catch (error) {
     reportError("archive.import", error);
     settingsStatus.textContent = t("boardArchiveFailed");
+  }
+}
+
+async function analyzeAssetsFromSettings() {
+  if (!window.desktopBoard?.analyzeAssets || assetManagerState.analyzing || assetManagerState.cleaning) {
+    return;
+  }
+
+  assetManagerState.analyzing = true;
+  assetManagerState.statusMessage = t("assetScanRunning");
+  assetManagerState.statusTone = "muted";
+  refreshAssetManagerUi();
+
+  try {
+    assetManagerState.analysis = await window.desktopBoard.analyzeAssets(state);
+    assetManagerState.statusMessage = "";
+    assetManagerState.statusTone = "";
+    refreshAssetManagerUi();
+  } catch (error) {
+    reportError("assets.analyze", error);
+    assetManagerState.statusMessage = t("assetScanFailed");
+    assetManagerState.statusTone = "error";
+  } finally {
+    assetManagerState.analyzing = false;
+    refreshAssetManagerUi();
+  }
+}
+
+async function cleanupAssetsFromSettings() {
+  if (!window.desktopBoard?.cleanupAssets || assetManagerState.analyzing || assetManagerState.cleaning) {
+    return;
+  }
+
+  assetManagerState.cleaning = true;
+  assetManagerState.statusMessage = t("assetCleanupRunning");
+  assetManagerState.statusTone = "muted";
+  refreshAssetManagerUi();
+
+  try {
+    const result = await window.desktopBoard.cleanupAssets(state);
+    assetManagerState.analysis = result?.analysis || null;
+    assetManagerState.statusMessage = t("assetCleanupDone", {
+      count: Number(result?.removedCount || 0),
+      size: formatFileSize(result?.removedBytes || 0)
+    });
+    assetManagerState.statusTone = "";
+  } catch (error) {
+    reportError("assets.cleanup", error);
+    assetManagerState.statusMessage = t("assetCleanupFailed");
+    assetManagerState.statusTone = "error";
+  } finally {
+    assetManagerState.cleaning = false;
+    refreshAssetManagerUi();
   }
 }
 
@@ -6296,12 +7581,13 @@ async function saveSettings() {
   if (window.desktopBoard?.updateAppConfig) {
     try {
       appRuntimeConfig = await window.desktopBoard.updateAppConfig({
-        diagnosticsEnabled: diagnosticsEnabledInput.checked
+        diagnosticsEnabled: diagnosticsEnabledInput.checked,
+        autoStartEnabled: autoStartWithWindowsInput?.checked === true
       });
       refreshAppConfigUi();
     } catch (error) {
       reportError("config.update", error);
-      statusMessage = t("diagnosticsSaveError");
+      statusMessage = t("appConfigSaveError");
     }
   }
 
@@ -6540,6 +7826,15 @@ openStoragePathButton?.addEventListener("click", openCurrentStorageFolder);
 openLogsButton?.addEventListener("click", openLogsFolder);
 exportBoardButton?.addEventListener("click", exportBoardArchiveFromSettings);
 importBoardButton?.addEventListener("click", importBoardArchiveFromSettings);
+createBoardButton?.addEventListener("click", createBoardFromSettings);
+switchBoardButton?.addEventListener("click", switchBoardFromSettings);
+renameBoardButton?.addEventListener("click", renameBoardFromSettings);
+deleteBoardButton?.addEventListener("click", deleteBoardFromSettings);
+toolbarBoardSelect?.addEventListener("change", () => {
+  void switchBoardById(toolbarBoardSelect.value, null);
+});
+analyzeAssetsButton?.addEventListener("click", analyzeAssetsFromSettings);
+cleanupAssetsButton?.addEventListener("click", cleanupAssetsFromSettings);
 checkUpdatesButton?.addEventListener("click", checkForUpdatesFromSettings);
 installUpdateButton?.addEventListener("click", installDownloadedUpdateFromSettings);
 closeUrlButton.addEventListener("click", () => closeUrlModal(""));
@@ -6598,6 +7893,27 @@ if (window.desktopBoard) {
     appUpdateState = normalizeAppUpdateState(nextState);
     refreshAppUpdateUi();
   });
+  window.desktopBoard.onNotificationEvent?.((payload) => {
+    const cardId = typeof payload?.cardId === "string" ? payload.cardId : "";
+    if (!cardId) {
+      return;
+    }
+
+    if (payload?.type === "focus-card") {
+      focusCardById(cardId);
+      return;
+    }
+
+    if (payload?.type === "acknowledge-card") {
+      const card = getCardById(cardId);
+      if (card?.kind !== "reminder") {
+        return;
+      }
+      card.reminderAcknowledgedAt = Date.now();
+      render();
+      void saveState({ skipHistory: true });
+    }
+  });
 }
 
 window.addEventListener("error", (event) => {
@@ -6613,6 +7929,7 @@ loadSystemTheme().then(loadAppRuntimeConfig).then(loadAppUpdateState).then(loadS
   applySystemTheme(currentSystemTheme);
   render();
   saveState();
+  void loadBoardsList();
 }).catch((error) => {
   reportError("app.init", error);
   state = clone(defaultState);
