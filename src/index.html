@@ -30,6 +30,12 @@
             <button id="addNoteButton" class="icon-button" type="button" aria-label="Добавить заметку" data-tooltip="Заметка">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v4h4"/><path d="M9 11h6M9 15h6"/></svg>
             </button>
+            <button id="addCodeButton" class="icon-button" type="button" aria-label="Добавить код" data-tooltip="Code / snippet">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7l-4 5 4 5"/><path d="M15 7l4 5-4 5"/><path d="M13 5l-2 14"/></svg>
+            </button>
+            <button id="addTableButton" class="icon-button" type="button" aria-label="Добавить таблицу" data-tooltip="Таблица">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 5v14M15 5v14"/></svg>
+            </button>
             <button id="addTasksButton" class="icon-button" type="button" aria-label="Добавить список задач" data-tooltip="Задачи">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7l2 2 4-4"/><path d="M13 7h6"/><path d="M5 15l2 2 4-4"/><path d="M13 15h6"/></svg>
             </button>
@@ -209,6 +215,11 @@
             </div>
           </div>
           <p id="assetManagerHelp" class="settings-help">Check stored files, find broken references, and remove unused assets.</p>
+          <label class="settings-row settings-checkbox">
+            <span id="autoManageAssetsOnLaunchLabel">Автоанализ и очистка при запуске</span>
+            <input id="autoManageAssetsOnLaunchInput" type="checkbox" />
+          </label>
+          <p id="autoManageAssetsOnLaunchHelp" class="settings-help">При старте приложение проверит файлы доски и удалит неиспользуемые.</p>
           <div id="assetManagerSummary" class="asset-summary"></div>
           <div id="assetManagerIssues" class="asset-issues"></div>
           <p id="assetManagerStatus" class="settings-status" aria-live="polite"></p>
@@ -224,6 +235,14 @@
             <span id="noteColorRuleLabel">Заметки</span>
             <input id="noteHeaderColorInput" type="color" value="#f2c94c" aria-label="Хедер заметок" />
             <input id="noteBodyColorInput" type="color" value="#fff8d7" aria-label="Фон заметок" />
+
+            <span id="codeColorRuleLabel">Code / snippet</span>
+            <input id="codeHeaderColorInput" type="color" value="#4c6ef5" aria-label="Хедер кода" />
+            <input id="codeBodyColorInput" type="color" value="#e9efff" aria-label="Фон кода" />
+
+            <span id="tableColorRuleLabel">Таблица</span>
+            <input id="tableHeaderColorInput" type="color" value="#5b7bd5" aria-label="Хедер таблицы" />
+            <input id="tableBodyColorInput" type="color" value="#eef3ff" aria-label="Фон таблицы" />
 
             <span id="tasksColorRuleLabel">Задачи</span>
             <input id="tasksHeaderColorInput" type="color" value="#2f7d57" aria-label="Хедер задач" />
@@ -307,6 +326,7 @@
             </div>
           </div>
           <p id="updatesHelp" class="settings-help">Auto-updates work only in the installed app build.</p>
+          <p id="updatesVersion" class="settings-help">Version: -</p>
           <p id="updatesStatus" class="settings-status" aria-live="polite"></p>
         </section>
 

@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const fs = require("fs/promises");
 const path = require("path");
 const { autoUpdater } = require("electron-updater");
+const packageJson = require("./package.json");
 const mammoth = require("mammoth");
 const XLSX = require("xlsx");
 const JSZip = require("jszip");
@@ -13,7 +14,8 @@ let appConfig = {
   storagePath: "",
   diagnosticsEnabled: true,
   activeBoardId: "main",
-  autoStartEnabled: false
+  autoStartEnabled: false,
+  autoManageAssetsOnLaunch: false
 };
 let logWriteQueue = Promise.resolve();
 let lastKnownState = null;
@@ -49,7 +51,8 @@ const defaultAppConfig = {
   storagePath: "",
   diagnosticsEnabled: true,
   activeBoardId: defaultBoardId,
-  autoStartEnabled: false
+  autoStartEnabled: false,
+  autoManageAssetsOnLaunch: false
 };
 
 function normalizeStoragePath(value) {
@@ -86,7 +89,8 @@ function normalizeAppConfig(config = {}) {
     storagePath: normalizeStoragePath(config.storagePath),
     diagnosticsEnabled: config.diagnosticsEnabled !== false,
     activeBoardId: normalizeBoardId(config.activeBoardId) || defaultBoardId,
-    autoStartEnabled: config.autoStartEnabled === true
+    autoStartEnabled: config.autoStartEnabled === true,
+    autoManageAssetsOnLaunch: config.autoManageAssetsOnLaunch === true
   };
 }
 
@@ -197,6 +201,7 @@ function applyAutoStartPreference() {
 function getAppConfigForRenderer() {
   return {
     ...appConfig,
+    appVersion: app.getVersion(),
     storageInfo: getStorageInfo(),
     autoStart: getAutoStartStatus()
   };
@@ -679,25 +684,204 @@ function isPortableBuild() {
   return Boolean(process.env.PORTABLE_EXECUTABLE_DIR || process.env.PORTABLE_EXECUTABLE_FILE);
 }
 
+function getGitHubPublishConfig() {
+  const publishEntries = Array.isArray(packageJson?.build?.publish)
+    ? packageJson.build.publish
+    : packageJson?.build?.publish
+      ? [packageJson.build.publish]
+      : [];
+  const githubConfig = publishEntries.find((entry) => entry?.provider === "github" && entry.owner && entry.repo);
+  if (!githubConfig) {
+    return null;
+  }
+
+  return {
+    owner: String(githubConfig.owner),
+    repo: String(githubConfig.repo)
+  };
+}
+
+function normalizeReleaseVersion(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^v/i, "")
+    .replace(/\s+/g, "");
+}
+
+function compareVersions(left, right) {
+  const leftParts = normalizeReleaseVersion(left).split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const rightParts = normalizeReleaseVersion(right).split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const maxLength = Math.max(leftParts.length, rightParts.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const leftValue = leftParts[index] || 0;
+    const rightValue = rightParts[index] || 0;
+    if (leftValue > rightValue) {
+      return 1;
+    }
+    if (leftValue < rightValue) {
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+function findInstallerAsset(assets = []) {
+  if (!Array.isArray(assets)) {
+    return null;
+  }
+
+  return assets.find((asset) => /\.exe$/i.test(asset?.name || "") && !/\.blockmap$/i.test(asset?.name || "") && /setup/i.test(asset?.name || ""))
+    || assets.find((asset) => /\.exe$/i.test(asset?.name || "") && !/\.blockmap$/i.test(asset?.name || ""));
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": `DesktopBoard/${app.getVersion()}`,
+        ...(options.headers || {})
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
+async function fetchLatestGitHubRelease() {
+  const githubConfig = getGitHubPublishConfig();
+  if (!githubConfig) {
+    throw new Error("GitHub release feed is not configured.");
+  }
+
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const release = await fetchJsonWithTimeout(
+        `https://api.github.com/repos/${githubConfig.owner}/${githubConfig.repo}/releases/latest`
+      );
+      return {
+        version: normalizeReleaseVersion(release?.tag_name || release?.name || ""),
+        htmlUrl: typeof release?.html_url === "string" ? release.html_url : "",
+        installerAsset: findInstallerAsset(release?.assets),
+        raw: release
+      };
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) {
+        await delay(1200 * (attempt + 1));
+      }
+    }
+  }
+
+  throw lastError || new Error("Could not load the latest GitHub release.");
+}
+
+async function applyGitHubReleaseFallback(source = "manual", originalError = null) {
+  const githubConfig = getGitHubPublishConfig();
+  if (!githubConfig) {
+    return false;
+  }
+
+  try {
+    const release = await fetchLatestGitHubRelease();
+    const currentVersion = app.getVersion();
+    const installerUrl = release.installerAsset?.browser_download_url || "";
+    const releaseUrl = release.htmlUrl || installerUrl || "";
+    const hasUpdate = release.version && compareVersions(release.version, currentVersion) > 0;
+
+    if (hasUpdate) {
+      setAutoUpdateState({
+        checking: false,
+        phase: "available",
+        availableVersion: release.version,
+        downloadedVersion: null,
+        progressPercent: 0,
+        error: null,
+        lastCheckedAt: new Date().toISOString(),
+        downloadUrl: installerUrl || releaseUrl || null,
+        releaseUrl: releaseUrl || null
+      });
+      await logEvent("info", "updates.githubFallback", "Resolved update via GitHub release API", {
+        source,
+        currentVersion,
+        availableVersion: release.version,
+        hadOriginalError: Boolean(originalError)
+      });
+      return true;
+    }
+
+    setAutoUpdateState({
+      checking: false,
+      phase: "idle",
+      availableVersion: null,
+      downloadedVersion: null,
+      progressPercent: 0,
+      error: null,
+      lastCheckedAt: new Date().toISOString(),
+      downloadUrl: installerUrl || null,
+      releaseUrl: releaseUrl || null
+    });
+    await logEvent("info", "updates.githubFallback", "Checked GitHub release API and found no newer version", {
+      source,
+      currentVersion,
+      latestReleaseVersion: release.version || ""
+    });
+    return true;
+  } catch (fallbackError) {
+    await logError("updates.githubFallback", fallbackError, {
+      source,
+      originalError: serializeError(originalError)
+    });
+    return false;
+  }
+}
+
 async function resolveAutoUpdateSupport() {
   if (process.platform !== "win32") {
-    return { supported: false, reason: "platform" };
+    return { supported: false, reason: "platform", autoUpdaterEnabled: false, githubFallbackEnabled: false };
   }
 
   if (!app.isPackaged) {
-    return { supported: false, reason: "unpacked" };
+    return { supported: false, reason: "unpacked", autoUpdaterEnabled: false, githubFallbackEnabled: false };
   }
 
   if (isPortableBuild()) {
-    return { supported: false, reason: "portable" };
+    return { supported: false, reason: "portable", autoUpdaterEnabled: false, githubFallbackEnabled: false };
   }
 
   const configPath = path.join(process.resourcesPath, "app-update.yml");
-  if (!await pathExists(configPath)) {
-    return { supported: false, reason: "missing-config" };
+  const autoUpdaterEnabled = await pathExists(configPath);
+  const githubFallbackEnabled = Boolean(getGitHubPublishConfig());
+  if (!autoUpdaterEnabled && !githubFallbackEnabled) {
+    return { supported: false, reason: "missing-config", autoUpdaterEnabled: false, githubFallbackEnabled: false };
   }
 
-  return { supported: true, reason: null };
+  return {
+    supported: true,
+    reason: null,
+    autoUpdaterEnabled,
+    githubFallbackEnabled
+  };
 }
 
 function createAutoUpdateState(overrides = {}) {
@@ -711,6 +895,8 @@ function createAutoUpdateState(overrides = {}) {
     downloadedVersion: null,
     progressPercent: 0,
     lastCheckedAt: null,
+    downloadUrl: null,
+    releaseUrl: null,
     error: null,
     ...overrides
   };
@@ -812,7 +998,8 @@ async function updateAppConfig(partial = {}) {
     storagePath: nextConfig.storagePath || "",
     diagnosticsEnabled: nextConfig.diagnosticsEnabled,
     activeBoardId: nextConfig.activeBoardId,
-    autoStartEnabled: nextConfig.autoStartEnabled === true
+    autoStartEnabled: nextConfig.autoStartEnabled === true,
+    autoManageAssetsOnLaunch: nextConfig.autoManageAssetsOnLaunch === true
   });
   return nextConfig;
 }
@@ -1440,17 +1627,36 @@ async function checkForAppUpdates(source = "manual") {
   });
   void logEvent("info", "updates.check", "Checking for updates", { source });
 
+  if (!autoUpdaterInitialized) {
+    const didFallback = await applyGitHubReleaseFallback(source);
+    if (!didFallback) {
+      setAutoUpdateState({
+        checking: false,
+        phase: "error",
+        error: {
+          name: "UpdateError",
+          message: "Update feed is not available."
+        },
+        lastCheckedAt: new Date().toISOString()
+      });
+    }
+    return getAutoUpdateStateForRenderer();
+  }
+
   try {
     await autoUpdater.checkForUpdates();
   } catch (error) {
     console.error("Failed to check for updates:", error);
     await logError("updates.check", error, { source });
-    setAutoUpdateState({
-      checking: false,
-      phase: "error",
-      error: serializeError(error),
-      lastCheckedAt: new Date().toISOString()
-    });
+    const didFallback = await applyGitHubReleaseFallback(source, error);
+    if (!didFallback) {
+      setAutoUpdateState({
+        checking: false,
+        phase: "error",
+        error: serializeError(error),
+        lastCheckedAt: new Date().toISOString()
+      });
+    }
   }
 
   return getAutoUpdateStateForRenderer();
@@ -1484,7 +1690,13 @@ async function initializeAutoUpdater() {
     error: null
   });
 
-  if (!support.supported || autoUpdaterInitialized) {
+  if (!support.supported) {
+    return;
+  }
+
+  scheduleAutoUpdateChecks();
+
+  if (!support.autoUpdaterEnabled || autoUpdaterInitialized) {
     return;
   }
 
@@ -1496,6 +1708,8 @@ async function initializeAutoUpdater() {
     setAutoUpdateState({
       checking: true,
       phase: "checking",
+      downloadUrl: null,
+      releaseUrl: null,
       error: null
     });
   });
@@ -1507,6 +1721,8 @@ async function initializeAutoUpdater() {
       availableVersion: info?.version || null,
       downloadedVersion: null,
       progressPercent: 0,
+      downloadUrl: null,
+      releaseUrl: null,
       error: null,
       lastCheckedAt: new Date().toISOString()
     });
@@ -1530,6 +1746,8 @@ async function initializeAutoUpdater() {
       availableVersion: info?.version || null,
       downloadedVersion: null,
       progressPercent: 0,
+      downloadUrl: null,
+      releaseUrl: null,
       error: null,
       lastCheckedAt: new Date().toISOString()
     });
@@ -1545,6 +1763,8 @@ async function initializeAutoUpdater() {
       downloadedVersion: info?.version || null,
       availableVersion: info?.version || null,
       progressPercent: 100,
+      downloadUrl: null,
+      releaseUrl: null,
       error: null,
       lastCheckedAt: new Date().toISOString()
     });
@@ -1556,20 +1776,32 @@ async function initializeAutoUpdater() {
 
   autoUpdater.on("error", (error) => {
     console.error("Auto update error:", error);
-    void logError("updates.error", error);
-    setAutoUpdateState({
-      checking: false,
-      phase: "error",
-      error: serializeError(error),
-      lastCheckedAt: new Date().toISOString()
-    });
+    void (async () => {
+      await logError("updates.error", error);
+      const didFallback = await applyGitHubReleaseFallback("autoUpdater", error);
+      if (!didFallback) {
+        setAutoUpdateState({
+          checking: false,
+          phase: "error",
+          error: serializeError(error),
+          lastCheckedAt: new Date().toISOString()
+        });
+      }
+    })();
   });
-
-  scheduleAutoUpdateChecks();
 }
 
-function installDownloadedUpdate() {
+async function installDownloadedUpdate() {
   if (autoUpdateState?.phase !== "downloaded") {
+    const targetUrl = autoUpdateState?.downloadUrl || autoUpdateState?.releaseUrl || "";
+    if (autoUpdateState?.phase === "available" && targetUrl) {
+      await shell.openExternal(targetUrl);
+      await logEvent("info", "updates.openManualDownload", "Opened manual update link", {
+        version: autoUpdateState.availableVersion || "",
+        url: targetUrl
+      });
+      return true;
+    }
     return false;
   }
 

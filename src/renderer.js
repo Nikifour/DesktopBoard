@@ -5,6 +5,8 @@ const modeLabel = document.getElementById("modeLabel");
 const lockButton = document.getElementById("lockButton");
 const hideButton = document.getElementById("hideButton");
 const addNoteButton = document.getElementById("addNoteButton");
+const addCodeButton = document.getElementById("addCodeButton");
+const addTableButton = document.getElementById("addTableButton");
 const addTasksButton = document.getElementById("addTasksButton");
 const addScheduleButton = document.getElementById("addScheduleButton");
 const addBookmarkButton = document.getElementById("addBookmarkButton");
@@ -63,6 +65,10 @@ const themeModeInput = document.getElementById("themeModeInput");
 const backgroundColorInput = document.getElementById("backgroundColorInput");
 const noteHeaderColorInput = document.getElementById("noteHeaderColorInput");
 const noteBodyColorInput = document.getElementById("noteBodyColorInput");
+const codeHeaderColorInput = document.getElementById("codeHeaderColorInput");
+const codeBodyColorInput = document.getElementById("codeBodyColorInput");
+const tableHeaderColorInput = document.getElementById("tableHeaderColorInput");
+const tableBodyColorInput = document.getElementById("tableBodyColorInput");
 const tasksHeaderColorInput = document.getElementById("tasksHeaderColorInput");
 const tasksBodyColorInput = document.getElementById("tasksBodyColorInput");
 const scheduleHeaderColorInput = document.getElementById("scheduleHeaderColorInput");
@@ -89,6 +95,8 @@ const groupHeaderColorInput = document.getElementById("groupHeaderColorInput");
 const groupBodyColorInput = document.getElementById("groupBodyColorInput");
 const colorInputRefs = {
   note: { header: noteHeaderColorInput, body: noteBodyColorInput },
+  code: { header: codeHeaderColorInput, body: codeBodyColorInput },
+  table: { header: tableHeaderColorInput, body: tableBodyColorInput },
   tasks: { header: tasksHeaderColorInput, body: tasksBodyColorInput },
   schedule: { header: scheduleHeaderColorInput, body: scheduleBodyColorInput },
   bookmark: { header: bookmarkHeaderColorInput, body: bookmarkBodyColorInput },
@@ -134,6 +142,8 @@ const exportBoardButton = document.getElementById("exportBoardButton");
 const importBoardButton = document.getElementById("importBoardButton");
 const assetManagerLabel = document.getElementById("assetManagerLabel");
 const assetManagerHelp = document.getElementById("assetManagerHelp");
+const autoManageAssetsOnLaunchInput = document.getElementById("autoManageAssetsOnLaunchInput");
+const autoManageAssetsOnLaunchHelp = document.getElementById("autoManageAssetsOnLaunchHelp");
 const assetManagerSummary = document.getElementById("assetManagerSummary");
 const assetManagerIssues = document.getElementById("assetManagerIssues");
 const assetManagerStatus = document.getElementById("assetManagerStatus");
@@ -141,6 +151,7 @@ const analyzeAssetsButton = document.getElementById("analyzeAssetsButton");
 const cleanupAssetsButton = document.getElementById("cleanupAssetsButton");
 const updatesLabel = document.getElementById("updatesLabel");
 const updatesHelp = document.getElementById("updatesHelp");
+const updatesVersion = document.getElementById("updatesVersion");
 const updatesStatus = document.getElementById("updatesStatus");
 const checkUpdatesButton = document.getElementById("checkUpdatesButton");
 const installUpdateButton = document.getElementById("installUpdateButton");
@@ -168,7 +179,8 @@ const minCardHeight = 150;
 const minZoom = 0.25;
 const maxZoom = 3;
 const gridSize = 24;
-const stateSchemaVersion = 6;
+const groupHeaderHeight = 42;
+const stateSchemaVersion = 7;
 const defaultBoardId = "main";
 const defaultBoardName = navigator.language?.toLowerCase().startsWith("ru") ? "Основная доска" : "Main board";
 const minTimerDurationMinutes = 1;
@@ -194,6 +206,28 @@ const cardTypeRegistry = [
     defaultSize: { width: 300, height: 220 },
     toolbarButton: addNoteButton,
     icon: '<svg viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v4h4"/><path d="M9 12h6M9 16h5"/></svg>'
+  },
+  {
+    kind: "code",
+    labelKey: "code",
+    createLabelKey: "addCode",
+    colorKind: "code",
+    quickCreateGroup: "text",
+    createMode: "card",
+    defaultSize: { width: 420, height: 280 },
+    toolbarButton: addCodeButton,
+    icon: '<svg viewBox="0 0 24 24"><path d="M9 7l-4 5 4 5"/><path d="M15 7l4 5-4 5"/><path d="M13 5l-2 14"/></svg>'
+  },
+  {
+    kind: "table",
+    labelKey: "table",
+    createLabelKey: "addTable",
+    colorKind: "table",
+    quickCreateGroup: "text",
+    createMode: "card",
+    defaultSize: { width: 440, height: 300 },
+    toolbarButton: addTableButton,
+    icon: '<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 5v14M15 5v14"/></svg>'
   },
   {
     kind: "tasks",
@@ -342,6 +376,8 @@ const defaultSettings = {
   quickCreateKinds: [...defaultQuickCreateKinds],
   colors: {
     note: { header: "#f2c94c", body: "#fff8d7" },
+    code: { header: "#4c6ef5", body: "#e9efff" },
+    table: { header: "#5b7bd5", body: "#eef3ff" },
     tasks: { header: "#2f7d57", body: "#e7f3ec" },
     schedule: { header: "#3a8f9f", body: "#e6f6f8" },
     bookmark: { header: "#f2c94c", body: "#fff8d7" },
@@ -471,10 +507,12 @@ let currentSystemTheme = {
   isDark: false
 };
 let appRuntimeConfig = {
+  appVersion: "",
   storagePath: "",
   diagnosticsEnabled: true,
   activeBoardId: defaultBoardId,
   autoStartEnabled: false,
+  autoManageAssetsOnLaunch: false,
   autoStart: {
     supported: false,
     reason: "unknown",
@@ -493,6 +531,8 @@ const defaultAppUpdateState = {
   downloadedVersion: null,
   progressPercent: 0,
   lastCheckedAt: null,
+  downloadUrl: null,
+  releaseUrl: null,
   error: null
 };
 let appUpdateState = { ...defaultAppUpdateState };
@@ -508,6 +548,7 @@ let assetManagerState = {
   statusMessage: "",
   statusTone: ""
 };
+let startupAssetMaintenanceStarted = false;
 const imagePreviewExtensions = new Set(["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg", "avif", "ico"]);
 const videoPreviewExtensions = new Set(["mp4", "webm", "mov", "m4v", "ogv"]);
 const audioPreviewExtensions = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac"]);
@@ -535,6 +576,8 @@ const translations = {
     modeConnectionStart: "Выберите начало соединения",
     modeConnectionEnd: "Выберите конец соединения",
     note: "Заметка",
+    code: "Code / snippet",
+    table: "Таблица",
     tasks: "Задачи",
     schedule: "Расписание",
     image: "Картинка",
@@ -547,6 +590,8 @@ const translations = {
     edit: "Редактировать",
     hide: "Скрыть",
     addNote: "Добавить заметку",
+    addCode: "Добавить код",
+    addTable: "Добавить таблицу",
     addTasks: "Добавить список задач",
     addSchedule: "Добавить расписание",
     addImage: "Добавить картинку",
@@ -600,6 +645,18 @@ const translations = {
     resetColors: "Сбросить цвета",
     delete: "Удалить",
     genericElement: "Элемент",
+    newCode: "Новый код",
+    codeLanguage: "Язык",
+    codeLanguagePlaceholder: "js / ts / py",
+    codePlaceholder: "Вставьте код или фрагмент...",
+    newTable: "Новая таблица",
+    addTableRow: "Добавить строку",
+    addTableColumn: "Добавить столбец",
+    removeTableRow: "Удалить строку",
+    removeTableColumn: "Удалить столбец",
+    tableEmpty: "Добавьте первую строку в таблицу.",
+    tableColumnPlaceholder: "Столбец",
+    tableCellPlaceholder: "Значение",
     newList: "Новый список",
     firstTask: "Первый пункт",
     newSchedule: "Новое расписание",
@@ -632,6 +689,8 @@ const translations = {
     modeConnectionStart: "Choose connection start",
     modeConnectionEnd: "Choose connection end",
     note: "Note",
+    code: "Code / snippet",
+    table: "Simple table",
     tasks: "Tasks",
     schedule: "Schedule",
     image: "Image",
@@ -644,6 +703,8 @@ const translations = {
     edit: "Edit",
     hide: "Hide",
     addNote: "Add note",
+    addCode: "Add code",
+    addTable: "Add table",
     addTasks: "Add task list",
     addSchedule: "Add schedule",
     addImage: "Add image",
@@ -697,6 +758,18 @@ const translations = {
     resetColors: "Reset colors",
     delete: "Delete",
     genericElement: "Element",
+    newCode: "New snippet",
+    codeLanguage: "Language",
+    codeLanguagePlaceholder: "js / ts / py",
+    codePlaceholder: "Paste code or a snippet...",
+    newTable: "New table",
+    addTableRow: "Add row",
+    addTableColumn: "Add column",
+    removeTableRow: "Remove row",
+    removeTableColumn: "Remove column",
+    tableEmpty: "Add the first row to the table.",
+    tableColumnPlaceholder: "Column",
+    tableCellPlaceholder: "Value",
     newList: "New list",
     firstTask: "First item",
     newSchedule: "New schedule",
@@ -727,6 +800,8 @@ const translations = {
 
 Object.assign(translations.ru, {
   autoStartWithWindows: "\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u0441 Windows",
+  autoManageAssetsOnLaunch: "\u0410\u0432\u0442\u043e\u0430\u043d\u0430\u043b\u0438\u0437 \u0438 \u043e\u0447\u0438\u0441\u0442\u043a\u0430 \u0444\u0430\u0439\u043b\u043e\u0432 \u043f\u0440\u0438 \u0437\u0430\u043f\u0443\u0441\u043a\u0435",
+  autoManageAssetsOnLaunchHelp: "\u041f\u0440\u0438 \u0441\u0442\u0430\u0440\u0442\u0435 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442 \u0444\u0430\u0439\u043b\u044b \u0434\u043e\u0441\u043a\u0438, \u043f\u043e\u043c\u0435\u0442\u0438\u0442 \u0431\u0438\u0442\u044b\u0435 \u0441\u0441\u044b\u043b\u043a\u0438 \u0438 \u0443\u0434\u0430\u043b\u0438\u0442 \u043d\u0435\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u044b\u0435 \u0444\u0430\u0439\u043b\u044b.",
   autoStartHelpSupported: "\u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0431\u0443\u0434\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u043e\u0441\u043b\u0435 \u0432\u0445\u043e\u0434\u0430 \u0432 Windows.",
   autoStartHelpUnpacked: "\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u043e\u0439 \u0438\u043b\u0438 portable-\u0441\u0431\u043e\u0440\u043a\u0435 \u043d\u0430 Windows. Dev-\u0440\u0435\u0436\u0438\u043c \u0432 \u0430\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u043d\u0435 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.",
   autoStartHelpUnsupported: "\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 Windows.",
@@ -735,6 +810,8 @@ Object.assign(translations.ru, {
 
 Object.assign(translations.en, {
   autoStartWithWindows: "Start with Windows",
+  autoManageAssetsOnLaunch: "Auto-analyze and clean files on launch",
+  autoManageAssetsOnLaunchHelp: "When the app starts it will inspect board files, flag broken references, and remove unused stored files.",
   autoStartHelpSupported: "The app will start automatically after you sign in to Windows.",
   autoStartHelpUnpacked: "Available in installed or portable Windows builds. Dev mode is not added to startup.",
   autoStartHelpUnsupported: "Auto-start is available only on Windows.",
@@ -1161,6 +1238,18 @@ Object.assign(translations.en, {
   updatesStatusError: "Could not check for updates: {message}"
 });
 
+Object.assign(translations.ru, {
+  downloadUpdate: "\u0421\u043a\u0430\u0447\u0430\u0442\u044c \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435",
+  updatesVersion: "\u0412\u0435\u0440\u0441\u0438\u044f \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f: {version}",
+  updatesStatusAvailable: "\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0432\u0435\u0440\u0441\u0438\u044f {version}. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443, \u0447\u0442\u043e\u0431\u044b \u0441\u043a\u0430\u0447\u0430\u0442\u044c \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u0449\u0438\u043a."
+});
+
+Object.assign(translations.en, {
+  downloadUpdate: "Download update",
+  updatesVersion: "App version: {version}",
+  updatesStatusAvailable: "Version {version} is available. Use the button to download the installer."
+});
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -1193,6 +1282,49 @@ function normalizeChecklistTasks(tasks) {
     text: typeof task?.text === "string" ? task.text : "",
     done: Boolean(task?.done)
   }));
+}
+
+function getDefaultTableColumnTitle(index = 0) {
+  let value = Math.max(0, Number(index) || 0);
+  let title = "";
+  do {
+    title = String.fromCharCode(65 + (value % 26)) + title;
+    value = Math.floor(value / 26) - 1;
+  } while (value >= 0);
+  return title;
+}
+
+function createTableColumn(column = {}, fallbackIndex = 0) {
+  return {
+    id: typeof column?.id === "string" && column.id ? column.id : createId("table-column"),
+    title: typeof column === "string"
+      ? column
+      : typeof column?.title === "string"
+        ? column.title
+        : getDefaultTableColumnTitle(fallbackIndex)
+  };
+}
+
+function normalizeTableColumns(columns, minimumCount = 1) {
+  const source = Array.isArray(columns) ? columns : [];
+  const count = Math.max(source.length, minimumCount, 1);
+  return Array.from({ length: count }, (_, index) => createTableColumn(source[index], index));
+}
+
+function createTableRow(row = {}, columnCount = 1) {
+  const sourceCells = Array.isArray(row?.cells) ? row.cells : Array.isArray(row) ? row : [];
+  return {
+    id: typeof row?.id === "string" && row.id ? row.id : createId("table-row"),
+    cells: Array.from({ length: Math.max(1, columnCount) }, (_, index) => {
+      const value = sourceCells[index];
+      return typeof value === "string" ? value : "";
+    })
+  };
+}
+
+function normalizeTableRows(rows, columnCount = 1) {
+  const source = Array.isArray(rows) ? rows : [];
+  return source.map((row) => createTableRow(row, columnCount));
 }
 
 function normalizeScheduleTime(value) {
@@ -1580,6 +1712,9 @@ function getAutoStartHelpKey() {
 function refreshAppConfigUi() {
   if (storagePathInput) {
     storagePathInput.value = getCurrentStoragePath();
+  }
+  if (autoManageAssetsOnLaunchInput) {
+    autoManageAssetsOnLaunchInput.checked = appRuntimeConfig.autoManageAssetsOnLaunch === true;
   }
   if (autoStartWithWindowsInput) {
     autoStartWithWindowsInput.checked = appRuntimeConfig.autoStartEnabled === true;
@@ -2152,6 +2287,8 @@ function normalizeAppUpdateState(nextState = {}) {
     currentVersion: typeof source.currentVersion === "string" ? source.currentVersion : "",
     availableVersion: typeof source.availableVersion === "string" && source.availableVersion ? source.availableVersion : null,
     downloadedVersion: typeof source.downloadedVersion === "string" && source.downloadedVersion ? source.downloadedVersion : null,
+    downloadUrl: typeof source.downloadUrl === "string" && source.downloadUrl ? source.downloadUrl : null,
+    releaseUrl: typeof source.releaseUrl === "string" && source.releaseUrl ? source.releaseUrl : null,
     progressPercent: Number.isFinite(Number(source.progressPercent)) ? Math.max(0, Math.min(100, Math.round(Number(source.progressPercent)))) : 0,
     lastCheckedAt: typeof source.lastCheckedAt === "string" && source.lastCheckedAt ? source.lastCheckedAt : null,
     error: source.error && typeof source.error === "object" ? source.error : null
@@ -2180,6 +2317,10 @@ function getUpdateStatusKey(nextState = appUpdateState) {
 
   if (nextState.phase === "checking" || nextState.checking) {
     return "updatesStatusChecking";
+  }
+
+  if (nextState.phase === "available") {
+    return "updatesStatusAvailable";
   }
 
   if (nextState.phase === "downloading") {
@@ -2215,7 +2356,13 @@ function getUpdateStatusTone(nextState = appUpdateState) {
 
 function getUpdateStatusText(nextState = appUpdateState) {
   const key = getUpdateStatusKey(nextState);
-  const version = nextState.downloadedVersion || nextState.availableVersion || nextState.currentVersion || "?";
+  const currentVersion = nextState.currentVersion || appRuntimeConfig.appVersion || "?";
+  const availableVersion = nextState.downloadedVersion || nextState.availableVersion || currentVersion;
+  const version = key === "updatesStatusAvailable"
+    || key === "updatesStatusDownloading"
+    || key === "updatesStatusDownloaded"
+    ? availableVersion
+    : currentVersion;
   const message = nextState.error?.message || nextState.error?.name || "Unknown error";
   return t(key, {
     version,
@@ -2231,18 +2378,23 @@ function refreshAppUpdateUi() {
 
   const nextState = normalizeAppUpdateState(appUpdateState);
   appUpdateState = nextState;
+  const currentVersion = nextState.currentVersion || appRuntimeConfig.appVersion || "?";
+  const showUpdateAction = nextState.phase === "available" || nextState.phase === "downloaded";
 
   if (updatesLabel) {
     updatesLabel.textContent = t("updatesLabel");
   }
   updatesHelp.textContent = t("updatesHelp");
+  if (updatesVersion) {
+    updatesVersion.textContent = t("updatesVersion", { version: currentVersion });
+  }
   updatesStatus.textContent = getUpdateStatusText(nextState);
   updatesStatus.dataset.tone = getUpdateStatusTone(nextState);
   checkUpdatesButton.textContent = t("checkUpdates");
-  installUpdateButton.textContent = t("installUpdate");
+  installUpdateButton.textContent = nextState.phase === "available" ? t("downloadUpdate") : t("installUpdate");
   checkUpdatesButton.disabled = !nextState.supported || nextState.checking || nextState.phase === "downloading";
-  installUpdateButton.hidden = nextState.phase !== "downloaded";
-  installUpdateButton.disabled = nextState.phase !== "downloaded";
+  installUpdateButton.hidden = !showUpdateAction;
+  installUpdateButton.disabled = !showUpdateAction;
 }
 
 async function loadAppUpdateState() {
@@ -2391,9 +2543,13 @@ function getSelectedQuickCreateKinds() {
 
 function normalizeState(input) {
   const source = input && Array.isArray(input.cards) ? input : defaultState;
+  const parsedSchemaVersion = Number(source.schemaVersion);
+  const sourceSchemaVersion = Number.isFinite(parsedSchemaVersion) && parsedSchemaVersion > 0
+    ? parsedSchemaVersion
+    : 0;
   const settings = normalizeSettings(source.settings);
   const normalized = {
-    schemaVersion: Number(source.schemaVersion) || stateSchemaVersion,
+    schemaVersion: stateSchemaVersion,
     boardId: typeof source.boardId === "string" && source.boardId.trim() ? source.boardId.trim() : defaultBoardId,
     boardName: typeof source.boardName === "string" && source.boardName.trim() ? source.boardName.trim().slice(0, 120) : defaultBoardName,
     locked: Boolean(source.locked),
@@ -2416,6 +2572,10 @@ function normalizeState(input) {
       .map((connection) => normalizeConnection(connection, settings))
       .filter((connection) => isConnectionUsable(connection, cardIds))
     : [];
+
+  if (sourceSchemaVersion < stateSchemaVersion) {
+    migrateGroupBoundConnectionPoints(normalized);
+  }
 
   normalized.viewport.zoom = clamp(Number(normalized.viewport.zoom) || 1, minZoom, maxZoom);
   normalized.viewport.x = Number(normalized.viewport.x) || 0;
@@ -2561,6 +2721,27 @@ function normalizeCard(card, settings) {
     normalized.text = typeof normalized.text === "string" ? normalized.text : "";
   }
 
+  if (normalized.kind === "code") {
+    normalized.text = typeof normalized.text === "string" ? normalized.text : "";
+    normalized.codeLanguage = typeof normalized.codeLanguage === "string" ? normalized.codeLanguage : "";
+  }
+
+  if (normalized.kind === "table") {
+    const legacyColumns = Array.isArray(card.columns) ? card.columns : [];
+    const legacyRows = Array.isArray(card.rows) ? card.rows : [];
+    const rowSource = Array.isArray(normalized.tableRows) ? normalized.tableRows : legacyRows;
+    const explicitColumns = Array.isArray(normalized.tableColumns) && normalized.tableColumns.length
+      ? normalized.tableColumns
+      : legacyColumns;
+    const maxRowLength = rowSource.reduce((maxLength, row) => {
+      const cells = Array.isArray(row?.cells) ? row.cells : Array.isArray(row) ? row : [];
+      return Math.max(maxLength, cells.length);
+    }, 0);
+    const columnCount = Math.max(explicitColumns.length || 0, maxRowLength, 1);
+    normalized.tableColumns = normalizeTableColumns(explicitColumns, columnCount);
+    normalized.tableRows = normalizeTableRows(rowSource, normalized.tableColumns.length);
+  }
+
   if (normalized.kind === "progress") {
     normalized.tasks = normalizeChecklistTasks(normalized.tasks);
     normalized.progressValue = getProgressStats(normalized).percent;
@@ -2607,9 +2788,34 @@ function normalizeConnectionAnchor(anchor = {}) {
 
   return {
     type: "point",
-    x: Number(anchor.x) || 0,
-    y: Number(anchor.y) || 0
+    ...normalizeConnectionPoint(anchor)
   };
+}
+
+function normalizeGroupPointBinding(binding = {}) {
+  if (binding?.type !== "group-body" || !binding.cardId) {
+    return null;
+  }
+
+  return {
+    type: "group-body",
+    cardId: String(binding.cardId),
+    offsetX: Number(binding.offsetX) || 0,
+    offsetY: Number(binding.offsetY) || 0
+  };
+}
+
+function normalizeConnectionPoint(point = {}) {
+  const normalized = {
+    x: Number(point.x) || 0,
+    y: Number(point.y) || 0
+  };
+  const binding = normalizeGroupPointBinding(point.binding);
+  if (binding) {
+    normalized.binding = binding;
+  }
+
+  return normalized;
 }
 
 function normalizeConnection(connection = {}, settings = state.settings) {
@@ -2629,15 +2835,151 @@ function normalizeConnection(connection = {}, settings = state.settings) {
     from: normalizeConnectionAnchor(connection.from),
     to: normalizeConnectionAnchor(connection.to),
     points: Array.isArray(connection.points)
-      ? connection.points.map((point) => ({
-        x: Number(point.x) || 0,
-        y: Number(point.y) || 0
-      }))
+      ? connection.points.map((point) => normalizeConnectionPoint(point))
       : [],
     color: customColor ? color : fallbackColor,
     customColor,
     arrowMode: allowedArrowModes.includes(connection.arrowMode) ? connection.arrowMode : "end"
   };
+}
+
+function getGroupBodyRect(group) {
+  if (!group || group.kind !== "group") {
+    return null;
+  }
+
+  const top = group.y + Math.min(group.height, groupHeaderHeight);
+  return {
+    left: group.x,
+    top,
+    right: group.x + group.width,
+    bottom: group.y + group.height
+  };
+}
+
+function isPointInsideRect(point, rect) {
+  return Boolean(
+    rect
+    && point.x >= rect.left
+    && point.x <= rect.right
+    && point.y >= rect.top
+    && point.y <= rect.bottom
+  );
+}
+
+function findGroupBodyForPoint(point, cards = state.cards, preferredGroupId = null) {
+  if (preferredGroupId) {
+    const preferredGroup = cards.find((card) => card.kind === "group" && card.id === preferredGroupId);
+    if (preferredGroup && isPointInsideRect(point, getGroupBodyRect(preferredGroup))) {
+      return preferredGroup;
+    }
+  }
+
+  for (let index = cards.length - 1; index >= 0; index -= 1) {
+    const card = cards[index];
+    if (card.kind !== "group" || card.id === preferredGroupId) {
+      continue;
+    }
+
+    if (isPointInsideRect(point, getGroupBodyRect(card))) {
+      return card;
+    }
+  }
+
+  return null;
+}
+
+function bindConnectionPointToGroup(point, cards = state.cards, preferredGroupId = null) {
+  const normalized = normalizeConnectionPoint(point);
+  const unboundPoint = {
+    x: normalized.x,
+    y: normalized.y
+  };
+  const group = findGroupBodyForPoint(normalized, cards, preferredGroupId);
+  if (!group) {
+    return unboundPoint;
+  }
+
+  const bodyRect = getGroupBodyRect(group);
+  const x = clamp(normalized.x, bodyRect.left, bodyRect.right);
+  const y = clamp(normalized.y, bodyRect.top, bodyRect.bottom);
+  return {
+    x,
+    y,
+    binding: {
+      type: "group-body",
+      cardId: group.id,
+      offsetX: clamp(x - group.x, 0, Math.max(0, bodyRect.right - bodyRect.left)),
+      offsetY: clamp(y - bodyRect.top, 0, Math.max(0, bodyRect.bottom - bodyRect.top))
+    }
+  };
+}
+
+function createConnectionPoint(point, preferredGroupId = null) {
+  return bindConnectionPointToGroup(maybeSnapPoint(point), state.cards, preferredGroupId);
+}
+
+function createConnectionPointAnchor(point, preferredGroupId = null) {
+  return {
+    type: "point",
+    ...createConnectionPoint(point, preferredGroupId)
+  };
+}
+
+function resolveConnectionPoint(point, cards = state.cards, sync = false) {
+  const normalized = normalizeConnectionPoint(point);
+  const binding = normalizeGroupPointBinding(point?.binding);
+  if (!binding) {
+    return normalized;
+  }
+
+  const group = cards.find((card) => card.kind === "group" && card.id === binding.cardId);
+  if (!group) {
+    if (sync && point?.binding) {
+      delete point.binding;
+    }
+    return normalized;
+  }
+
+  const bodyRect = getGroupBodyRect(group);
+  const offsetX = clamp(binding.offsetX, 0, Math.max(0, bodyRect.right - bodyRect.left));
+  const offsetY = clamp(binding.offsetY, 0, Math.max(0, bodyRect.bottom - bodyRect.top));
+  const resolved = {
+    x: clamp(group.x + offsetX, bodyRect.left, bodyRect.right),
+    y: clamp(bodyRect.top + offsetY, bodyRect.top, bodyRect.bottom)
+  };
+
+  if (sync && point) {
+    point.x = resolved.x;
+    point.y = resolved.y;
+    point.binding = {
+      type: "group-body",
+      cardId: group.id,
+      offsetX,
+      offsetY
+    };
+  }
+
+  return resolved;
+}
+
+function migrateGroupBoundConnectionPoints(boardState) {
+  if (!Array.isArray(boardState?.connections) || !Array.isArray(boardState?.cards) || boardState.connections.length === 0) {
+    return;
+  }
+
+  boardState.connections = boardState.connections.map((connection) => ({
+    ...connection,
+    from: connection.from?.type === "point"
+      ? { type: "point", ...bindConnectionPointToGroup(connection.from, boardState.cards, connection.from.binding?.cardId) }
+      : connection.from,
+    to: connection.to?.type === "point"
+      ? { type: "point", ...bindConnectionPointToGroup(connection.to, boardState.cards, connection.to.binding?.cardId) }
+      : connection.to,
+    points: Array.isArray(connection.points)
+      ? connection.points.map((point) => bindConnectionPointToGroup(point, boardState.cards, point.binding?.cardId))
+      : []
+  }));
 }
 
 function isConnectionUsable(connection, cardIds = new Set(state.cards.map((card) => card.id))) {
@@ -2881,6 +3223,8 @@ function applyTranslations() {
   setText("boardArchiveHelp", "boardArchiveHelp");
   setText("assetManagerLabel", "assetManager");
   setText("assetManagerHelp", "assetManagerHelp");
+  setText("autoManageAssetsOnLaunchLabel", "autoManageAssetsOnLaunch");
+  setText("autoManageAssetsOnLaunchHelp", "autoManageAssetsOnLaunchHelp");
   setText("updatesLabel", "updatesLabel");
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
@@ -2889,6 +3233,8 @@ function applyTranslations() {
   setText("bodyColorColumnLabel", "bodyColor");
   [
     ["noteColorRuleLabel", "note"],
+    ["codeColorRuleLabel", "code"],
+    ["tableColorRuleLabel", "table"],
     ["tasksColorRuleLabel", "tasks"],
     ["scheduleColorRuleLabel", "schedule"],
     ["bookmarkColorRuleLabel", "bookmark"],
@@ -2946,6 +3292,9 @@ function applyTranslations() {
   }
   if (updatesHelp) {
     updatesHelp.textContent = t("updatesHelp");
+  }
+  if (updatesVersion) {
+    updatesVersion.textContent = t("updatesVersion", { version: appRuntimeConfig.appVersion || appUpdateState.currentVersion || "?" });
   }
   refreshBoardsManagerUi();
   renderQuickCreateSettings();
@@ -3198,6 +3547,23 @@ function getCardTextParts(card) {
     parts.push(String(card.timerDurationMinutes || defaultTimerDurationMinutes));
   }
 
+  if (card.kind === "code") {
+    parts.push(card.codeLanguage || "");
+  }
+
+  if (card.kind === "table") {
+    if (Array.isArray(card.tableColumns)) {
+      parts.push(...card.tableColumns.map((column) => column.title || ""));
+    }
+    if (Array.isArray(card.tableRows)) {
+      card.tableRows.forEach((row) => {
+        if (Array.isArray(row.cells)) {
+          parts.push(...row.cells);
+        }
+      });
+    }
+  }
+
   if (card.kind === "file") {
     parts.push(card.originalName || "", card.assetRelativePath || "");
   }
@@ -3373,8 +3739,12 @@ function syncAutoSizedFields(cardElement) {
     return;
   }
 
-  cardElement.querySelectorAll(".task-text-input, .schedule-note-input").forEach((field) => {
-    const minHeight = field.classList.contains("schedule-note-input") ? 40 : 28;
+  cardElement.querySelectorAll(".task-text-input, .schedule-note-input, .table-cell-input").forEach((field) => {
+    const minHeight = field.classList.contains("schedule-note-input")
+      ? 40
+      : field.classList.contains("table-cell-input")
+        ? 34
+        : 28;
     field.style.height = "0px";
     field.style.height = `${Math.max(field.scrollHeight, minHeight)}px`;
   });
@@ -3601,6 +3971,10 @@ function renderCardBody(card) {
     return renderBookmarks(card);
   }
 
+  if (card.kind === "table") {
+    return renderSimpleTable(card);
+  }
+
   if (card.kind === "progress") {
     return renderProgress(card);
   }
@@ -3640,6 +4014,10 @@ function renderCardBody(card) {
     return hint;
   }
 
+  if (card.kind === "code") {
+    return renderCodeSnippet(card);
+  }
+
   const textarea = document.createElement("textarea");
   textarea.className = "note-text";
   textarea.value = card.text || "";
@@ -3651,6 +4029,217 @@ function renderCardBody(card) {
   });
 
   return textarea;
+}
+
+function insertTextareaText(textarea, text) {
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const end = textarea.selectionEnd ?? textarea.value.length;
+  const value = textarea.value || "";
+  textarea.value = `${value.slice(0, start)}${text}${value.slice(end)}`;
+  const caret = start + text.length;
+  textarea.selectionStart = caret;
+  textarea.selectionEnd = caret;
+}
+
+function handleCodeEditorKeydown(event, card, textarea) {
+  if (state.locked || event.key !== "Tab") {
+    return;
+  }
+
+  event.preventDefault();
+  insertTextareaText(textarea, "  ");
+  card.text = textarea.value;
+  scheduleSave();
+}
+
+function renderCodeSnippet(card) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "code-card";
+
+  const languageInput = document.createElement("input");
+  languageInput.type = "text";
+  languageInput.className = "card-field code-language-input";
+  languageInput.placeholder = t("codeLanguagePlaceholder");
+  languageInput.value = card.codeLanguage || "";
+  languageInput.readOnly = state.locked;
+  languageInput.setAttribute("aria-label", t("codeLanguage"));
+  languageInput.addEventListener("input", () => {
+    card.codeLanguage = languageInput.value.trim();
+    scheduleSave();
+  });
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "code-text";
+  textarea.value = card.text || "";
+  textarea.placeholder = t("codePlaceholder");
+  textarea.readOnly = state.locked;
+  textarea.spellcheck = false;
+  textarea.wrap = "off";
+  textarea.addEventListener("input", () => {
+    card.text = textarea.value;
+    scheduleSave();
+  });
+  textarea.addEventListener("keydown", (event) => handleCodeEditorKeydown(event, card, textarea));
+
+  wrapper.append(languageInput, textarea);
+  return wrapper;
+}
+
+function renderSimpleTable(card) {
+  const columns = normalizeTableColumns(card.tableColumns, 1);
+  const rows = normalizeTableRows(card.tableRows, columns.length);
+  card.tableColumns = columns;
+  card.tableRows = rows;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "table-card";
+
+  const scroll = document.createElement("div");
+  scroll.className = "table-scroll";
+
+  const table = document.createElement("table");
+  table.className = "simple-table-grid";
+
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  columns.forEach((column, index) => {
+    const cell = document.createElement("th");
+
+    const headerCell = document.createElement("div");
+    headerCell.className = "table-header-cell";
+
+    const titleInput = document.createElement("input");
+    titleInput.type = "text";
+    titleInput.className = "card-field table-column-input";
+    titleInput.value = column.title || "";
+    titleInput.placeholder = `${t("tableColumnPlaceholder")} ${index + 1}`;
+    titleInput.readOnly = state.locked;
+    titleInput.addEventListener("input", () => {
+      column.title = titleInput.value;
+      scheduleSave();
+    });
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "table-column-remove";
+    removeButton.textContent = "x";
+    removeButton.title = t("removeTableColumn");
+    removeButton.disabled = state.locked || columns.length <= 1;
+    removeButton.addEventListener("click", () => {
+      if (state.locked || columns.length <= 1) {
+        return;
+      }
+      ensureEditMode();
+      card.tableColumns = columns.filter((item) => item.id !== column.id);
+      card.tableRows = rows.map((row) => ({
+        ...row,
+        cells: row.cells.filter((_, cellIndex) => cellIndex !== index)
+      }));
+      render();
+      scheduleSave();
+    });
+
+    headerCell.append(titleInput, removeButton);
+    cell.appendChild(headerCell);
+    headRow.appendChild(cell);
+  });
+
+  const actionsHead = document.createElement("th");
+  actionsHead.className = "table-action-head";
+  headRow.appendChild(actionsHead);
+  head.appendChild(headRow);
+
+  const body = document.createElement("tbody");
+  if (!rows.length) {
+    const emptyRow = document.createElement("tr");
+    const emptyCell = document.createElement("td");
+    emptyCell.className = "table-empty";
+    emptyCell.colSpan = columns.length + 1;
+    emptyCell.textContent = t("tableEmpty");
+    emptyRow.appendChild(emptyCell);
+    body.appendChild(emptyRow);
+  } else {
+    rows.forEach((row) => {
+      const rowElement = document.createElement("tr");
+      row.cells.forEach((cellValue, cellIndex) => {
+        const cell = document.createElement("td");
+        const textarea = document.createElement("textarea");
+        textarea.className = "table-cell-input";
+        textarea.rows = 1;
+        textarea.value = cellValue || "";
+        textarea.placeholder = t("tableCellPlaceholder");
+        textarea.readOnly = state.locked;
+        textarea.spellcheck = true;
+        const resizeCell = autoGrowTextarea(textarea, 34);
+        textarea.addEventListener("input", () => {
+          row.cells[cellIndex] = textarea.value;
+          resizeCell();
+          scheduleSave();
+        });
+        cell.appendChild(textarea);
+        rowElement.appendChild(cell);
+      });
+
+      const actionCell = document.createElement("td");
+      actionCell.className = "table-action-cell";
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "table-row-remove";
+      removeButton.textContent = "x";
+      removeButton.title = t("removeTableRow");
+      removeButton.disabled = state.locked;
+      removeButton.addEventListener("click", () => {
+        if (state.locked) {
+          return;
+        }
+        ensureEditMode();
+        card.tableRows = rows.filter((item) => item.id !== row.id);
+        render();
+        scheduleSave();
+      });
+      actionCell.appendChild(removeButton);
+      rowElement.appendChild(actionCell);
+      body.appendChild(rowElement);
+    });
+  }
+
+  table.append(head, body);
+  scroll.appendChild(table);
+
+  const actions = document.createElement("div");
+  actions.className = "table-actions";
+
+  const addRowButton = document.createElement("button");
+  addRowButton.type = "button";
+  addRowButton.textContent = t("addTableRow");
+  addRowButton.disabled = state.locked;
+  addRowButton.addEventListener("click", () => {
+    ensureEditMode();
+    card.tableRows = [...rows, createTableRow({}, columns.length)];
+    growCardHeight(card, 44);
+    render();
+    scheduleSave();
+  });
+
+  const addColumnButton = document.createElement("button");
+  addColumnButton.type = "button";
+  addColumnButton.textContent = t("addTableColumn");
+  addColumnButton.disabled = state.locked;
+  addColumnButton.addEventListener("click", () => {
+    ensureEditMode();
+    const nextIndex = columns.length;
+    card.tableColumns = [...columns, createTableColumn({}, nextIndex)];
+    card.tableRows = rows.map((row) => ({
+      ...row,
+      cells: [...row.cells, ""]
+    }));
+    render();
+    scheduleSave();
+  });
+
+  actions.append(addRowButton, addColumnButton);
+  wrapper.append(scroll, actions);
+  return wrapper;
 }
 
 function createMetaChip(className, text, onClick = null) {
@@ -5190,10 +5779,7 @@ function getConnectionAnchorBase(anchor) {
     };
   }
 
-  return {
-    x: Number(anchor.x) || 0,
-    y: Number(anchor.y) || 0
-  };
+  return resolveConnectionPoint(anchor, state.cards, true);
 }
 
 function resolveConnectionAnchor(anchor, towardPoint) {
@@ -5229,7 +5815,9 @@ function resolveConnectionAnchor(anchor, towardPoint) {
 }
 
 function getConnectionRoutePoints(connection) {
-  const waypoints = Array.isArray(connection.points) ? connection.points : [];
+  const waypoints = Array.isArray(connection.points)
+    ? connection.points.map((point) => resolveConnectionPoint(point, state.cards, true))
+    : [];
   const fromBase = getConnectionAnchorBase(connection.from);
   const toBase = getConnectionAnchorBase(connection.to);
   if (!fromBase || !toBase) {
@@ -5338,8 +5926,8 @@ function getWaypointInsertIndex(connection, point) {
 
 function addWaypointToConnection(connection, point) {
   ensureEditMode();
-  const snappedPoint = maybeSnapPoint(point);
-  connection.points.splice(getWaypointInsertIndex(connection, snappedPoint), 0, snappedPoint);
+  const nextPoint = createConnectionPoint(point);
+  connection.points.splice(getWaypointInsertIndex(connection, nextPoint), 0, nextPoint);
   selectedConnectionId = connection.id;
   renderConnections();
   scheduleSave();
@@ -5517,25 +6105,17 @@ function renderConnections() {
 }
 
 function anchorFromPointerEvent(event) {
-  const world = maybeSnapPoint(screenToWorld(event.clientX, event.clientY));
+  const world = screenToWorld(event.clientX, event.clientY);
   const element = event.target.closest(".card");
 
   if (!element) {
-    return {
-      type: "point",
-      x: world.x,
-      y: world.y
-    };
+    return createConnectionPointAnchor(world);
   }
 
   const card = state.cards.find((item) => item.id === element.dataset.id);
   const startsOnGroupBody = card?.kind === "group" && Boolean(event.target.closest(".card-body"));
   if (!card || startsOnGroupBody) {
-    return {
-      type: "point",
-      x: world.x,
-      y: world.y
-    };
+    return createConnectionPointAnchor(world, startsOnGroupBody ? card.id : null);
   }
 
   return {
@@ -5578,15 +6158,12 @@ function startConnectionFromAnchor(anchor) {
   ensureEditMode();
   clearSelection();
   closeContextMenu();
+  const normalizedAnchor = normalizeConnectionAnchor(anchor);
   connectionMode = true;
-  const point = maybeSnapPoint(getConnectionAnchorBase(anchor) || getVisibleWorldCenter());
+  const point = getConnectionAnchorBase(normalizedAnchor) || getVisibleWorldCenter();
   connectionDraft = {
-    from: anchor,
-    to: {
-      type: "point",
-      x: point.x,
-      y: point.y
-    },
+    from: normalizedAnchor,
+    to: createConnectionPointAnchor(point),
     color: getConnectionColor(),
     arrowMode: "end"
   };
@@ -5611,10 +6188,7 @@ function handleConnectionPointerDown(event) {
   if (!connectionDraft) {
     connectionDraft = {
       from: anchor,
-      to: anchor.type === "point" ? anchor : {
-        type: "point",
-        ...maybeSnapPoint(screenToWorld(event.clientX, event.clientY))
-      },
+      to: anchor.type === "point" ? anchor : createConnectionPointAnchor(screenToWorld(event.clientX, event.clientY)),
       color: getConnectionColor(),
       arrowMode: "end"
     };
@@ -5648,10 +6222,7 @@ function handleConnectionPointerMove(event) {
     return;
   }
 
-  connectionDraft.to = {
-    type: "point",
-    ...maybeSnapPoint(screenToWorld(event.clientX, event.clientY))
-  };
+  connectionDraft.to = createConnectionPointAnchor(screenToWorld(event.clientX, event.clientY));
   renderConnections();
 }
 
@@ -5968,7 +6539,11 @@ function updateActiveAction(event) {
   }
 
   if (activeAction.type === "waypoint") {
-    const point = maybeSnapPoint(screenToWorld(event.clientX, event.clientY));
+    const currentPoint = activeAction.connection.points[activeAction.pointIndex];
+    const point = createConnectionPoint(
+      screenToWorld(event.clientX, event.clientY),
+      currentPoint?.binding?.cardId || null
+    );
     activeAction.connection.points[activeAction.pointIndex] = point;
     renderConnections();
     return;
@@ -6132,7 +6707,21 @@ function addCard(kind, worldPoint = null) {
     customBodyColor: false
   };
 
-  if (kind === "tasks") {
+  if (kind === "code") {
+    state.cards.push({
+      ...base,
+      title: t("newCode"),
+      codeLanguage: "",
+      text: ""
+    });
+  } else if (kind === "table") {
+    state.cards.push({
+      ...base,
+      title: t("newTable"),
+      tableColumns: normalizeTableColumns([], 3),
+      tableRows: Array.from({ length: 3 }, () => createTableRow({}, 3))
+    });
+  } else if (kind === "tasks") {
     state.cards.push({
       ...base,
       title: t("newList"),
@@ -6959,6 +7548,14 @@ function duplicateCard(card) {
     copy.scheduleEntries = copy.scheduleEntries.map((entry) => ({ ...entry, id: createId("schedule-item") }));
   }
 
+  if (Array.isArray(copy.tableColumns)) {
+    copy.tableColumns = copy.tableColumns.map((column, index) => createTableColumn({ ...column, id: "" }, index));
+  }
+
+  if (Array.isArray(copy.tableRows)) {
+    copy.tableRows = copy.tableRows.map((row) => createTableRow({ ...row, id: "" }, copy.tableColumns?.length || row.cells?.length || 1));
+  }
+
   if (copy.kind === "timer") {
     copy.timerRemainingMs = getTimerRemainingMs(card);
     copy.timerEndsAt = null;
@@ -7265,7 +7862,7 @@ function renderBoardContextMenu(worldPoint) {
 
   sections.push(
     createContextSection([
-      createContextButton(t("connectFromHere"), () => startConnectionFromAnchor({ type: "point", x: worldPoint.x, y: worldPoint.y })),
+      createContextButton(t("connectFromHere"), () => startConnectionFromAnchor(createConnectionPointAnchor(worldPoint))),
       createContextButton(t("settings"), () => {
         closeContextMenu();
         openSettings();
@@ -7544,6 +8141,53 @@ async function cleanupAssetsFromSettings() {
   }
 }
 
+async function maybeRunStartupAssetMaintenance() {
+  if (startupAssetMaintenanceStarted || appRuntimeConfig.autoManageAssetsOnLaunch !== true) {
+    return;
+  }
+  if (!window.desktopBoard?.analyzeAssets) {
+    return;
+  }
+
+  startupAssetMaintenanceStarted = true;
+  assetManagerState.analyzing = true;
+  assetManagerState.statusMessage = t("assetScanRunning");
+  assetManagerState.statusTone = "muted";
+  refreshAssetManagerUi();
+
+  try {
+    const analysis = await window.desktopBoard.analyzeAssets(state);
+    assetManagerState.analysis = analysis;
+    assetManagerState.analyzing = false;
+
+    if (Number(analysis?.unusedAssetCount || 0) > 0 && window.desktopBoard?.cleanupAssets) {
+      assetManagerState.cleaning = true;
+      assetManagerState.statusMessage = t("assetCleanupRunning");
+      assetManagerState.statusTone = "muted";
+      refreshAssetManagerUi();
+
+      const result = await window.desktopBoard.cleanupAssets(state);
+      assetManagerState.analysis = result?.analysis || analysis;
+      assetManagerState.statusMessage = t("assetCleanupDone", {
+        count: Number(result?.removedCount || 0),
+        size: formatFileSize(result?.removedBytes || 0)
+      });
+      assetManagerState.statusTone = "";
+    } else {
+      assetManagerState.statusMessage = "";
+      assetManagerState.statusTone = "";
+    }
+  } catch (error) {
+    reportError("assets.startupMaintenance", error);
+    assetManagerState.statusMessage = t("assetCleanupFailed");
+    assetManagerState.statusTone = "error";
+  } finally {
+    assetManagerState.analyzing = false;
+    assetManagerState.cleaning = false;
+    refreshAssetManagerUi();
+  }
+}
+
 async function saveSettings() {
   ensureEditMode();
   const nextColors = Object.fromEntries(
@@ -7582,7 +8226,8 @@ async function saveSettings() {
     try {
       appRuntimeConfig = await window.desktopBoard.updateAppConfig({
         diagnosticsEnabled: diagnosticsEnabledInput.checked,
-        autoStartEnabled: autoStartWithWindowsInput?.checked === true
+        autoStartEnabled: autoStartWithWindowsInput?.checked === true,
+        autoManageAssetsOnLaunch: autoManageAssetsOnLaunchInput?.checked === true
       });
       refreshAppConfigUi();
     } catch (error) {
@@ -7929,6 +8574,7 @@ loadSystemTheme().then(loadAppRuntimeConfig).then(loadAppUpdateState).then(loadS
   applySystemTheme(currentSystemTheme);
   render();
   saveState();
+  void maybeRunStartupAssetMaintenance();
   void loadBoardsList();
 }).catch((error) => {
   reportError("app.init", error);
