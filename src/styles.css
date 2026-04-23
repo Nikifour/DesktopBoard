@@ -393,6 +393,13 @@ button:active {
   cursor: grabbing;
 }
 
+.connection-waypoint-auto {
+  fill: color-mix(in srgb, var(--system-accent) 34%, var(--system-panel-strong));
+  stroke: color-mix(in srgb, var(--system-accent) 72%, transparent);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
 .card {
   --card-header-color: var(--yellow);
   --card-body-color: #ffffff;

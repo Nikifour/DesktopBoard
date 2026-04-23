@@ -1,4 +1,5 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, screen, dialog, nativeTheme, systemPreferences, shell, Notification, Tray, Menu } = require("electron");
+const { spawn } = require("child_process");
 const crypto = require("crypto");
 const fsSync = require("fs");
 const fs = require("fs/promises");
@@ -23,6 +24,7 @@ let lastKnownState = null;
 let autoUpdateTimer = null;
 let autoUpdaterInitialized = false;
 let autoUpdateState = null;
+let manualUpdateDownloadPromise = null;
 let tray = null;
 let isQuitting = false;
 let trayBalloonShown = false;
@@ -831,6 +833,241 @@ async function fetchLatestGitHubRelease() {
   throw lastError || new Error("Could not load the latest GitHub release.");
 }
 
+function getUpdateDownloadDirectory() {
+  return path.join(app.getPath("userData"), "updates");
+}
+
+function buildManualUpdateFileName(assetName, version) {
+  const extension = path.extname(String(assetName || "")).trim() || ".exe";
+  const rawBaseName = path.parse(String(assetName || "")).name || `Desktop Board Setup ${version || "latest"}`;
+  const baseName = sanitizeStoredAssetBaseName(rawBaseName, `Desktop Board Setup ${version || "latest"}`, extension);
+  const safeVersion = normalizeReleaseVersion(version) || "latest";
+  return `${baseName}-${safeVersion}${extension}`;
+}
+
+function getManualUpdateFilePath(assetName, version) {
+  return path.join(getUpdateDownloadDirectory(), buildManualUpdateFileName(assetName, version));
+}
+
+async function isMatchingDownloadedUpdate(filePath, expectedSize = null) {
+  if (!filePath || !await pathExists(filePath)) {
+    return false;
+  }
+
+  if (!Number.isFinite(Number(expectedSize)) || Number(expectedSize) <= 0) {
+    return true;
+  }
+
+  try {
+    const stats = await fs.stat(filePath);
+    return stats.size === Number(expectedSize);
+  } catch {
+    return false;
+  }
+}
+
+async function cleanupStaleUpdateFiles(activeFilePath = null) {
+  const updatesDirectory = getUpdateDownloadDirectory();
+  if (!await pathExists(updatesDirectory)) {
+    return;
+  }
+
+  const activeResolvedPath = activeFilePath ? path.resolve(activeFilePath) : null;
+  const entries = await fs.readdir(updatesDirectory, { withFileTypes: true });
+  await Promise.all(entries.map(async (entry) => {
+    if (!entry.isFile()) {
+      return;
+    }
+
+    const entryPath = path.join(updatesDirectory, entry.name);
+    if (activeResolvedPath && path.resolve(entryPath) === activeResolvedPath) {
+      return;
+    }
+
+    await removeFileIfExists(entryPath);
+  }));
+}
+
+async function downloadFileWithProgress(url, destinationPath, onProgress = () => {}) {
+  const tempPath = `${destinationPath}.download`;
+  await ensureDirectory(path.dirname(destinationPath));
+  await removeFileIfExists(tempPath);
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": `DesktopBoard/${app.getVersion()}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} ${response.statusText}`.trim());
+  }
+
+  const totalBytes = Number.parseInt(response.headers.get("content-length") || "", 10);
+  const writer = fsSync.createWriteStream(tempPath);
+
+  try {
+    if (!response.body?.getReader) {
+      const buffer = Buffer.from(await response.arrayBuffer());
+      await fs.writeFile(tempPath, buffer);
+      onProgress(100);
+    } else {
+      const reader = response.body.getReader();
+      let receivedBytes = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        const chunk = Buffer.from(value);
+        receivedBytes += chunk.length;
+        if (!writer.write(chunk)) {
+          await new Promise((resolve) => writer.once("drain", resolve));
+        }
+
+        if (totalBytes > 0) {
+          onProgress((receivedBytes / totalBytes) * 100);
+        }
+      }
+
+      if (totalBytes <= 0) {
+        onProgress(100);
+      }
+    }
+
+    await new Promise((resolve, reject) => {
+      writer.once("finish", resolve);
+      writer.once("error", reject);
+      writer.end();
+    });
+
+    await removeFileIfExists(destinationPath);
+    await fs.rename(tempPath, destinationPath);
+  } catch (error) {
+    writer.destroy();
+    await removeFileIfExists(tempPath);
+    throw error;
+  }
+}
+
+async function beginManualUpdateDownload(downloadInfo = {}, source = "manualFallback") {
+  const availableVersion = normalizeReleaseVersion(downloadInfo.version);
+  const downloadUrl = String(downloadInfo.downloadUrl || "").trim();
+  const releaseUrl = String(downloadInfo.releaseUrl || "").trim() || downloadUrl || null;
+  const assetName = String(downloadInfo.assetName || "").trim() || `Desktop-Board-Setup-${availableVersion || "latest"}.exe`;
+  const assetSize = Number(downloadInfo.assetSizeBytes);
+
+  if (!availableVersion || !downloadUrl) {
+    return false;
+  }
+
+  if (manualUpdateDownloadPromise) {
+    return true;
+  }
+
+  const downloadedFilePath = getManualUpdateFilePath(assetName, availableVersion);
+  if (await isMatchingDownloadedUpdate(downloadedFilePath, assetSize)) {
+    await cleanupStaleUpdateFiles(downloadedFilePath);
+    setAutoUpdateState({
+      checking: false,
+      phase: "downloaded",
+      availableVersion,
+      downloadedVersion: availableVersion,
+      progressPercent: 100,
+      downloadUrl,
+      releaseUrl,
+      downloadAssetName: assetName,
+      downloadSizeBytes: Number.isFinite(assetSize) ? assetSize : null,
+      downloadStrategy: "manual",
+      downloadedFilePath,
+      error: null,
+      lastCheckedAt: new Date().toISOString()
+    });
+    void promptInstallDownloadedUpdate(availableVersion);
+    return true;
+  }
+
+  setAutoUpdateState({
+    checking: false,
+    phase: "downloading",
+    availableVersion,
+    downloadedVersion: null,
+    progressPercent: 0,
+    downloadUrl,
+    releaseUrl,
+    downloadAssetName: assetName,
+    downloadSizeBytes: Number.isFinite(assetSize) ? assetSize : null,
+    downloadStrategy: "manual",
+    downloadedFilePath: null,
+    error: null,
+    lastCheckedAt: new Date().toISOString()
+  });
+
+  manualUpdateDownloadPromise = (async () => {
+    try {
+      await cleanupStaleUpdateFiles(downloadedFilePath);
+      await downloadFileWithProgress(downloadUrl, downloadedFilePath, (percent) => {
+        setAutoUpdateState({
+          checking: false,
+          phase: "downloading",
+          progressPercent: Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0
+        });
+      });
+
+      setAutoUpdateState({
+        checking: false,
+        phase: "downloaded",
+        availableVersion,
+        downloadedVersion: availableVersion,
+        progressPercent: 100,
+        downloadUrl,
+        releaseUrl,
+        downloadAssetName: assetName,
+        downloadSizeBytes: Number.isFinite(assetSize) ? assetSize : null,
+        downloadStrategy: "manual",
+        downloadedFilePath,
+        error: null,
+        lastCheckedAt: new Date().toISOString()
+      });
+      await logEvent("info", "updates.manualDownloaded", "Downloaded installer via GitHub release asset", {
+        source,
+        availableVersion,
+        assetName
+      });
+      void promptInstallDownloadedUpdate(availableVersion);
+      return true;
+    } catch (error) {
+      await logError("updates.manualDownload", error, {
+        source,
+        availableVersion,
+        url: downloadUrl
+      });
+      setAutoUpdateState({
+        checking: false,
+        phase: "available",
+        availableVersion,
+        downloadedVersion: null,
+        progressPercent: 0,
+        downloadUrl,
+        releaseUrl,
+        downloadAssetName: assetName,
+        downloadSizeBytes: Number.isFinite(assetSize) ? assetSize : null,
+        downloadStrategy: "manual",
+        downloadedFilePath: null,
+        error: null,
+        lastCheckedAt: new Date().toISOString()
+      });
+      return false;
+    } finally {
+      manualUpdateDownloadPromise = null;
+    }
+  })();
+
+  return true;
+}
+
 async function applyGitHubReleaseFallback(source = "manual", originalError = null) {
   const githubConfig = getGitHubPublishConfig();
   if (!githubConfig) {
@@ -842,6 +1079,8 @@ async function applyGitHubReleaseFallback(source = "manual", originalError = nul
     const currentVersion = app.getVersion();
     const installerUrl = release.installerAsset?.browser_download_url || "";
     const releaseUrl = release.htmlUrl || installerUrl || "";
+    const installerAssetName = release.installerAsset?.name || null;
+    const installerAssetSize = Number(release.installerAsset?.size);
     const hasUpdate = release.version && compareVersions(release.version, currentVersion) > 0;
 
     if (hasUpdate) {
@@ -854,7 +1093,11 @@ async function applyGitHubReleaseFallback(source = "manual", originalError = nul
         error: null,
         lastCheckedAt: new Date().toISOString(),
         downloadUrl: installerUrl || releaseUrl || null,
-        releaseUrl: releaseUrl || null
+        releaseUrl: releaseUrl || null,
+        downloadAssetName: installerAssetName,
+        downloadSizeBytes: Number.isFinite(installerAssetSize) ? installerAssetSize : null,
+        downloadStrategy: installerUrl ? "manual" : null,
+        downloadedFilePath: null
       });
       await logEvent("info", "updates.githubFallback", "Resolved update via GitHub release API", {
         source,
@@ -862,6 +1105,15 @@ async function applyGitHubReleaseFallback(source = "manual", originalError = nul
         availableVersion: release.version,
         hadOriginalError: Boolean(originalError)
       });
+      if (installerUrl) {
+        void beginManualUpdateDownload({
+          version: release.version,
+          downloadUrl: installerUrl,
+          releaseUrl,
+          assetName: installerAssetName,
+          assetSizeBytes: installerAssetSize
+        }, source);
+      }
       return true;
     }
 
@@ -870,12 +1122,16 @@ async function applyGitHubReleaseFallback(source = "manual", originalError = nul
       phase: "idle",
       availableVersion: null,
       downloadedVersion: null,
-      progressPercent: 0,
-      error: null,
-      lastCheckedAt: new Date().toISOString(),
-      downloadUrl: installerUrl || null,
-      releaseUrl: releaseUrl || null
-    });
+        progressPercent: 0,
+        error: null,
+        lastCheckedAt: new Date().toISOString(),
+        downloadUrl: installerUrl || null,
+        releaseUrl: releaseUrl || null,
+        downloadAssetName: installerAssetName,
+        downloadSizeBytes: Number.isFinite(installerAssetSize) ? installerAssetSize : null,
+        downloadStrategy: null,
+        downloadedFilePath: null
+      });
     await logEvent("info", "updates.githubFallback", "Checked GitHub release API and found no newer version", {
       source,
       currentVersion,
@@ -932,6 +1188,10 @@ function createAutoUpdateState(overrides = {}) {
     lastCheckedAt: null,
     downloadUrl: null,
     releaseUrl: null,
+    downloadAssetName: null,
+    downloadSizeBytes: null,
+    downloadStrategy: null,
+    downloadedFilePath: null,
     error: null,
     ...overrides
   };
@@ -1643,8 +1903,7 @@ async function promptInstallDownloadedUpdate(version) {
   });
 
   if (result.response === 0) {
-    autoUpdater.quitAndInstall(false, true);
-    return true;
+    return installDownloadedUpdate();
   }
 
   return false;
@@ -1658,19 +1917,10 @@ async function checkForAppUpdates(source = "manual") {
   setAutoUpdateState({
     checking: true,
     phase: "checking",
+    progressPercent: 0,
     error: null
   });
   void logEvent("info", "updates.check", "Checking for updates", { source });
-
-  const prefersGitHubReleaseApi = Boolean(getGitHubPublishConfig())
-    && ["manual", "startup", "scheduled"].includes(source);
-
-  if (prefersGitHubReleaseApi) {
-    const didResolveViaGitHub = await applyGitHubReleaseFallback(source);
-    if (didResolveViaGitHub) {
-      return getAutoUpdateStateForRenderer();
-    }
-  }
 
   if (!autoUpdaterInitialized) {
     const didFallback = await applyGitHubReleaseFallback(source);
@@ -1753,8 +2003,13 @@ async function initializeAutoUpdater() {
     setAutoUpdateState({
       checking: true,
       phase: "checking",
+      progressPercent: 0,
       downloadUrl: null,
       releaseUrl: null,
+      downloadAssetName: null,
+      downloadSizeBytes: null,
+      downloadStrategy: "autoUpdater",
+      downloadedFilePath: null,
       error: null
     });
   });
@@ -1764,13 +2019,17 @@ async function initializeAutoUpdater() {
       checking: false,
       phase: "downloading",
       availableVersion: info?.version || null,
-      downloadedVersion: null,
-      progressPercent: 0,
-      downloadUrl: null,
-      releaseUrl: null,
-      error: null,
-      lastCheckedAt: new Date().toISOString()
-    });
+        downloadedVersion: null,
+        progressPercent: 0,
+        downloadUrl: null,
+        releaseUrl: null,
+        downloadAssetName: null,
+        downloadSizeBytes: null,
+        downloadStrategy: "autoUpdater",
+        downloadedFilePath: null,
+        error: null,
+        lastCheckedAt: new Date().toISOString()
+      });
     void logEvent("info", "updates.available", "Update available", {
       version: info?.version || ""
     });
@@ -1788,14 +2047,18 @@ async function initializeAutoUpdater() {
     setAutoUpdateState({
       checking: false,
       phase: "idle",
-      availableVersion: info?.version || null,
-      downloadedVersion: null,
-      progressPercent: 0,
-      downloadUrl: null,
-      releaseUrl: null,
-      error: null,
-      lastCheckedAt: new Date().toISOString()
-    });
+        availableVersion: info?.version || null,
+        downloadedVersion: null,
+        progressPercent: 0,
+        downloadUrl: null,
+        releaseUrl: null,
+        downloadAssetName: null,
+        downloadSizeBytes: null,
+        downloadStrategy: null,
+        downloadedFilePath: null,
+        error: null,
+        lastCheckedAt: new Date().toISOString()
+      });
     void logEvent("info", "updates.none", "No updates available", {
       version: info?.version || ""
     });
@@ -1805,14 +2068,18 @@ async function initializeAutoUpdater() {
     setAutoUpdateState({
       checking: false,
       phase: "downloaded",
-      downloadedVersion: info?.version || null,
-      availableVersion: info?.version || null,
-      progressPercent: 100,
-      downloadUrl: null,
-      releaseUrl: null,
-      error: null,
-      lastCheckedAt: new Date().toISOString()
-    });
+        downloadedVersion: info?.version || null,
+        availableVersion: info?.version || null,
+        progressPercent: 100,
+        downloadUrl: null,
+        releaseUrl: null,
+        downloadAssetName: null,
+        downloadSizeBytes: null,
+        downloadStrategy: "autoUpdater",
+        downloadedFilePath: null,
+        error: null,
+        lastCheckedAt: new Date().toISOString()
+      });
     void logEvent("info", "updates.downloaded", "Update downloaded", {
       version: info?.version || ""
     });
@@ -1837,6 +2104,16 @@ async function initializeAutoUpdater() {
 }
 
 async function installDownloadedUpdate() {
+  if (autoUpdateState?.phase === "available" && autoUpdateState?.downloadStrategy === "manual" && autoUpdateState?.downloadUrl) {
+    return beginManualUpdateDownload({
+      version: autoUpdateState.availableVersion,
+      downloadUrl: autoUpdateState.downloadUrl,
+      releaseUrl: autoUpdateState.releaseUrl,
+      assetName: autoUpdateState.downloadAssetName,
+      assetSizeBytes: autoUpdateState.downloadSizeBytes
+    }, "manualAction");
+  }
+
   if (autoUpdateState?.phase !== "downloaded") {
     const targetUrl = autoUpdateState?.downloadUrl || autoUpdateState?.releaseUrl || "";
     if (autoUpdateState?.phase === "available" && targetUrl) {
@@ -1848,6 +2125,31 @@ async function installDownloadedUpdate() {
       return true;
     }
     return false;
+  }
+
+  if (autoUpdateState?.downloadStrategy === "manual" && autoUpdateState?.downloadedFilePath) {
+    try {
+      const installerPath = autoUpdateState.downloadedFilePath;
+      const childProcess = spawn(installerPath, [], {
+        detached: true,
+        stdio: "ignore",
+        windowsHide: false
+      });
+      childProcess.unref();
+      await logEvent("info", "updates.installManual", "Launched downloaded installer", {
+        version: autoUpdateState.downloadedVersion || autoUpdateState.availableVersion || "",
+        filePath: installerPath
+      });
+      isQuitting = true;
+      app.quit();
+      return true;
+    } catch (error) {
+      await logError("updates.installManual", error, {
+        version: autoUpdateState.downloadedVersion || autoUpdateState.availableVersion || "",
+        filePath: autoUpdateState.downloadedFilePath || ""
+      });
+      throw error;
+    }
   }
 
   autoUpdater.quitAndInstall(false, true);

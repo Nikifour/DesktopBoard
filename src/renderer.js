@@ -198,6 +198,11 @@ const historyLimit = 100;
 const svgNamespace = "http://www.w3.org/2000/svg";
 const connectionCanvasOffset = 100000;
 const connectionCanvasSize = 200000;
+const connectionRouteObstaclePadding = 12;
+const connectionRouteLaneOffset = 12;
+const connectionRouteSearchPadding = gridSize * 8;
+const connectionRouteBoundsPadding = gridSize * 3;
+const connectionRouteTurnPenalty = gridSize * 1.5;
 
 const cardTypeRegistry = [
   {
@@ -6126,26 +6131,74 @@ function resolveConnectionAnchor(anchor, towardPoint) {
   };
 }
 
-function getConnectionRoutePoints(connection) {
-  const waypoints = Array.isArray(connection.points)
-    ? connection.points.map((point) => resolveConnectionPoint(point, state.cards, true))
-    : [];
+function pointEquals(first, second, epsilon = 0.001) {
+  return Boolean(
+    first
+    && second
+    && Math.abs(first.x - second.x) <= epsilon
+    && Math.abs(first.y - second.y) <= epsilon
+  );
+}
+
+function getConnectionBoundCardId(source) {
+  if (!source) {
+    return null;
+  }
+
+  if (source.type === "card" && source.cardId) {
+    return source.cardId;
+  }
+
+  if (source.binding?.type === "group-body" && source.binding.cardId) {
+    return source.binding.cardId;
+  }
+
+  return null;
+}
+
+function createConnectionRouteNode(point, kind = "auto", options = {}) {
+  return {
+    x: Number(point?.x) || 0,
+    y: Number(point?.y) || 0,
+    kind,
+    pointIndex: Number.isInteger(options.pointIndex) ? options.pointIndex : null,
+    boundCardId: options.boundCardId || null
+  };
+}
+
+function buildConnectionAnchorNodes(connection) {
+  const manualPoints = Array.isArray(connection.points) ? connection.points : [];
+  const resolvedManualNodes = manualPoints.map((point, index) => createConnectionRouteNode(
+    resolveConnectionPoint(point, state.cards, true),
+    "manual",
+    {
+      pointIndex: index,
+      boundCardId: getConnectionBoundCardId(point)
+    }
+  ));
   const fromBase = getConnectionAnchorBase(connection.from);
   const toBase = getConnectionAnchorBase(connection.to);
   if (!fromBase || !toBase) {
     return null;
   }
 
-  const firstTarget = waypoints[0] || toBase;
-  const lastTarget = waypoints[waypoints.length - 1] || fromBase;
+  const firstTarget = resolvedManualNodes[0] || toBase;
+  const lastTarget = resolvedManualNodes[resolvedManualNodes.length - 1] || fromBase;
   const from = resolveConnectionAnchor(connection.from, firstTarget);
   const to = resolveConnectionAnchor(connection.to, lastTarget);
-
   if (!from || !to) {
     return null;
   }
 
-  return [from, ...waypoints, to];
+  return [
+    createConnectionRouteNode(from, "anchor", { boundCardId: getConnectionBoundCardId(connection.from) }),
+    ...resolvedManualNodes,
+    createConnectionRouteNode(to, "anchor", { boundCardId: getConnectionBoundCardId(connection.to) })
+  ];
+}
+
+function getConnectionRoutePoints(connection) {
+  return getConnectionRouteGeometry(connection)?.points || null;
 }
 
 function getRoundedPathData(points, radius = 14) {
@@ -6219,8 +6272,8 @@ function getSmoothPathData(points, tension = 1) {
   return commands.join(" ");
 }
 
-function getConnectionPathData(connection) {
-  const routePoints = getConnectionRoutePoints(connection);
+function getConnectionPathData(connection, routeGeometry = getConnectionRouteGeometry(connection)) {
+  const routePoints = routeGeometry?.points || null;
   if (!routePoints) {
     return "";
   }
@@ -6250,7 +6303,8 @@ function getDistanceToSegment(point, start, end) {
 }
 
 function getWaypointInsertIndex(connection, point) {
-  const routePoints = getConnectionRoutePoints(connection);
+  const routeGeometry = getConnectionRouteGeometry(connection);
+  const routePoints = routeGeometry?.points;
   if (!routePoints || routePoints.length < 2) {
     return connection.points.length;
   }
@@ -6261,7 +6315,7 @@ function getWaypointInsertIndex(connection, point) {
     const distance = getDistanceToSegment(point, routePoints[index], routePoints[index + 1]);
     if (distance < nearestDistance) {
       nearestDistance = distance;
-      insertIndex = index;
+      insertIndex = routeGeometry.segmentInsertIndices?.[index] ?? connection.points.length;
     }
   }
 
@@ -6338,6 +6392,24 @@ function segmentIntersectsRect(start, end, rect) {
   );
 }
 
+function expandRect(rect, padding = 0) {
+  return {
+    left: rect.left - padding,
+    top: rect.top - padding,
+    right: rect.right + padding,
+    bottom: rect.bottom + padding
+  };
+}
+
+function rectIntersectsRect(first, second) {
+  return (
+    first.left <= second.right &&
+    first.right >= second.left &&
+    first.top <= second.bottom &&
+    first.bottom >= second.top
+  );
+}
+
 function candidateRouteIntersectsCards(points, obstacleCards) {
   for (let index = 0; index < points.length - 1; index += 1) {
     const start = points[index];
@@ -6352,58 +6424,239 @@ function candidateRouteIntersectsCards(points, obstacleCards) {
   return false;
 }
 
-function computeAutoRouteWaypoints(connection) {
-  if ((Array.isArray(connection.points) && connection.points.length) || connection.pathStyle === "smooth") {
-    return [];
-  }
+function isRoutePointBlocked(point, obstacleCards) {
+  return obstacleCards.some((obstacle) => isPointInsideRect(point, obstacle.rect));
+}
 
-  const routePoints = getConnectionRoutePoints({
-    ...connection,
-    points: []
+function getRoutePointKey(point) {
+  return `${point.x},${point.y}`;
+}
+
+function addRouteEdge(adjacency, fromKey, toKey, cost, direction) {
+  if (!adjacency.has(fromKey)) {
+    adjacency.set(fromKey, []);
+  }
+  adjacency.get(fromKey).push({ to: toKey, cost, direction });
+}
+
+function buildOrthogonalRouteGraph(start, end, obstacleCards) {
+  const xValues = new Set([start.x, end.x]);
+  const yValues = new Set([start.y, end.y]);
+  const bounds = {
+    left: Math.min(start.x, end.x),
+    top: Math.min(start.y, end.y),
+    right: Math.max(start.x, end.x),
+    bottom: Math.max(start.y, end.y)
+  };
+
+  obstacleCards.forEach((obstacle) => {
+    xValues.add(obstacle.rect.left - connectionRouteLaneOffset);
+    xValues.add(obstacle.rect.right + connectionRouteLaneOffset);
+    yValues.add(obstacle.rect.top - connectionRouteLaneOffset);
+    yValues.add(obstacle.rect.bottom + connectionRouteLaneOffset);
+    bounds.left = Math.min(bounds.left, obstacle.rect.left);
+    bounds.top = Math.min(bounds.top, obstacle.rect.top);
+    bounds.right = Math.max(bounds.right, obstacle.rect.right);
+    bounds.bottom = Math.max(bounds.bottom, obstacle.rect.bottom);
   });
-  if (!routePoints || routePoints.length < 2) {
-    return [];
+
+  xValues.add(bounds.left - connectionRouteBoundsPadding);
+  xValues.add(bounds.right + connectionRouteBoundsPadding);
+  yValues.add(bounds.top - connectionRouteBoundsPadding);
+  yValues.add(bounds.bottom + connectionRouteBoundsPadding);
+
+  const sortedX = [...xValues].sort((first, second) => first - second);
+  const sortedY = [...yValues].sort((first, second) => first - second);
+  const nodes = new Map();
+  const adjacency = new Map();
+
+  sortedX.forEach((x) => {
+    sortedY.forEach((y) => {
+      const point = { x, y };
+      if (isRoutePointBlocked(point, obstacleCards)) {
+        return;
+      }
+      const key = getRoutePointKey(point);
+      nodes.set(key, point);
+      adjacency.set(key, []);
+    });
+  });
+
+  sortedY.forEach((y) => {
+    let previousNode = null;
+    sortedX.forEach((x) => {
+      const key = getRoutePointKey({ x, y });
+      const node = nodes.get(key);
+      if (!node) {
+        return;
+      }
+      if (previousNode && !candidateRouteIntersectsCards([previousNode, node], obstacleCards)) {
+        const cost = Math.abs(node.x - previousNode.x);
+        const previousKey = getRoutePointKey(previousNode);
+        addRouteEdge(adjacency, previousKey, key, cost, "horizontal");
+        addRouteEdge(adjacency, key, previousKey, cost, "horizontal");
+      }
+      previousNode = node;
+    });
+  });
+
+  sortedX.forEach((x) => {
+    let previousNode = null;
+    sortedY.forEach((y) => {
+      const key = getRoutePointKey({ x, y });
+      const node = nodes.get(key);
+      if (!node) {
+        return;
+      }
+      if (previousNode && !candidateRouteIntersectsCards([previousNode, node], obstacleCards)) {
+        const cost = Math.abs(node.y - previousNode.y);
+        const previousKey = getRoutePointKey(previousNode);
+        addRouteEdge(adjacency, previousKey, key, cost, "vertical");
+        addRouteEdge(adjacency, key, previousKey, cost, "vertical");
+      }
+      previousNode = node;
+    });
+  });
+
+  return { nodes, adjacency };
+}
+
+function findOrthogonalRoutePath(start, end, obstacleCards) {
+  if (!obstacleCards.length || !candidateRouteIntersectsCards([start, end], obstacleCards)) {
+    return [start, end];
   }
 
-  const from = routePoints[0];
-  const to = routePoints[routePoints.length - 1];
-  const excludedIds = new Set([
-    connection.from?.type === "card" ? connection.from.cardId : null,
-    connection.to?.type === "card" ? connection.to.cardId : null
-  ].filter(Boolean));
-  const obstaclePadding = gridSize * 2;
-  const obstacleCards = state.cards
-    .filter((card) => card.kind !== "group" && !excludedIds.has(card.id))
-    .map((card) => ({ card, rect: getCardRect(card, obstaclePadding) }));
-  const blockingObstacle = obstacleCards.find((obstacle) => segmentIntersectsRect(from, to, obstacle.rect));
-  if (!blockingObstacle) {
-    return [];
+  const { nodes, adjacency } = buildOrthogonalRouteGraph(start, end, obstacleCards);
+  const startKey = getRoutePointKey(start);
+  const endKey = getRoutePointKey(end);
+  if (!nodes.has(startKey) || !nodes.has(endKey)) {
+    return [start, end];
   }
 
-  const rect = blockingObstacle.rect;
-  const routeOffset = gridSize;
-  const candidates = [
-    [{ x: from.x, y: rect.top - routeOffset }, { x: to.x, y: rect.top - routeOffset }],
-    [{ x: from.x, y: rect.bottom + routeOffset }, { x: to.x, y: rect.bottom + routeOffset }],
-    [{ x: rect.left - routeOffset, y: from.y }, { x: rect.left - routeOffset, y: to.y }],
-    [{ x: rect.right + routeOffset, y: from.y }, { x: rect.right + routeOffset, y: to.y }]
-  ];
+  const openStates = [{
+    stateKey: `${startKey}|start`,
+    nodeKey: startKey,
+    direction: "start",
+    cost: 0,
+    score: Math.abs(start.x - end.x) + Math.abs(start.y - end.y)
+  }];
+  const bestCost = new Map([[`${startKey}|start`, 0]]);
+  const previousState = new Map();
+  const closedStates = new Set();
 
-  const validCandidates = candidates
-    .map((candidate) => ({
-      points: candidate,
-      score: Math.hypot(from.x - candidate[0].x, from.y - candidate[0].y)
-        + Math.hypot(candidate[0].x - candidate[1].x, candidate[0].y - candidate[1].y)
-        + Math.hypot(candidate[1].x - to.x, candidate[1].y - to.y)
-    }))
-    .filter((candidate) => !candidateRouteIntersectsCards([from, ...candidate.points, to], obstacleCards));
+  while (openStates.length) {
+    openStates.sort((first, second) => first.score - second.score || first.cost - second.cost);
+    const current = openStates.shift();
+    if (!current || closedStates.has(current.stateKey)) {
+      continue;
+    }
+    closedStates.add(current.stateKey);
 
-  if (!validCandidates.length) {
-    return [];
+    if (current.nodeKey === endKey) {
+      const keys = [];
+      let walker = current.stateKey;
+      while (walker) {
+        const [nodeKey] = walker.split("|");
+        keys.push(nodeKey);
+        walker = previousState.get(walker) || null;
+      }
+      return keys.reverse().map((key) => nodes.get(key)).filter(Boolean);
+    }
+
+    const currentPoint = nodes.get(current.nodeKey);
+    const neighbours = adjacency.get(current.nodeKey) || [];
+    neighbours.forEach((edge) => {
+      const nextStateKey = `${edge.to}|${edge.direction}`;
+      const turnPenalty = current.direction !== "start" && current.direction !== edge.direction
+        ? connectionRouteTurnPenalty
+        : 0;
+      const nextCost = current.cost + edge.cost + turnPenalty;
+      if (nextCost >= (bestCost.get(nextStateKey) ?? Number.POSITIVE_INFINITY)) {
+        return;
+      }
+
+      bestCost.set(nextStateKey, nextCost);
+      previousState.set(nextStateKey, current.stateKey);
+      const nextPoint = nodes.get(edge.to);
+      openStates.push({
+        stateKey: nextStateKey,
+        nodeKey: edge.to,
+        direction: edge.direction,
+        cost: nextCost,
+        score: nextCost + Math.abs(nextPoint.x - end.x) + Math.abs(nextPoint.y - end.y) + (currentPoint ? 0 : 0)
+      });
+    });
   }
 
-  validCandidates.sort((first, second) => first.score - second.score);
-  return validCandidates[0].points.map((point) => createConnectionPoint(point));
+  return [start, end];
+}
+
+function collectConnectionRouteObstacles(startNode, endNode, useAllCards = false) {
+  const excludedIds = new Set([startNode.boundCardId, endNode.boundCardId].filter(Boolean));
+  const searchRect = expandRect(
+    normalizeRect(startNode.x, startNode.y, endNode.x, endNode.y),
+    connectionRouteSearchPadding
+  );
+
+  return state.cards
+    .filter((card) => !excludedIds.has(card.id))
+    .map((card) => ({ card, rect: getCardRect(card, connectionRouteObstaclePadding) }))
+    .filter((obstacle) => useAllCards || rectIntersectsRect(obstacle.rect, searchRect));
+}
+
+function buildConnectionSegmentRoute(startNode, endNode) {
+  const localObstacles = collectConnectionRouteObstacles(startNode, endNode, false);
+  let route = findOrthogonalRoutePath(startNode, endNode, localObstacles);
+  if (route.length > 2 || !candidateRouteIntersectsCards([startNode, endNode], localObstacles)) {
+    return route;
+  }
+
+  const allObstacles = collectConnectionRouteObstacles(startNode, endNode, true);
+  route = findOrthogonalRoutePath(startNode, endNode, allObstacles);
+  return route.length >= 2 ? route : [startNode, endNode];
+}
+
+function getConnectionRouteGeometry(connection) {
+  const anchorNodes = buildConnectionAnchorNodes(connection);
+  if (!anchorNodes || anchorNodes.length < 2) {
+    return null;
+  }
+
+  const routeNodes = [anchorNodes[0]];
+  const segmentInsertIndices = [];
+  const manualPoints = anchorNodes
+    .filter((node) => node.kind === "manual")
+    .map((node) => ({ x: node.x, y: node.y, pointIndex: node.pointIndex }));
+
+  for (let index = 0; index < anchorNodes.length - 1; index += 1) {
+    const currentNode = anchorNodes[index];
+    const nextNode = anchorNodes[index + 1];
+    const segmentNodes = buildConnectionSegmentRoute(currentNode, nextNode);
+    const insertIndex = nextNode.kind === "manual" ? nextNode.pointIndex : manualPoints.length;
+
+    for (let segmentIndex = 1; segmentIndex < segmentNodes.length; segmentIndex += 1) {
+      const sourceNode = segmentNodes[segmentIndex];
+      const isLast = segmentIndex === segmentNodes.length - 1;
+      const nextRouteNode = isLast
+        ? nextNode
+        : createConnectionRouteNode(sourceNode, "auto");
+      const previousNode = routeNodes[routeNodes.length - 1];
+      if (pointEquals(previousNode, nextRouteNode)) {
+        continue;
+      }
+      routeNodes.push(nextRouteNode);
+      segmentInsertIndices.push(insertIndex);
+    }
+  }
+
+  return {
+    points: routeNodes.map((node) => ({ x: node.x, y: node.y })),
+    autoPoints: routeNodes
+      .filter((node) => node.kind === "auto")
+      .map((node) => ({ x: node.x, y: node.y })),
+    manualPoints,
+    segmentInsertIndices
+  };
 }
 
 function addWaypointToConnection(connection, point) {
@@ -6462,7 +6715,8 @@ function renderConnectionMarkers(defs, connection) {
 }
 
 function renderConnectionPath(layer, connection, draft = false) {
-  const pathData = getConnectionPathData(connection);
+  const routeGeometry = getConnectionRouteGeometry(connection);
+  const pathData = getConnectionPathData(connection, routeGeometry);
   if (!pathData) {
     return;
   }
@@ -6508,21 +6762,30 @@ function renderConnectionPath(layer, connection, draft = false) {
   layer.appendChild(hitPath);
 
   if (isSelected) {
-    renderConnectionWaypoints(layer, connection);
+    renderConnectionWaypoints(layer, connection, routeGeometry);
   }
 }
 
-function renderConnectionWaypoints(layer, connection) {
-  connection.points.forEach((point, index) => {
+function renderConnectionWaypoints(layer, connection, routeGeometry = getConnectionRouteGeometry(connection)) {
+  (routeGeometry?.autoPoints || []).forEach((point) => {
+    const handle = createSvgElement("circle");
+    handle.classList.add("connection-waypoint", "connection-waypoint-auto");
+    handle.setAttribute("cx", point.x);
+    handle.setAttribute("cy", point.y);
+    handle.setAttribute("r", "4");
+    layer.appendChild(handle);
+  });
+
+  (routeGeometry?.manualPoints || []).forEach((point) => {
     const handle = createSvgElement("circle");
     handle.classList.add("connection-waypoint");
     handle.dataset.connectionId = connection.id;
-    handle.dataset.pointIndex = String(index);
+    handle.dataset.pointIndex = String(point.pointIndex);
     handle.setAttribute("cx", point.x);
     handle.setAttribute("cy", point.y);
     handle.setAttribute("r", "6");
     handle.setAttribute("tabindex", "0");
-    handle.addEventListener("pointerdown", (event) => startWaypointMove(event, connection, index));
+    handle.addEventListener("pointerdown", (event) => startWaypointMove(event, connection, point.pointIndex));
     layer.appendChild(handle);
   });
 }
@@ -6724,7 +6987,6 @@ function handleConnectionPointerDown(event) {
     endCap: connectionDraft.endCap,
     pathStyle: connectionDraft.pathStyle
   });
-  connection.points = computeAutoRouteWaypoints(connection);
   state.connections.push(connection);
   connectionDraft = null;
   setConnectionMode(false);
@@ -8302,7 +8564,6 @@ function connectSelectedCards(cards = getSelectedCards()) {
       endCap: "arrow",
       pathStyle: "segmented"
     });
-    connection.points = computeAutoRouteWaypoints(connection);
     newConnections.push(connection);
   }
 
