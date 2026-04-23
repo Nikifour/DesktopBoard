@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld("desktopBoard", {
   installAppUpdate: () => ipcRenderer.invoke("updates:install"),
   getWindowModeState: () => ipcRenderer.invoke("window-mode:get-state"),
   setWindowMode: (mode) => ipcRenderer.invoke("window-mode:set", mode),
+  activateWallpaperInteraction: () => ipcRenderer.invoke("window-mode:activate-overlay"),
+  setWidgetModeInteractivity: (state) => ipcRenderer.invoke("widget-mode:set-interactivity", state),
   hideWindow: () => ipcRenderer.invoke("window:hide"),
   onStateChanged: (callback) => {
     const listener = (_event, nextState) => callback(nextState);

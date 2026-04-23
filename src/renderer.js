@@ -3,6 +3,7 @@ const workspace = document.getElementById("workspace");
 const urlParams = new URLSearchParams(window.location.search);
 const isOverlayWindow = urlParams.get("role") === "overlay";
 const toolbarBoardSelect = document.getElementById("toolbarBoardSelect");
+const toolbarWindowModeSelect = document.getElementById("toolbarWindowModeSelect");
 const modeLabel = document.getElementById("modeLabel");
 const lockButton = document.getElementById("lockButton");
 const hideButton = document.getElementById("hideButton");
@@ -28,6 +29,7 @@ const settingsButton = document.getElementById("settingsButton");
 const zoomLabel = document.getElementById("zoomLabel");
 const contextMenu = document.getElementById("contextMenu");
 const selectionBox = document.getElementById("selectionBox");
+const widgetDesktopEditButton = document.getElementById("widgetDesktopEditButton");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsButton = document.getElementById("closeSettingsButton");
 const saveSettingsButton = document.getElementById("saveSettingsButton");
@@ -400,7 +402,7 @@ const defaultSettings = {
   languageMode: "system",
   timeFormat: "24h",
   backgroundColor: "#f4f5f0",
-  backgroundOpacity: 100,
+  backgroundOpacity: 0,
   connectionColor: "#171916",
   snapToGrid: true,
   quickCreateKinds: [...defaultQuickCreateKinds],
@@ -503,6 +505,11 @@ const defaultState = {
 
 let state = clone(defaultState);
 let activeAction = null;
+let widgetHoverTarget = null;
+let widgetInteractionState = {
+  interactive: false,
+  captured: false
+};
 let saveTimer = null;
 let selectedIds = new Set();
 let selectedConnectionId = null;
@@ -567,7 +574,8 @@ let windowModeState = {
   attachedToWallpaper: false,
   wallpaperParentClass: "",
   wallpaperError: null,
-  overlayVisible: false
+  overlayVisible: false,
+  widgetInteractive: false
 };
 const defaultAppUpdateState = {
   supported: false,
@@ -861,6 +869,7 @@ Object.assign(translations.ru, {
   windowModeNormal: "\u041e\u0431\u044b\u0447\u043d\u044b\u0439 \u0440\u0435\u0436\u0438\u043c",
   windowModeDesktopEdit: "\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043d\u0430 \u0440\u0430\u0431\u043e\u0447\u0435\u043c \u0441\u0442\u043e\u043b\u0435",
   windowModeWallpaperView: "Wallpaper view",
+  windowModeWidgetMode: "Widget mode",
   wallpaperModeAttachedStatus: "\u041f\u0440\u0438\u0432\u044f\u0437\u0430\u043d\u043e \u043a \u0441\u043b\u043e\u044e рабочего \u0441\u0442\u043e\u043b\u0430: {parent}.",
   wallpaperModePendingStatus: "\u041e\u0436\u0438\u0434\u0430\u043d\u0438\u0435 \u043f\u0440\u0438\u0432\u044f\u0437\u043a\u0438 \u043a desktop layer.",
   wallpaperModeErrorStatus: "\u041e\u0448\u0438\u0431\u043a\u0430 wallpaper mode: {message}"
@@ -881,6 +890,7 @@ Object.assign(translations.en, {
   windowModeNormal: "Normal",
   windowModeDesktopEdit: "Desktop edit",
   windowModeWallpaperView: "Wallpaper view",
+  windowModeWidgetMode: "Widget mode",
   wallpaperModeAttachedStatus: "Attached to desktop layer: {parent}.",
   wallpaperModePendingStatus: "Waiting for wallpaper attach.",
   wallpaperModeErrorStatus: "Wallpaper mode error: {message}"
@@ -1938,7 +1948,8 @@ function normalizeWindowModeState(nextState = {}) {
     attachedToWallpaper: nextState.attachedToWallpaper === true,
     wallpaperParentClass: typeof nextState.wallpaperParentClass === "string" ? nextState.wallpaperParentClass : "",
     wallpaperError: typeof nextState.wallpaperError === "string" && nextState.wallpaperError ? nextState.wallpaperError : null,
-    overlayVisible: nextState.overlayVisible === true
+    overlayVisible: nextState.overlayVisible === true,
+    widgetInteractive: nextState.widgetInteractive === true
   };
 }
 
@@ -1948,9 +1959,33 @@ function getCurrentWindowModeLabelKey() {
       return "windowModeDesktopEdit";
     case "wallpaper-view":
       return "windowModeWallpaperView";
+    case "widget-mode":
+      return "windowModeWidgetMode";
     default:
       return "windowModeNormal";
   }
+}
+
+function canUseWallpaperModesFromUi() {
+  return appRuntimeConfig.windowModeSupported === true && appRuntimeConfig.wallpaperModeEnabled === true;
+}
+
+function refreshToolbarWindowModeUi() {
+  if (!toolbarWindowModeSelect) {
+    return;
+  }
+
+  toolbarWindowModeSelect.value = windowModeState.currentMode || "normal";
+  toolbarWindowModeSelect.disabled = !window.desktopBoard?.setWindowMode;
+
+  [...toolbarWindowModeSelect.options].forEach((option) => {
+    const optionValue = option.value;
+    if (optionValue === "wallpaper-view" || optionValue === "widget-mode") {
+      option.disabled = !canUseWallpaperModesFromUi();
+    } else {
+      option.disabled = false;
+    }
+  });
 }
 
 function refreshWallpaperModeUi(options = {}) {
@@ -2019,6 +2054,8 @@ function refreshWallpaperModeUi(options = {}) {
     }
     wallpaperInteractionHelp.textContent = helpText;
   }
+
+  refreshToolbarWindowModeUi();
 }
 
 function isSettingsModalOpen() {
@@ -2624,11 +2661,40 @@ async function loadWindowModeState() {
     reportError("windowMode.load", error);
   }
 
-  if (windowModeState.currentMode === "wallpaper-view" && !state.locked) {
-    setLocked(true);
+  if (windowModeState.currentMode === "widget-mode") {
+    if (state.locked) {
+      setLocked(false, { persist: false });
+    }
+    void syncWidgetModeInteractivity(widgetHoverTarget);
+  } else if (windowModeState.currentMode === "wallpaper-view") {
+    if (canEditInWallpaperView()) {
+      if (state.locked) {
+        setLocked(false, { persist: false });
+      }
+    } else if (!state.locked) {
+      setLocked(true, { persist: false });
+    }
+  } else {
+    void syncWidgetModeInteractivity(null, { force: true });
   }
   refreshWallpaperModeUi({ force: true });
   updateModeUi();
+}
+
+async function switchWindowMode(mode) {
+  if (!window.desktopBoard?.setWindowMode) {
+    return false;
+  }
+
+  try {
+    windowModeState = normalizeWindowModeState(await window.desktopBoard.setWindowMode(mode));
+    refreshWallpaperModeUi({ force: true });
+    updateModeUi();
+    return true;
+  } catch (error) {
+    reportError("windowMode.switch", error);
+    return false;
+  }
 }
 
 function normalizeAppUpdateState(nextState = {}) {
@@ -2949,7 +3015,10 @@ function normalizeSettings(settings = {}) {
   const languageMode = allowedLanguageModes.includes(settings.languageMode) ? settings.languageMode : defaultSettings.languageMode;
   const timeFormat = allowedTimeFormats.includes(settings.timeFormat) ? settings.timeFormat : defaultSettings.timeFormat;
   const backgroundColor = isHexColor(settings.backgroundColor) ? settings.backgroundColor : defaultSettings.backgroundColor;
-  const backgroundOpacity = clamp(Math.round(Number(settings.backgroundOpacity) || defaultSettings.backgroundOpacity), 0, 100);
+  const parsedBackgroundOpacity = Number(settings.backgroundOpacity);
+  const backgroundOpacity = Number.isFinite(parsedBackgroundOpacity)
+    ? clamp(Math.round(parsedBackgroundOpacity), 0, 100)
+    : defaultSettings.backgroundOpacity;
   const legacyColorSources = {
     bookmark: sourceColors.bookmark || sourceColors.note,
     progress: sourceColors.progress || sourceColors.tasks,
@@ -3690,22 +3759,26 @@ function applyViewport() {
 }
 
 function applySettings() {
-  const backgroundOpacity = clamp(Number(state.settings.backgroundOpacity) || defaultSettings.backgroundOpacity, 0, 100) / 100;
+  const parsedTransparency = Number(state.settings.backgroundOpacity);
+  const backgroundTransparency = Number.isFinite(parsedTransparency)
+    ? clamp(parsedTransparency, 0, 100)
+    : defaultSettings.backgroundOpacity;
+  const surfaceOpacity = 1 - (backgroundTransparency / 100);
   const pageColor = hexToRgb(state.settings.backgroundColor);
   document.documentElement.style.setProperty("--page", state.settings.backgroundColor);
-  document.documentElement.style.setProperty("--board-surface", rgba(pageColor, backgroundOpacity));
-  document.documentElement.style.setProperty("--board-grid-horizontal", rgba(hexToRgb("#2f7d57"), 0.1 * backgroundOpacity));
-  document.documentElement.style.setProperty("--board-grid-vertical", rgba(hexToRgb("#3a8f9f"), 0.1 * backgroundOpacity));
+  document.documentElement.style.setProperty("--board-surface", rgba(pageColor, surfaceOpacity));
+  document.documentElement.style.setProperty("--board-grid-horizontal", rgba(hexToRgb("#2f7d57"), 0.1 * surfaceOpacity));
+  document.documentElement.style.setProperty("--board-grid-vertical", rgba(hexToRgb("#3a8f9f"), 0.1 * surfaceOpacity));
   document.documentElement.style.setProperty("--connection-outline", getReadableTextColor(state.settings.backgroundColor));
   themeModeInput.value = state.settings.themeMode;
   languageModeInput.value = state.settings.languageMode;
   timeFormatInput.value = state.settings.timeFormat;
   backgroundColorInput.value = state.settings.backgroundColor;
   if (backgroundOpacityInput) {
-    backgroundOpacityInput.value = String(clamp(Number(state.settings.backgroundOpacity) || defaultSettings.backgroundOpacity, 0, 100));
+    backgroundOpacityInput.value = String(backgroundTransparency);
   }
   if (backgroundOpacityValue) {
-    backgroundOpacityValue.textContent = `${clamp(Number(state.settings.backgroundOpacity) || defaultSettings.backgroundOpacity, 0, 100)}%`;
+    backgroundOpacityValue.textContent = `${backgroundTransparency}%`;
   }
   connectionColorInput.value = state.settings.connectionColor;
   Object.entries(colorInputRefs).forEach(([kind, inputs]) => {
@@ -3797,6 +3870,16 @@ function applyTranslations() {
   setSelectOptionText(windowModeInput, "normal", "windowModeNormal");
   setSelectOptionText(windowModeInput, "desktop-edit", "windowModeDesktopEdit");
   setSelectOptionText(windowModeInput, "wallpaper-view", "windowModeWallpaperView");
+  setSelectOptionText(windowModeInput, "widget-mode", "windowModeWidgetMode");
+  setSelectOptionText(toolbarWindowModeSelect, "normal", "windowModeNormal");
+  setSelectOptionText(toolbarWindowModeSelect, "desktop-edit", "windowModeDesktopEdit");
+  setSelectOptionText(toolbarWindowModeSelect, "wallpaper-view", "windowModeWallpaperView");
+  setSelectOptionText(toolbarWindowModeSelect, "widget-mode", "windowModeWidgetMode");
+  if (widgetDesktopEditButton) {
+    widgetDesktopEditButton.dataset.tooltip = t("windowModeDesktopEdit");
+    widgetDesktopEditButton.setAttribute("aria-label", t("windowModeDesktopEdit"));
+    widgetDesktopEditButton.title = t("windowModeDesktopEdit");
+  }
   if (pickStoragePathButton) {
     pickStoragePathButton.textContent = t("storagePick");
   }
@@ -4324,6 +4407,23 @@ function updateModeUi() {
 
   document.body.classList.toggle("is-locked", state.locked);
   document.body.classList.toggle("is-wallpaper-view", windowModeState.currentMode === "wallpaper-view");
+  document.body.classList.toggle("is-wallpaper-passive", windowModeState.currentMode === "wallpaper-view" && !canEditInWallpaperView());
+  document.body.classList.toggle("is-widget-mode", windowModeState.currentMode === "widget-mode");
+  document.body.classList.toggle("is-widget-mode-overlay", isOverlayWindow && windowModeState.currentMode === "widget-mode");
+  document.body.classList.toggle(
+    "is-overlay-surface-transparent",
+    isOverlayWindow && (
+      windowModeState.currentMode === "widget-mode"
+      || (windowModeState.currentMode === "wallpaper-view" && windowModeState.overlayVisible)
+    )
+  );
+  document.body.classList.toggle(
+    "is-underlay-cards-hidden",
+    !isOverlayWindow && (
+      windowModeState.currentMode === "widget-mode"
+      || (windowModeState.currentMode === "wallpaper-view" && windowModeState.overlayVisible)
+    )
+  );
   document.body.classList.toggle("is-desktop-edit", windowModeState.currentMode === "desktop-edit");
   board.classList.toggle("is-connecting", connectionMode);
   addConnectionButton.classList.toggle("is-active", connectionMode);
@@ -4332,10 +4432,13 @@ function updateModeUi() {
   modeLabel.textContent = windowModeLabel ? `${windowModeLabel} - ${boardModeLabel}` : boardModeLabel;
   lockButton.dataset.tooltip = t(state.locked ? "edit" : "lock");
   lockButton.setAttribute("aria-label", t(state.locked ? "edit" : "lock"));
+  refreshToolbarWindowModeUi();
 }
 
-function setLocked(locked) {
-  if (windowModeState.currentMode === "wallpaper-view") {
+function setLocked(locked, options = {}) {
+  const shouldReturnToWallpaperView = locked && canEditInWallpaperView();
+
+  if (windowModeState.currentMode === "wallpaper-view" && !canEditInWallpaperView()) {
     locked = true;
   }
 
@@ -4354,12 +4457,98 @@ function setLocked(locked) {
       field.readOnly = locked;
     }
   });
-  scheduleSave();
+
+  if (shouldReturnToWallpaperView) {
+    if (options.persist !== false) {
+      void saveState({ skipHistory: true }).finally(() => {
+        window.desktopBoard?.hideWindow?.();
+      });
+    } else {
+      void window.desktopBoard?.hideWindow?.();
+    }
+    return;
+  }
+
+  if (options.persist !== false) {
+    scheduleSave();
+  }
+}
+
+function canEditInWallpaperView() {
+  return isOverlayWindow
+    && windowModeState.currentMode === "wallpaper-view"
+    && windowModeState.interactionEnabled === true
+    && windowModeState.overlayVisible === true;
+}
+
+function isWidgetModeActive() {
+  return isOverlayWindow
+    && windowModeState.currentMode === "widget-mode"
+    && windowModeState.overlayVisible === true;
+}
+
+function isWidgetInteractiveTarget(target) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return Boolean(target.closest(".card, .context-menu, .widget-desktop-edit-button"));
+}
+
+function shouldWidgetOverlayCapturePointer() {
+  if (!isWidgetModeActive()) {
+    return false;
+  }
+
+  if (activeAction) {
+    return true;
+  }
+
+  if (!contextMenu.hidden) {
+    return true;
+  }
+
+  const activeElement = document.activeElement;
+  return activeElement instanceof Element && Boolean(activeElement.closest(".card, .context-menu"));
+}
+
+async function syncWidgetModeInteractivity(target = widgetHoverTarget, options = {}) {
+  if (!window.desktopBoard?.setWidgetModeInteractivity) {
+    return false;
+  }
+
+  if (!isWidgetModeActive()) {
+    if (widgetInteractionState.interactive || widgetInteractionState.captured) {
+      widgetInteractionState = { interactive: false, captured: false };
+      await window.desktopBoard.setWidgetModeInteractivity(widgetInteractionState);
+    }
+    return false;
+  }
+
+  const nextState = {
+    interactive: shouldWidgetOverlayCapturePointer() || isWidgetInteractiveTarget(target),
+    captured: shouldWidgetOverlayCapturePointer()
+  };
+
+  if (
+    nextState.interactive === widgetInteractionState.interactive
+    && nextState.captured === widgetInteractionState.captured
+    && options.force !== true
+  ) {
+    return nextState.interactive;
+  }
+
+  widgetInteractionState = nextState;
+  await window.desktopBoard.setWidgetModeInteractivity({
+    ...nextState,
+    focus: options.focus === true
+  });
+  return nextState.interactive;
 }
 
 function ensureEditMode() {
-  if (windowModeState.currentMode === "wallpaper-view") {
-    setLocked(true);
+  if (windowModeState.currentMode === "wallpaper-view" && !canEditInWallpaperView()) {
+    setLocked(true, { persist: false });
     return;
   }
 
@@ -6980,6 +7169,45 @@ function buildConnectionSegmentRoute(startNode, endNode) {
   return route.length >= 2 ? route : [startNode, endNode];
 }
 
+function resolveOrthogonalConnectionAnchor(anchor, towardPoint) {
+  if (!anchor || !towardPoint) {
+    return null;
+  }
+
+  if (anchor.type !== "card") {
+    return getConnectionAnchorBase(anchor);
+  }
+
+  const card = state.cards.find((item) => item.id === anchor.cardId);
+  if (!card) {
+    return null;
+  }
+
+  const center = {
+    x: card.x + card.width / 2,
+    y: card.y + card.height / 2
+  };
+  const deltaX = towardPoint.x - center.x;
+  const deltaY = towardPoint.y - center.y;
+  const inset = 10;
+  const top = card.y - inset;
+  const bottom = card.y + card.height + inset;
+  const left = card.x - inset;
+  const right = card.x + card.width + inset;
+
+  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+    return {
+      x: deltaX >= 0 ? right : left,
+      y: clamp(towardPoint.y, card.y + 8, card.y + card.height - 8)
+    };
+  }
+
+  return {
+    x: clamp(towardPoint.x, card.x + 8, card.x + card.width - 8),
+    y: deltaY >= 0 ? bottom : top
+  };
+}
+
 function getConnectionRouteGeometry(connection) {
   const anchorNodes = buildConnectionAnchorNodes(connection);
   if (!anchorNodes || anchorNodes.length < 2) {
@@ -7010,6 +7238,23 @@ function getConnectionRouteGeometry(connection) {
       }
       routeNodes.push(nextRouteNode);
       segmentInsertIndices.push(insertIndex);
+    }
+  }
+
+  if (routeNodes.length >= 2) {
+    const startPoint = resolveOrthogonalConnectionAnchor(connection.from, routeNodes[1]);
+    if (startPoint) {
+      routeNodes[0] = createConnectionRouteNode(startPoint, "anchor", {
+        boundCardId: getConnectionBoundCardId(connection.from)
+      });
+    }
+
+    const lastIndex = routeNodes.length - 1;
+    const endPoint = resolveOrthogonalConnectionAnchor(connection.to, routeNodes[lastIndex - 1]);
+    if (endPoint) {
+      routeNodes[lastIndex] = createConnectionRouteNode(endPoint, "anchor", {
+        boundCardId: getConnectionBoundCardId(connection.to)
+      });
     }
   }
 
@@ -7308,7 +7553,7 @@ function startConnectionFromAnchor(anchor) {
 }
 
 function handleConnectionPointerDown(event) {
-  if (!connectionMode || state.locked || event.button !== 0) {
+  if (!connectionMode || state.locked || event.button !== 0 || isWidgetModeActive()) {
     return;
   }
 
@@ -7511,6 +7756,7 @@ function startSelection(event) {
     connectionMode ||
     event.button !== 0 ||
     state.locked ||
+    isWidgetModeActive() ||
     event.target.closest(".toolbar") ||
     event.target.closest(".modal") ||
     event.target.closest(".context-menu") ||
@@ -7593,6 +7839,7 @@ function startCardMove(event, card) {
     originY: card.y,
     items: collectMoveItems(moveCards)
   };
+  void syncWidgetModeInteractivity(event.target, { focus: true, force: true });
 }
 
 function startResize(event, card, direction = "se") {
@@ -7621,6 +7868,7 @@ function startResize(event, card, direction = "se") {
     originWidth: card.width,
     originHeight: card.height
   };
+  void syncWidgetModeInteractivity(event.target, { focus: true, force: true });
 }
 
 function startPan(event) {
@@ -7628,7 +7876,7 @@ function startPan(event) {
     return;
   }
 
-  if (event.button !== 1) {
+  if (event.button !== 1 || isWidgetModeActive()) {
     return;
   }
 
@@ -7777,13 +8025,14 @@ function stopActiveAction(event) {
   }
 
   activeAction = null;
+  void syncWidgetModeInteractivity(widgetHoverTarget, { force: true });
   if (shouldSave) {
     scheduleSave();
   }
 }
 
 function zoomAt(event) {
-  if (event.target.closest(".toolbar") || event.target.closest(".modal")) {
+  if (event.target.closest(".toolbar") || event.target.closest(".modal") || isWidgetModeActive()) {
     return;
   }
 
@@ -9376,7 +9625,7 @@ async function saveSettings() {
     languageMode: languageModeInput.value || defaultSettings.languageMode,
     timeFormat: timeFormatInput.value || defaultSettings.timeFormat,
     backgroundColor: backgroundColorInput.value || defaultSettings.backgroundColor,
-    backgroundOpacity: Number(backgroundOpacityInput?.value || defaultSettings.backgroundOpacity),
+    backgroundOpacity: Number(backgroundOpacityInput?.value ?? defaultSettings.backgroundOpacity),
     connectionColor: connectionColorInput.value || getDefaultConnectionColor(backgroundColorInput.value || defaultSettings.backgroundColor),
     snapToGrid: snapToGridInput.checked,
     quickCreateKinds: getSelectedQuickCreateKinds(),
@@ -9390,6 +9639,7 @@ async function saveSettings() {
   applySettings();
   applySystemTheme(currentSystemTheme);
   render();
+  await saveState({ skipHistory: true });
 
   let statusMessage = t("settingsSaved");
 
@@ -9409,13 +9659,7 @@ async function saveSettings() {
         refreshAppConfigUi({ force: true });
       }
 
-      if (window.desktopBoard?.setWindowMode) {
-        windowModeState = normalizeWindowModeState(await window.desktopBoard.setWindowMode(
-          wallpaperModeEnabled ? windowModeInput?.value || "normal" : "normal"
-        ));
-        refreshWallpaperModeUi({ force: true });
-        updateModeUi();
-      }
+      await switchWindowMode(wallpaperModeEnabled ? windowModeInput?.value || "normal" : "normal");
     } catch (error) {
       reportError("config.update", error);
       statusMessage = t("appConfigSaveError");
@@ -9437,7 +9681,6 @@ async function saveSettings() {
   }
 
   settingsStatus.textContent = statusMessage;
-  scheduleSave();
 }
 
 async function handleDroppedFiles(event) {
@@ -9664,6 +9907,12 @@ deleteBoardButton?.addEventListener("click", deleteBoardFromSettings);
 toolbarBoardSelect?.addEventListener("change", () => {
   void switchBoardById(toolbarBoardSelect.value, null);
 });
+toolbarWindowModeSelect?.addEventListener("change", () => {
+  void switchWindowMode(toolbarWindowModeSelect.value || "normal");
+});
+widgetDesktopEditButton?.addEventListener("click", () => {
+  void switchWindowMode("desktop-edit");
+});
 analyzeAssetsButton?.addEventListener("click", analyzeAssetsFromSettings);
 cleanupAssetsButton?.addEventListener("click", cleanupAssetsFromSettings);
 checkUpdatesButton?.addEventListener("click", checkForUpdatesFromSettings);
@@ -9672,8 +9921,29 @@ wallpaperModeEnabledInput?.addEventListener("change", () => refreshWallpaperMode
 wallpaperInteractionEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
 backgroundOpacityInput?.addEventListener("input", () => {
   if (backgroundOpacityValue) {
-    backgroundOpacityValue.textContent = `${clamp(Number(backgroundOpacityInput.value) || 0, 0, 100)}%`;
+    const nextTransparency = Number(backgroundOpacityInput.value);
+    backgroundOpacityValue.textContent = `${clamp(Number.isFinite(nextTransparency) ? nextTransparency : defaultSettings.backgroundOpacity, 0, 100)}%`;
   }
+});
+window.addEventListener("pointermove", (event) => {
+  widgetHoverTarget = event.target instanceof Element ? event.target : null;
+  void syncWidgetModeInteractivity(widgetHoverTarget);
+}, true);
+window.addEventListener("pointerdown", (event) => {
+  widgetHoverTarget = event.target instanceof Element ? event.target : null;
+  void syncWidgetModeInteractivity(widgetHoverTarget, { focus: true });
+}, true);
+window.addEventListener("pointerup", () => {
+  void syncWidgetModeInteractivity(widgetHoverTarget, { force: true });
+}, true);
+window.addEventListener("focusin", (event) => {
+  widgetHoverTarget = event.target instanceof Element ? event.target : widgetHoverTarget;
+  void syncWidgetModeInteractivity(widgetHoverTarget, { focus: true, force: true });
+});
+window.addEventListener("focusout", () => {
+  window.setTimeout(() => {
+    void syncWidgetModeInteractivity(widgetHoverTarget, { force: true });
+  }, 0);
 });
 closeUrlButton.addEventListener("click", () => closeUrlModal(""));
 cancelUrlButton.addEventListener("click", () => closeUrlModal(""));
@@ -9735,8 +10005,21 @@ if (window.desktopBoard) {
   });
   window.desktopBoard.onWindowModeState?.((nextState) => {
     windowModeState = normalizeWindowModeState(nextState);
-    if (windowModeState.currentMode === "wallpaper-view" && !state.locked) {
-      setLocked(true);
+    if (windowModeState.currentMode === "widget-mode") {
+      if (state.locked) {
+        setLocked(false, { persist: false });
+      }
+      void syncWidgetModeInteractivity(widgetHoverTarget);
+    } else if (windowModeState.currentMode === "wallpaper-view") {
+      if (canEditInWallpaperView()) {
+        if (state.locked) {
+          setLocked(false, { persist: false });
+        }
+      } else if (!state.locked) {
+        setLocked(true, { persist: false });
+      }
+    } else {
+      void syncWidgetModeInteractivity(null, { force: true });
     }
     refreshWallpaperModeUi({ force: true });
     updateModeUi();

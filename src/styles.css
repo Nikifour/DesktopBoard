@@ -108,6 +108,65 @@ button:active {
   -webkit-app-region: drag;
 }
 
+.is-wallpaper-passive .toolbar {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-16px);
+}
+
+.is-widget-mode .toolbar {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-16px);
+}
+
+.widget-desktop-edit-button {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 45;
+  width: 44px;
+  height: 44px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--system-panel-border);
+  border-radius: 8px;
+  background: var(--system-panel);
+  color: var(--system-text);
+  box-shadow: 0 10px 28px rgba(23, 25, 22, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.widget-desktop-edit-button svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.is-widget-mode-overlay .widget-desktop-edit-button {
+  display: inline-flex;
+}
+
+.is-underlay-cards-hidden .workspace > .card,
+.is-underlay-cards-hidden .connections-layer,
+.is-underlay-cards-hidden .selection-box {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.is-overlay-surface-transparent .board {
+  background-color: transparent;
+  background-image: none;
+}
+
 .toolbar button,
 .toolbar input,
 .toolbar select,
@@ -188,6 +247,12 @@ button:active {
   box-shadow: none;
   cursor: pointer;
   line-height: 1.2;
+}
+
+.toolbar-mode-select {
+  flex-basis: 170px;
+  min-width: 150px;
+  max-width: min(190px, 22vw);
 }
 
 .toolbar-board-select:hover,

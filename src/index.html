@@ -21,6 +21,12 @@
               <select id="toolbarBoardSelect" class="toolbar-board-select" aria-label="Boards" title="Boards">
                 <option value="main">Main board</option>
               </select>
+              <select id="toolbarWindowModeSelect" class="toolbar-board-select toolbar-mode-select" aria-label="Window mode" title="Window mode">
+                <option value="normal">Normal</option>
+                <option value="desktop-edit">Desktop edit</option>
+                <option value="wallpaper-view">Wallpaper view</option>
+                <option value="widget-mode">Widget mode</option>
+              </select>
             </div>
           </div>
         </div>
@@ -106,6 +112,10 @@
         <div id="workspace" class="workspace"></div>
         <div id="selectionBox" class="selection-box" hidden></div>
       </main>
+
+      <button id="widgetDesktopEditButton" class="widget-desktop-edit-button" type="button" aria-label="Desktop edit" title="Desktop edit">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M12 6l4 4"/></svg>
+      </button>
     </div>
 
     <div id="settingsModal" class="modal" hidden>
@@ -149,8 +159,8 @@
         <div class="settings-row">
           <span id="backgroundOpacityLabel">Прозрачность доски</span>
           <div class="settings-inline-actions settings-slider-actions">
-            <input id="backgroundOpacityInput" type="range" min="0" max="100" step="1" value="100" />
-            <span id="backgroundOpacityValue" class="settings-inline-value">100%</span>
+            <input id="backgroundOpacityInput" type="range" min="0" max="100" step="1" value="0" />
+            <span id="backgroundOpacityValue" class="settings-inline-value">0%</span>
           </div>
         </div>
 
@@ -207,6 +217,7 @@
             <option value="normal">Обычный режим</option>
             <option value="desktop-edit">Редактирование на рабочем столе</option>
             <option value="wallpaper-view">Wallpaper view</option>
+            <option value="widget-mode">Widget mode</option>
           </select>
         </label>
         <p id="wallpaperModeHelp" class="settings-help">Wallpaper view делает окно кликабельным только через трей или хоткей. Для редактирования переключитесь обратно в режим рабочего стола.</p>
