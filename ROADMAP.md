@@ -117,6 +117,8 @@
 - [x] Manual wallpaper mode switching works in the current session
 - [x] App startup remains in normal mode by default
 - [x] Entering `Wallpaper view` forces view mode instead of edit mode
+- [x] Separate overlay window for interaction in `Wallpaper view`
+- [x] Board transparency control for showing the desktop wallpaper underneath
 - [ ] Stabilize wallpaper mode after focus, selection, and z-order events
 - [ ] Recovery after Explorer restart, resolution changes, and monitor changes
 - [ ] Harden packaged wallpaper helper behavior for installer and portable builds

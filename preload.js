@@ -36,6 +36,11 @@ contextBridge.exposeInMainWorld("desktopBoard", {
   getWindowModeState: () => ipcRenderer.invoke("window-mode:get-state"),
   setWindowMode: (mode) => ipcRenderer.invoke("window-mode:set", mode),
   hideWindow: () => ipcRenderer.invoke("window:hide"),
+  onStateChanged: (callback) => {
+    const listener = (_event, nextState) => callback(nextState);
+    ipcRenderer.on("state:changed", listener);
+    return () => ipcRenderer.removeListener("state:changed", listener);
+  },
   onToggleLock: (callback) => {
     ipcRenderer.on("board:toggle-lock", callback);
   },

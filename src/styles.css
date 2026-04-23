@@ -1,5 +1,8 @@
 :root {
   --page: #f4f5f0;
+  --board-surface: #f4f5f0;
+  --board-grid-horizontal: rgba(47, 125, 87, 0.1);
+  --board-grid-vertical: rgba(58, 143, 159, 0.1);
   --ink: #171916;
   --muted: #62675d;
   --line: #cfd4c7;
@@ -50,7 +53,7 @@ body {
 body {
   color: var(--ink);
   font-family: "Segoe UI", Arial, sans-serif;
-  background: var(--page);
+  background: transparent;
   letter-spacing: 0;
 }
 
@@ -81,6 +84,7 @@ button:active {
 .app-shell {
   width: 100%;
   height: 100%;
+  background: transparent;
 }
 
 .toolbar {
@@ -297,10 +301,10 @@ button:active {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: var(--page);
+  background-color: var(--board-surface);
   background-image:
-    linear-gradient(rgba(47, 125, 87, 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(58, 143, 159, 0.1) 1px, transparent 1px);
+    linear-gradient(var(--board-grid-horizontal) 1px, transparent 1px),
+    linear-gradient(90deg, var(--board-grid-vertical) 1px, transparent 1px);
   background-position: var(--pan-x) var(--pan-y);
   background-size: 24px 24px;
   cursor: default;
@@ -1758,6 +1762,19 @@ button:active {
 .settings-inline-actions {
   display: grid;
   gap: 8px;
+}
+
+.settings-slider-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.settings-inline-value {
+  min-width: 48px;
+  color: var(--muted);
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .settings-update-actions {

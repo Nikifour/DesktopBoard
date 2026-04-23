@@ -146,6 +146,14 @@
           <input id="backgroundColorInput" type="color" value="#f4f5f0" />
         </label>
 
+        <div class="settings-row">
+          <span id="backgroundOpacityLabel">Прозрачность доски</span>
+          <div class="settings-inline-actions settings-slider-actions">
+            <input id="backgroundOpacityInput" type="range" min="0" max="100" step="1" value="100" />
+            <span id="backgroundOpacityValue" class="settings-inline-value">100%</span>
+          </div>
+        </div>
+
         <label class="settings-row">
           <span id="connectionColorLabel">Цвет соединений</span>
           <input id="connectionColorInput" type="color" value="#171916" />
@@ -202,6 +210,12 @@
           </select>
         </label>
         <p id="wallpaperModeHelp" class="settings-help">Wallpaper view делает окно кликабельным только через трей или хоткей. Для редактирования переключитесь обратно в режим рабочего стола.</p>
+
+        <label class="settings-row settings-checkbox">
+          <span id="wallpaperInteractionEnabledLabel">Взаимодействие в Wallpaper view</span>
+          <input id="wallpaperInteractionEnabledInput" type="checkbox" />
+        </label>
+        <p id="wallpaperInteractionHelp" class="settings-help">Поверх wallpaper-слоя открывается отдельное overlay-окно. Доска остается в режиме просмотра, но по ней можно кликать и перемещаться.</p>
 
         <label class="settings-row settings-checkbox">
           <span id="diagnosticsEnabledLabel">Локальный диагностический лог</span>

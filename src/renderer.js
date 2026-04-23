@@ -1,5 +1,7 @@
 const board = document.getElementById("board");
 const workspace = document.getElementById("workspace");
+const urlParams = new URLSearchParams(window.location.search);
+const isOverlayWindow = urlParams.get("role") === "overlay";
 const toolbarBoardSelect = document.getElementById("toolbarBoardSelect");
 const modeLabel = document.getElementById("modeLabel");
 const lockButton = document.getElementById("lockButton");
@@ -64,6 +66,8 @@ const metaLinkInput = document.getElementById("metaLinkInput");
 const copyMetaLinkButton = document.getElementById("copyMetaLinkButton");
 const themeModeInput = document.getElementById("themeModeInput");
 const backgroundColorInput = document.getElementById("backgroundColorInput");
+const backgroundOpacityInput = document.getElementById("backgroundOpacityInput");
+const backgroundOpacityValue = document.getElementById("backgroundOpacityValue");
 const noteHeaderColorInput = document.getElementById("noteHeaderColorInput");
 const noteBodyColorInput = document.getElementById("noteBodyColorInput");
 const codeHeaderColorInput = document.getElementById("codeHeaderColorInput");
@@ -141,8 +145,10 @@ const deleteBoardButton = document.getElementById("deleteBoardButton");
 const autoStartWithWindowsInput = document.getElementById("autoStartWithWindowsInput");
 const autoStartHelp = document.getElementById("autoStartHelp");
 const wallpaperModeEnabledInput = document.getElementById("wallpaperModeEnabledInput");
+const wallpaperInteractionEnabledInput = document.getElementById("wallpaperInteractionEnabledInput");
 const windowModeInput = document.getElementById("windowModeInput");
 const wallpaperModeHelp = document.getElementById("wallpaperModeHelp");
+const wallpaperInteractionHelp = document.getElementById("wallpaperInteractionHelp");
 const diagnosticsEnabledInput = document.getElementById("diagnosticsEnabledInput");
 const openLogsButton = document.getElementById("openLogsButton");
 const exportBoardButton = document.getElementById("exportBoardButton");
@@ -394,6 +400,7 @@ const defaultSettings = {
   languageMode: "system",
   timeFormat: "24h",
   backgroundColor: "#f4f5f0",
+  backgroundOpacity: 100,
   connectionColor: "#171916",
   snapToGrid: true,
   quickCreateKinds: [...defaultQuickCreateKinds],
@@ -539,6 +546,7 @@ let appRuntimeConfig = {
   autoStartEnabled: false,
   autoManageAssetsOnLaunch: true,
   wallpaperModeEnabled: false,
+  wallpaperInteractionEnabled: false,
   windowMode: "normal",
   windowModeSupported: false,
   autoStart: {
@@ -552,12 +560,14 @@ let appRuntimeConfig = {
 let windowModeState = {
   supported: false,
   enabled: false,
+  interactionEnabled: false,
   configuredMode: "normal",
   currentMode: "normal",
   effectiveMode: "normal",
   attachedToWallpaper: false,
   wallpaperParentClass: "",
-  wallpaperError: null
+  wallpaperError: null,
+  overlayVisible: false
 };
 const defaultAppUpdateState = {
   supported: false,
@@ -877,6 +887,18 @@ Object.assign(translations.en, {
 });
 
 Object.assign(translations.ru, {
+  wallpaperInteractionEnabled: "Взаимодействие в Wallpaper view",
+  wallpaperInteractionHelp: "Поверх wallpaper-слоя открывается отдельное overlay-окно. Доска остается в режиме просмотра, но по ней можно кликать и перемещаться.",
+  backgroundOpacity: "Прозрачность доски"
+});
+
+Object.assign(translations.en, {
+  wallpaperInteractionEnabled: "Interact in Wallpaper view",
+  wallpaperInteractionHelp: "Shows a separate overlay window above the wallpaper layer. The board stays in view mode, but you can click it and navigate without breaking desktop z-order.",
+  backgroundOpacity: "Board transparency"
+});
+
+Object.assign(translations.ru, {
   calculator: "\u041a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440",
   addCalculator: "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440",
   newCalculator: "\u041d\u043e\u0432\u044b\u0439 \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440",
@@ -918,7 +940,8 @@ Object.assign(translations.ru, {
   connectionEndCap: "\u041a\u043e\u043d\u0435\u0446",
   connectionCapNone: "\u0411\u0435\u0437 \u043c\u0430\u0440\u043a\u0435\u0440\u0430",
   connectionCapArrow: "\u0421\u0442\u0440\u0435\u043b\u043a\u0430",
-  connectionCapDot: "\u0422\u043e\u0447\u043a\u0430"
+  connectionCapDot: "\u0422\u043e\u0447\u043a\u0430",
+  connectionAutoPath: "Автомаршрут"
 });
 
 Object.assign(translations.en, {
@@ -929,7 +952,8 @@ Object.assign(translations.en, {
   connectionEndCap: "End",
   connectionCapNone: "No cap",
   connectionCapArrow: "Arrow",
-  connectionCapDot: "Dot"
+  connectionCapDot: "Dot",
+  connectionAutoPath: "Auto route"
 });
 
 Object.assign(translations.ru, {
@@ -1907,12 +1931,14 @@ function normalizeWindowModeState(nextState = {}) {
   return {
     supported,
     enabled,
+    interactionEnabled: nextState.interactionEnabled === true,
     configuredMode,
     currentMode,
     effectiveMode: typeof nextState.effectiveMode === "string" ? nextState.effectiveMode : currentMode,
     attachedToWallpaper: nextState.attachedToWallpaper === true,
     wallpaperParentClass: typeof nextState.wallpaperParentClass === "string" ? nextState.wallpaperParentClass : "",
-    wallpaperError: typeof nextState.wallpaperError === "string" && nextState.wallpaperError ? nextState.wallpaperError : null
+    wallpaperError: typeof nextState.wallpaperError === "string" && nextState.wallpaperError ? nextState.wallpaperError : null,
+    overlayVisible: nextState.overlayVisible === true
   };
 }
 
@@ -1934,6 +1960,10 @@ function refreshWallpaperModeUi(options = {}) {
     ? wallpaperModeEnabledInput.checked
     : appRuntimeConfig.wallpaperModeEnabled === true;
   const enabled = supported && liveEnabledValue;
+  const liveInteractionValue = preserveOpenFormInputs && wallpaperInteractionEnabledInput
+    ? wallpaperInteractionEnabledInput.checked
+    : appRuntimeConfig.wallpaperInteractionEnabled === true;
+  const interactionEnabled = enabled && liveInteractionValue;
 
   if (wallpaperModeEnabledInput) {
     if (!preserveOpenFormInputs) {
@@ -1947,6 +1977,13 @@ function refreshWallpaperModeUi(options = {}) {
       windowModeInput.value = windowModeState.currentMode || appRuntimeConfig.windowMode || "normal";
     }
     windowModeInput.disabled = !supported || !enabled;
+  }
+
+  if (wallpaperInteractionEnabledInput) {
+    if (!preserveOpenFormInputs) {
+      wallpaperInteractionEnabledInput.checked = liveInteractionValue;
+    }
+    wallpaperInteractionEnabledInput.disabled = !supported || !enabled;
   }
 
   if (wallpaperModeHelp) {
@@ -1969,6 +2006,18 @@ function refreshWallpaperModeUi(options = {}) {
       })}`;
     }
     wallpaperModeHelp.textContent = helpText;
+  }
+
+  if (wallpaperInteractionHelp) {
+    let helpText = t("wallpaperInteractionHelp");
+    if (!supported) {
+      helpText = t("wallpaperModeUnsupported");
+    } else if (!enabled) {
+      helpText = `${t("wallpaperInteractionHelp")} ${t("wallpaperModeHelp")}`;
+    } else if (windowModeState.currentMode === "wallpaper-view" && windowModeState.overlayVisible !== interactionEnabled) {
+      helpText += ` ${t("wallpaperModePendingStatus")}`;
+    }
+    wallpaperInteractionHelp.textContent = helpText;
   }
 }
 
@@ -1997,6 +2046,9 @@ function refreshAppConfigUi(options = {}) {
   }
   if (autoStartHelp) {
     autoStartHelp.textContent = t(getAutoStartHelpKey());
+  }
+  if (wallpaperInteractionEnabledInput && !preserveOpenFormInputs) {
+    wallpaperInteractionEnabledInput.checked = appRuntimeConfig.wallpaperInteractionEnabled === true;
   }
   refreshWallpaperModeUi(options);
   if (diagnosticsEnabledInput) {
@@ -2384,7 +2436,7 @@ async function loadBoardsList() {
   }
 }
 
-function applyLoadedBoardState(nextState) {
+function applyLoadedBoardState(nextState, options = {}) {
   if (saveTimer) {
     clearTimeout(saveTimer);
     saveTimer = null;
@@ -2406,6 +2458,9 @@ function applyLoadedBoardState(nextState) {
   applySystemTheme(currentSystemTheme);
   render();
   applySettings();
+  if (options.persist !== false) {
+    void saveState({ skipHistory: true });
+  }
 }
 
 function applyBoardManagerResult(result, statusMessage = "") {
@@ -2413,7 +2468,7 @@ function applyBoardManagerResult(result, statusMessage = "") {
     appRuntimeConfig = result.appConfig;
   }
   if (result?.state) {
-    applyLoadedBoardState(result.state);
+    applyLoadedBoardState(result.state, { persist: false });
   } else {
     refreshAppConfigUi();
     refreshBoardsManagerUi();
@@ -2894,6 +2949,7 @@ function normalizeSettings(settings = {}) {
   const languageMode = allowedLanguageModes.includes(settings.languageMode) ? settings.languageMode : defaultSettings.languageMode;
   const timeFormat = allowedTimeFormats.includes(settings.timeFormat) ? settings.timeFormat : defaultSettings.timeFormat;
   const backgroundColor = isHexColor(settings.backgroundColor) ? settings.backgroundColor : defaultSettings.backgroundColor;
+  const backgroundOpacity = clamp(Math.round(Number(settings.backgroundOpacity) || defaultSettings.backgroundOpacity), 0, 100);
   const legacyColorSources = {
     bookmark: sourceColors.bookmark || sourceColors.note,
     progress: sourceColors.progress || sourceColors.tasks,
@@ -2919,6 +2975,7 @@ function normalizeSettings(settings = {}) {
     languageMode,
     timeFormat,
     backgroundColor,
+    backgroundOpacity,
     connectionColor: isHexColor(settings.connectionColor) ? settings.connectionColor : getDefaultConnectionColor(backgroundColor),
     snapToGrid: settings.snapToGrid !== false,
     quickCreateKinds: normalizeQuickCreateKinds(settings.quickCreateKinds),
@@ -3633,12 +3690,23 @@ function applyViewport() {
 }
 
 function applySettings() {
+  const backgroundOpacity = clamp(Number(state.settings.backgroundOpacity) || defaultSettings.backgroundOpacity, 0, 100) / 100;
+  const pageColor = hexToRgb(state.settings.backgroundColor);
   document.documentElement.style.setProperty("--page", state.settings.backgroundColor);
+  document.documentElement.style.setProperty("--board-surface", rgba(pageColor, backgroundOpacity));
+  document.documentElement.style.setProperty("--board-grid-horizontal", rgba(hexToRgb("#2f7d57"), 0.1 * backgroundOpacity));
+  document.documentElement.style.setProperty("--board-grid-vertical", rgba(hexToRgb("#3a8f9f"), 0.1 * backgroundOpacity));
   document.documentElement.style.setProperty("--connection-outline", getReadableTextColor(state.settings.backgroundColor));
   themeModeInput.value = state.settings.themeMode;
   languageModeInput.value = state.settings.languageMode;
   timeFormatInput.value = state.settings.timeFormat;
   backgroundColorInput.value = state.settings.backgroundColor;
+  if (backgroundOpacityInput) {
+    backgroundOpacityInput.value = String(clamp(Number(state.settings.backgroundOpacity) || defaultSettings.backgroundOpacity, 0, 100));
+  }
+  if (backgroundOpacityValue) {
+    backgroundOpacityValue.textContent = `${clamp(Number(state.settings.backgroundOpacity) || defaultSettings.backgroundOpacity, 0, 100)}%`;
+  }
   connectionColorInput.value = state.settings.connectionColor;
   Object.entries(colorInputRefs).forEach(([kind, inputs]) => {
     if (!inputs?.header || !inputs?.body) {
@@ -3669,9 +3737,11 @@ function applyTranslations() {
   setText("languageModeLabel", "languageMode");
   setText("autoStartWithWindowsLabel", "autoStartWithWindows");
   setText("wallpaperModeEnabledLabel", "wallpaperModeEnabled");
+  setText("wallpaperInteractionEnabledLabel", "wallpaperInteractionEnabled");
   setText("windowModeLabel", "windowModeLabel");
   setText("timeFormatLabel", "timeFormat");
   setText("backgroundColorLabel", "backgroundColor");
+  setText("backgroundOpacityLabel", "backgroundOpacity");
   setText("connectionColorLabel", "connectionColor");
   setText("storagePathLabel", "storagePath");
   setText("storagePathHelp", "storagePathHelp");
@@ -3684,6 +3754,7 @@ function applyTranslations() {
   setText("autoManageAssetsOnLaunchLabel", "autoManageAssetsOnLaunch");
   setText("autoManageAssetsOnLaunchHelp", "autoManageAssetsOnLaunchHelp");
   setText("wallpaperModeHelp", appRuntimeConfig.windowModeSupported ? "wallpaperModeHelp" : "wallpaperModeUnsupported");
+  setText("wallpaperInteractionHelp", "wallpaperInteractionHelp");
   setText("updatesLabel", "updatesLabel");
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
@@ -5354,7 +5425,8 @@ function maybeTriggerReminderNotification(card, now) {
   return true;
 }
 
-function handleTimerTick() {
+function handleTimerTick(options = {}) {
+  const sideEffects = options.sideEffects !== false;
   const now = Date.now();
   let changed = false;
 
@@ -5367,20 +5439,20 @@ function handleTimerTick() {
       if (remainingMs <= 0) {
         card.timerEndsAt = null;
         changed = true;
-        if (maybeTriggerTimerNotification(card, now)) {
+        if (sideEffects && maybeTriggerTimerNotification(card, now)) {
           changed = true;
         }
       }
     }
 
-    if (card.kind === "reminder") {
+    if (sideEffects && card.kind === "reminder") {
       changed = maybeTriggerReminderNotification(card, now) || changed;
     }
   });
 
   refreshVisibleTimerCards(now);
   refreshVisibleReminderCards(now);
-  if (changed) {
+  if (sideEffects && changed) {
     void saveState({ skipHistory: true });
   }
 }
@@ -6891,7 +6963,7 @@ function collectConnectionRouteObstacles(startNode, endNode, useAllCards = false
   );
 
   return state.cards
-    .filter((card) => !excludedIds.has(card.id))
+    .filter((card) => card.kind !== "group" && !excludedIds.has(card.id))
     .map((card) => ({ card, rect: getCardRect(card, connectionRouteObstaclePadding) }))
     .filter((obstacle) => useAllCards || rectIntersectsRect(obstacle.rect, searchRect));
 }
@@ -8811,6 +8883,14 @@ function setConnectionPathStyle(connection, value) {
   scheduleSave();
 }
 
+function convertConnectionToAutoPath(connection) {
+  ensureEditMode();
+  connection.points = [];
+  renderConnections();
+  scheduleSave();
+  closeContextMenu();
+}
+
 function deleteConnection(connection) {
   ensureEditMode();
   state.connections = state.connections.filter((item) => item.id !== connection.id);
@@ -8908,6 +8988,7 @@ function renderConnectionContextMenu(connection) {
         { value: "arrow", label: t("connectionCapArrow") },
         { value: "dot", label: t("connectionCapDot") }
       ], (value) => setConnectionCap(connection, "end", value)),
+      createContextButton(t("connectionAutoPath"), () => convertConnectionToAutoPath(connection)),
       createContextColorRow(t("color"), connection.color, (value) => setConnectionColor(connection, value)),
       createContextButton(t("resetColors"), () => resetConnectionColor(connection))
     ]),
@@ -9295,6 +9376,7 @@ async function saveSettings() {
     languageMode: languageModeInput.value || defaultSettings.languageMode,
     timeFormat: timeFormatInput.value || defaultSettings.timeFormat,
     backgroundColor: backgroundColorInput.value || defaultSettings.backgroundColor,
+    backgroundOpacity: Number(backgroundOpacityInput?.value || defaultSettings.backgroundOpacity),
     connectionColor: connectionColorInput.value || getDefaultConnectionColor(backgroundColorInput.value || defaultSettings.backgroundColor),
     snapToGrid: snapToGridInput.checked,
     quickCreateKinds: getSelectedQuickCreateKinds(),
@@ -9319,7 +9401,8 @@ async function saveSettings() {
         diagnosticsEnabled: diagnosticsEnabledInput.checked,
         autoStartEnabled: autoStartWithWindowsInput?.checked === true,
         autoManageAssetsOnLaunch: autoManageAssetsOnLaunchInput?.checked === true,
-        wallpaperModeEnabled
+        wallpaperModeEnabled,
+        wallpaperInteractionEnabled: wallpaperInteractionEnabledInput?.checked === true
       });
       if (requestVersion === appRuntimeConfigRequestVersion) {
         appRuntimeConfig = nextAppConfig;
@@ -9586,6 +9669,12 @@ cleanupAssetsButton?.addEventListener("click", cleanupAssetsFromSettings);
 checkUpdatesButton?.addEventListener("click", checkForUpdatesFromSettings);
 installUpdateButton?.addEventListener("click", installDownloadedUpdateFromSettings);
 wallpaperModeEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
+wallpaperInteractionEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
+backgroundOpacityInput?.addEventListener("input", () => {
+  if (backgroundOpacityValue) {
+    backgroundOpacityValue.textContent = `${clamp(Number(backgroundOpacityInput.value) || 0, 0, 100)}%`;
+  }
+});
 closeUrlButton.addEventListener("click", () => closeUrlModal(""));
 cancelUrlButton.addEventListener("click", () => closeUrlModal(""));
 saveUrlButton.addEventListener("click", submitUrlModal);
@@ -9632,7 +9721,9 @@ metaModal.addEventListener("click", (event) => {
 });
 
 if (!timerTickHandle) {
-  timerTickHandle = window.setInterval(handleTimerTick, timerTickIntervalMs);
+  timerTickHandle = window.setInterval(() => {
+    handleTimerTick({ sideEffects: !isOverlayWindow });
+  }, timerTickIntervalMs);
 }
 
 if (window.desktopBoard) {
@@ -9671,6 +9762,9 @@ if (window.desktopBoard) {
       void saveState({ skipHistory: true });
     }
   });
+  window.desktopBoard.onStateChanged?.((nextState) => {
+    applyLoadedBoardState(nextState, { persist: false });
+  });
 }
 
 window.addEventListener("error", (event) => {
@@ -9685,8 +9779,10 @@ window.addEventListener("unhandledrejection", (event) => {
 loadSystemTheme().then(loadAppRuntimeConfig).then(loadWindowModeState).then(loadAppUpdateState).then(loadState).then(() => {
   applySystemTheme(currentSystemTheme);
   render();
-  saveState();
-  void maybeRunStartupAssetMaintenance();
+  if (!isOverlayWindow) {
+    void saveState();
+    void maybeRunStartupAssetMaintenance();
+  }
   void loadBoardsList();
 }).catch((error) => {
   reportError("app.init", error);

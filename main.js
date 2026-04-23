@@ -12,6 +12,7 @@ const JSZip = require("jszip");
 const { pathToFileURL, fileURLToPath } = require("url");
 
 let mainWindow;
+let overlayWindow = null;
 let appConfig = {
   storagePath: "",
   diagnosticsEnabled: true,
@@ -19,6 +20,7 @@ let appConfig = {
   autoStartEnabled: false,
   autoManageAssetsOnLaunch: true,
   wallpaperModeEnabled: false,
+  wallpaperInteractionEnabled: false,
   windowMode: "normal"
 };
 let logWriteQueue = Promise.resolve();
@@ -71,6 +73,7 @@ const defaultAppConfig = {
   autoStartEnabled: false,
   autoManageAssetsOnLaunch: true,
   wallpaperModeEnabled: false,
+  wallpaperInteractionEnabled: false,
   windowMode: "normal"
 };
 
@@ -113,6 +116,7 @@ function normalizeAppConfig(config = {}) {
     autoStartEnabled: config.autoStartEnabled === true,
     autoManageAssetsOnLaunch: config.autoManageAssetsOnLaunch !== false,
     wallpaperModeEnabled: config.wallpaperModeEnabled === true,
+    wallpaperInteractionEnabled: config.wallpaperInteractionEnabled === true,
     windowMode: normalizeWindowMode(config.windowMode)
   };
 }
@@ -251,12 +255,14 @@ function getWindowModeState() {
   return {
     supported: isWallpaperModeSupported(),
     enabled: appConfig.wallpaperModeEnabled === true,
+    interactionEnabled: appConfig.wallpaperInteractionEnabled === true,
     configuredMode: normalizeWindowMode(appConfig.windowMode),
     currentMode: currentWindowMode,
     effectiveMode: currentWindowMode,
     attachedToWallpaper: wallpaperAttachmentState.attached === true,
     wallpaperParentClass: wallpaperAttachmentState.parentClass || "",
-    wallpaperError: wallpaperAttachmentState.error || null
+    wallpaperError: wallpaperAttachmentState.error || null,
+    overlayVisible: Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible())
   };
 }
 
@@ -1427,9 +1433,7 @@ function createAutoUpdateState(overrides = {}) {
 }
 
 function sendAutoUpdateState() {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("updates:state", getAutoUpdateStateForRenderer());
-  }
+  return sendRendererEvent("updates:state", getAutoUpdateStateForRenderer());
 }
 
 function setAutoUpdateState(patch = {}) {
@@ -1511,6 +1515,8 @@ async function writeAppConfig(nextConfig) {
     throw error;
   }
   syncCurrentWindowModeFromConfig();
+  await syncOverlayWindowVisibility();
+  sendWindowModeState();
   return getAppConfigForRenderer();
 }
 
@@ -1526,6 +1532,7 @@ async function updateAppConfig(partial = {}) {
     autoStartEnabled: nextConfig.autoStartEnabled === true,
     autoManageAssetsOnLaunch: nextConfig.autoManageAssetsOnLaunch === true,
     wallpaperModeEnabled: nextConfig.wallpaperModeEnabled === true,
+    wallpaperInteractionEnabled: nextConfig.wallpaperInteractionEnabled === true,
     windowMode: normalizeWindowMode(nextConfig.windowMode)
   });
   return nextConfig;
@@ -3013,6 +3020,7 @@ function applyWindowModeToWindow(mode = currentWindowMode) {
 function syncCurrentWindowModeFromConfig() {
   currentWindowMode = getEffectiveWindowMode(appConfig, currentWindowMode);
   applyWindowModeToWindow(currentWindowMode);
+  void syncOverlayWindowVisibility();
   return getWindowModeState();
 }
 
@@ -3031,6 +3039,9 @@ async function setWindowMode(nextMode, options = {}) {
   currentWindowMode = getEffectiveWindowMode(appConfig, desiredMode);
   applyWindowModeToWindow(currentWindowMode);
   await queueWallpaperAttachmentSync(currentWindowMode);
+  await syncOverlayWindowVisibility({
+    focus: options.focusOverlay === true && currentWindowMode === "wallpaper-view"
+  });
   return getWindowModeState();
 }
 
@@ -3050,9 +3061,11 @@ function showWindowForMode(mode = currentWindowMode) {
       mainWindow.show();
     }
     void queueWallpaperAttachmentSync(mode);
+    void syncOverlayWindowVisibility();
     return true;
   }
 
+  hideOverlayWindow();
   mainWindow.show();
   mainWindow.focus();
   return true;
@@ -3081,12 +3094,73 @@ function reinforceWallpaperView(reason = "") {
   return true;
 }
 
-function createWindow() {
-  const { workArea } = screen.getPrimaryDisplay();
-  ensureTray();
-  const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
+function getRendererWindows() {
+  return [mainWindow, overlayWindow].filter((windowRef) => windowRef && !windowRef.isDestroyed());
+}
 
-  mainWindow = new BrowserWindow({
+function sendWindowEvent(windowRef, channel, payload) {
+  if (!windowRef || windowRef.isDestroyed()) {
+    return false;
+  }
+
+  const send = () => {
+    if (!windowRef.isDestroyed()) {
+      windowRef.webContents.send(channel, payload);
+    }
+  };
+
+  if (windowRef.webContents.isLoadingMainFrame()) {
+    windowRef.webContents.once("did-finish-load", send);
+  } else {
+    send();
+  }
+
+  return true;
+}
+
+function sendRendererEvent(channel, payload, options = {}) {
+  const excludedWindow = options.excludedWindow || null;
+  const targetWindow = options.targetWindow || null;
+  const windows = targetWindow ? [targetWindow] : getRendererWindows();
+  let sent = false;
+
+  windows.forEach((windowRef) => {
+    if (!windowRef || windowRef === excludedWindow || windowRef.isDestroyed()) {
+      return;
+    }
+    sent = sendWindowEvent(windowRef, channel, payload) || sent;
+  });
+
+  return sent;
+}
+
+function sendThemeUpdate() {
+  return sendRendererEvent("theme:updated", getSystemTheme());
+}
+
+function shouldShowWallpaperOverlay(mode = currentWindowMode, config = appConfig) {
+  return (
+    isWallpaperModeSupported()
+    && config?.wallpaperModeEnabled === true
+    && config?.wallpaperInteractionEnabled === true
+    && normalizeWindowMode(mode) === "wallpaper-view"
+  );
+}
+
+function isOverlayWindowVisible() {
+  return Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible());
+}
+
+function getInteractiveWindowVisible() {
+  if (shouldShowWallpaperOverlay()) {
+    return isOverlayWindowVisible();
+  }
+
+  return Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible());
+}
+
+function createWindowOptions(workArea, runtimeWindowIcon) {
+  return {
     x: workArea.x,
     y: workArea.y,
     width: workArea.width,
@@ -3094,11 +3168,11 @@ function createWindow() {
     minWidth: 960,
     minHeight: 640,
     frame: false,
-    transparent: false,
+    transparent: true,
     resizable: true,
     maximizable: true,
     autoHideMenuBar: true,
-    backgroundColor: "#f4f5f0",
+    backgroundColor: "#00000000",
     icon: runtimeWindowIcon || windowIconPath,
     title: "Desktop Board",
     webPreferences: {
@@ -3108,7 +3182,119 @@ function createWindow() {
       webviewTag: true,
       backgroundThrottling: false
     }
+  };
+}
+
+function syncWindowBounds(windowRef) {
+  if (!windowRef || windowRef.isDestroyed()) {
+    return false;
+  }
+
+  const { workArea } = screen.getPrimaryDisplay();
+  try {
+    windowRef.setBounds({
+      x: workArea.x,
+      y: workArea.y,
+      width: workArea.width,
+      height: workArea.height
+    });
+  } catch {
+    return false;
+  }
+
+  return true;
+}
+
+function hideOverlayWindow() {
+  if (!overlayWindow || overlayWindow.isDestroyed()) {
+    return false;
+  }
+
+  overlayWindow.hide();
+  updateTrayMenu();
+  sendWindowModeState();
+  return true;
+}
+
+function ensureOverlayWindow() {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    return overlayWindow;
+  }
+
+  const { workArea } = screen.getPrimaryDisplay();
+  ensureTray();
+  const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
+  overlayWindow = new BrowserWindow({
+    ...createWindowOptions(workArea, runtimeWindowIcon),
+    show: false,
+    skipTaskbar: true,
+    focusable: true
   });
+
+  overlayWindow.loadFile(path.join(__dirname, "src", "index.html"), {
+    query: { role: "overlay" }
+  });
+  overlayWindow.maximize();
+  overlayWindow.on("close", (event) => {
+    if (isQuitting) {
+      return;
+    }
+    event.preventDefault();
+    hideOverlayWindow();
+  });
+  overlayWindow.on("show", updateTrayMenu);
+  overlayWindow.on("hide", updateTrayMenu);
+  overlayWindow.on("closed", () => {
+    overlayWindow = null;
+    updateTrayMenu();
+    sendWindowModeState();
+  });
+  overlayWindow.webContents.once("did-finish-load", () => {
+    sendAutoUpdateState();
+    sendWindowModeState();
+    sendThemeUpdate();
+  });
+
+  return overlayWindow;
+}
+
+function syncOverlayWindowVisibility(options = {}) {
+  const shouldShow = shouldShowWallpaperOverlay();
+  if (!shouldShow) {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.hide();
+    }
+    updateTrayMenu();
+    sendWindowModeState();
+    return false;
+  }
+
+  const windowRef = ensureOverlayWindow();
+  if (!windowRef || windowRef.isDestroyed()) {
+    return false;
+  }
+
+  syncWindowBounds(windowRef);
+  if (windowRef.isMinimized()) {
+    windowRef.restore();
+  }
+  if (!windowRef.isVisible()) {
+    windowRef.show();
+  }
+  if (options.focus === true) {
+    windowRef.focus();
+  }
+  updateTrayMenu();
+  sendWindowModeState();
+  return true;
+}
+
+function createWindow() {
+  const { workArea } = screen.getPrimaryDisplay();
+  ensureTray();
+  const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
+
+  mainWindow = new BrowserWindow(createWindowOptions(workArea, runtimeWindowIcon));
 
   applyWindowModeToWindow(currentWindowMode);
   mainWindow.loadFile(path.join(__dirname, "src", "index.html"));
@@ -3138,6 +3324,10 @@ function createWindow() {
     if (mainWindow && mainWindow.isDestroyed()) {
       mainWindow = null;
     }
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.destroy();
+      overlayWindow = null;
+    }
     wallpaperAttachmentState = {
       attached: false,
       parentClass: "",
@@ -3148,32 +3338,9 @@ function createWindow() {
   mainWindow.webContents.once("did-finish-load", () => {
     sendAutoUpdateState();
     sendWindowModeState();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("theme:updated", getSystemTheme());
-    }
+    sendThemeUpdate();
     updateTrayMenu();
   });
-}
-
-function sendRendererEvent(channel, payload) {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    return false;
-  }
-
-  const windowRef = mainWindow;
-  const send = () => {
-    if (!windowRef.isDestroyed()) {
-      windowRef.webContents.send(channel, payload);
-    }
-  };
-
-  if (windowRef.webContents.isLoadingMainFrame()) {
-    windowRef.webContents.once("did-finish-load", send);
-  } else {
-    send();
-  }
-
-  return true;
 }
 
 function sendNotificationEvent(payload) {
@@ -3187,6 +3354,10 @@ function revealMainWindow(options = {}) {
 
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
+  }
+
+  if (currentWindowMode === "wallpaper-view" && shouldShowWallpaperOverlay()) {
+    return syncOverlayWindowVisibility({ focus: true });
   }
 
   if (options.preferEditable === true && currentWindowMode === "wallpaper-view") {
@@ -3377,7 +3548,7 @@ function updateTrayMenu() {
   }
 
   const labels = getTrayLabels();
-  const windowVisible = isMainWindowVisible();
+  const windowVisible = getInteractiveWindowVisible();
   const trayMenuItems = [
     {
       label: windowVisible ? labels.hide : labels.show,
@@ -3469,6 +3640,11 @@ function ensureTray() {
 }
 
 function hideWindowToTray(options = {}) {
+  if (shouldShowWallpaperOverlay() && isOverlayWindowVisible()) {
+    hideOverlayWindow();
+    return true;
+  }
+
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
   }
@@ -3496,6 +3672,15 @@ function hideWindowToTray(options = {}) {
 
 function toggleWindow() {
   if (currentWindowMode === "wallpaper-view") {
+    if (shouldShowWallpaperOverlay()) {
+      if (isOverlayWindowVisible()) {
+        hideOverlayWindow();
+      } else {
+        revealMainWindow();
+      }
+      return;
+    }
+
     revealMainWindow({ preferEditable: true });
     return;
   }
@@ -3539,7 +3724,12 @@ app.whenReady().then(async () => {
   }
 
   ipcMain.handle("state:load", () => readState());
-  ipcMain.handle("state:save", (_event, state) => writeState(state));
+  ipcMain.handle("state:save", async (event, state) => {
+    await writeState(state);
+    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+    sendRendererEvent("state:changed", state, { excludedWindow: sourceWindow });
+    return true;
+  });
   ipcMain.handle("app-config:get", () => getAppConfigForRenderer());
   ipcMain.handle("app-config:update", (_event, partial) => updateAppConfig(partial || {}));
   ipcMain.handle("boards:list", (_event, currentState) => listBoardsForRenderer(currentState || null));
@@ -3586,9 +3776,7 @@ app.whenReady().then(async () => {
   await initializeAutoUpdater();
 
   nativeTheme.on("updated", () => {
-    if (mainWindow) {
-      mainWindow.webContents.send("theme:updated", getSystemTheme());
-    }
+    sendThemeUpdate();
   });
 
   app.on("activate", () => {
