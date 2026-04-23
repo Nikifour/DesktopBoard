@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, dialog, nativeTheme, systemPreferences, shell, Notification, Tray, Menu } = require("electron");
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, dialog, nativeTheme, systemPreferences, shell, Notification, Tray, Menu, nativeImage } = require("electron");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const fsSync = require("fs");
@@ -17,7 +17,7 @@ let appConfig = {
   diagnosticsEnabled: true,
   activeBoardId: "main",
   autoStartEnabled: false,
-  autoManageAssetsOnLaunch: false
+  autoManageAssetsOnLaunch: true
 };
 let logWriteQueue = Promise.resolve();
 let lastKnownState = null;
@@ -39,6 +39,7 @@ const defaultBoardName = "Main board";
 const mediaKinds = new Set(["image", "video", "audio"]);
 const storedAssetKinds = new Set(["image", "video", "audio", "file"]);
 const windowIconPath = path.join(__dirname, "src", "assets", "app-icon.ico");
+const trayIconPath = path.join(__dirname, "src", "assets", "tray-icon.png");
 const notificationIconPath = path.join(__dirname, "src", "assets", "app-logo.png");
 const sessionId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const autoUpdateInitialDelayMs = 15000;
@@ -55,7 +56,7 @@ const defaultAppConfig = {
   diagnosticsEnabled: true,
   activeBoardId: defaultBoardId,
   autoStartEnabled: false,
-  autoManageAssetsOnLaunch: false
+  autoManageAssetsOnLaunch: true
 };
 
 function normalizeStoragePath(value) {
@@ -93,7 +94,7 @@ function normalizeAppConfig(config = {}) {
     diagnosticsEnabled: config.diagnosticsEnabled !== false,
     activeBoardId: normalizeBoardId(config.activeBoardId) || defaultBoardId,
     autoStartEnabled: config.autoStartEnabled === true,
-    autoManageAssetsOnLaunch: config.autoManageAssetsOnLaunch === true
+    autoManageAssetsOnLaunch: config.autoManageAssetsOnLaunch !== false
   };
 }
 
@@ -3040,7 +3041,8 @@ function ensureTray() {
     return tray;
   }
 
-  tray = new Tray(windowIconPath);
+  const trayIcon = nativeImage.createFromPath(trayIconPath);
+  tray = new Tray(trayIcon.isEmpty() ? windowIconPath : trayIcon);
   tray.on("click", () => {
     if (isMainWindowVisible()) {
       hideWindowToTray({ showHint: false });

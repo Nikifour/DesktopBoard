@@ -527,13 +527,14 @@ let currentSystemTheme = {
   accentColor: "#2f7d57",
   isDark: false
 };
+let appRuntimeConfigRequestVersion = 0;
 let appRuntimeConfig = {
   appVersion: "",
   storagePath: "",
   diagnosticsEnabled: true,
   activeBoardId: defaultBoardId,
   autoStartEnabled: false,
-  autoManageAssetsOnLaunch: false,
+  autoManageAssetsOnLaunch: true,
   autoStart: {
     supported: false,
     reason: "unknown",
@@ -2048,8 +2049,6 @@ function renderAssetIssueGroup(container, title, items, kind) {
 }
 
 function refreshAssetManagerUi() {
-  refreshAppConfigUi();
-
   if (assetManagerLabel) {
     assetManagerLabel.textContent = t("assetManager");
   }
@@ -2414,13 +2413,18 @@ async function deleteBoardFromSettings() {
 }
 
 async function loadAppRuntimeConfig() {
+  const requestVersion = ++appRuntimeConfigRequestVersion;
   if (!window.desktopBoard?.getAppConfig) {
     refreshAppConfigUi();
     return;
   }
 
   try {
-    appRuntimeConfig = await window.desktopBoard.getAppConfig();
+    const nextConfig = await window.desktopBoard.getAppConfig();
+    if (requestVersion !== appRuntimeConfigRequestVersion) {
+      return;
+    }
+    appRuntimeConfig = nextConfig;
   } catch (error) {
     reportError("config.load", error);
   }
@@ -3054,6 +3058,14 @@ function isPointInsideRect(point, rect) {
   );
 }
 
+function getRectArea(rect) {
+  if (!rect) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Math.max(0, rect.right - rect.left) * Math.max(0, rect.bottom - rect.top);
+}
+
 function findGroupBodyForPoint(point, cards = state.cards, preferredGroupId = null) {
   if (preferredGroupId) {
     const preferredGroup = cards.find((card) => card.kind === "group" && card.id === preferredGroupId);
@@ -3062,18 +3074,27 @@ function findGroupBodyForPoint(point, cards = state.cards, preferredGroupId = nu
     }
   }
 
+  let bestMatch = null;
+  let bestArea = Number.POSITIVE_INFINITY;
   for (let index = cards.length - 1; index >= 0; index -= 1) {
     const card = cards[index];
     if (card.kind !== "group" || card.id === preferredGroupId) {
       continue;
     }
 
-    if (isPointInsideRect(point, getGroupBodyRect(card))) {
-      return card;
+    const rect = getGroupBodyRect(card);
+    if (!isPointInsideRect(point, rect)) {
+      continue;
+    }
+
+    const area = getRectArea(rect);
+    if (!bestMatch || area <= bestArea) {
+      bestMatch = card;
+      bestArea = area;
     }
   }
 
-  return null;
+  return bestMatch;
 }
 
 function bindConnectionPointToGroup(point, cards = state.cards, preferredGroupId = null) {
@@ -3148,6 +3169,110 @@ function resolveConnectionPoint(point, cards = state.cards, sync = false) {
   }
 
   return resolved;
+}
+
+function isCardInsideGroup(card, group) {
+  if (!card || !group || group.kind !== "group" || card.id === group.id) {
+    return false;
+  }
+
+  const bodyRect = getGroupBodyRect(group);
+  if (!bodyRect) {
+    return false;
+  }
+
+  if (card.kind === "group") {
+    return (
+      card.x >= bodyRect.left &&
+      card.x + card.width <= bodyRect.right &&
+      card.y >= bodyRect.top &&
+      card.y + card.height <= bodyRect.bottom
+    );
+  }
+
+  const centerX = card.x + card.width / 2;
+  const centerY = card.y + card.height / 2;
+  return (
+    centerX >= bodyRect.left &&
+    centerX <= bodyRect.right &&
+    centerY >= bodyRect.top &&
+    centerY <= bodyRect.bottom
+  );
+}
+
+function getContainedCards(group, options = {}) {
+  const includeGroups = options.includeGroups === true;
+  const recursive = options.recursive === true;
+  const visitedGroupIds = options.visitedGroupIds instanceof Set ? options.visitedGroupIds : new Set();
+  if (!group || group.kind !== "group" || visitedGroupIds.has(group.id)) {
+    return [];
+  }
+
+  const nextVisitedGroupIds = new Set(visitedGroupIds);
+  nextVisitedGroupIds.add(group.id);
+  const matches = [];
+  const seenIds = new Set();
+
+  state.cards.forEach((card) => {
+    if (card.id === group.id) {
+      return;
+    }
+
+    if (card.kind === "group" && !includeGroups) {
+      return;
+    }
+
+    if (card.kind === "group" && nextVisitedGroupIds.has(card.id)) {
+      return;
+    }
+
+    if (!isCardInsideGroup(card, group)) {
+      return;
+    }
+
+    if (!seenIds.has(card.id)) {
+      seenIds.add(card.id);
+      matches.push(card);
+    }
+
+    if (recursive && card.kind === "group") {
+      getContainedCards(card, {
+        includeGroups,
+        recursive: true,
+        visitedGroupIds: nextVisitedGroupIds
+      }).forEach((nestedCard) => {
+        if (seenIds.has(nestedCard.id)) {
+          return;
+        }
+        seenIds.add(nestedCard.id);
+        matches.push(nestedCard);
+      });
+    }
+  });
+
+  return matches;
+}
+
+function getCardsForMove(baseCards = []) {
+  const moveCards = new Map();
+
+  baseCards.forEach((card) => {
+    if (!card) {
+      return;
+    }
+
+    moveCards.set(card.id, card);
+    if (card.kind === "group") {
+      getContainedCards(card, {
+        includeGroups: true,
+        recursive: true
+      }).forEach((containedCard) => {
+        moveCards.set(containedCard.id, containedCard);
+      });
+    }
+  });
+
+  return [...moveCards.values()];
 }
 
 function migrateGroupBoundConnectionPoints(boardState) {
@@ -7188,23 +7313,6 @@ function collectMoveItems(cards) {
   return [...items.values()];
 }
 
-function getContainedCards(group) {
-  return state.cards.filter((card) => {
-    if (card.id === group.id || card.kind === "group") {
-      return false;
-    }
-
-    const centerX = card.x + card.width / 2;
-    const centerY = card.y + card.height / 2;
-    return (
-      centerX >= group.x &&
-      centerX <= group.x + group.width &&
-      centerY >= group.y &&
-      centerY <= group.y + group.height
-    );
-  });
-}
-
 function startCardMove(event, card) {
   if (connectionMode || event.button !== 0 || state.locked || event.target.closest("button") || event.target.matches("input, textarea")) {
     return;
@@ -7230,9 +7338,11 @@ function startCardMove(event, card) {
   cardElement.setPointerCapture(event.pointerId);
   const startWorld = screenToWorld(event.clientX, event.clientY);
   const selectedCards = getSelectedCards();
-  const moveCards = selectedCards.length > 1
-    ? selectedCards
-    : (card.kind === "group" ? [card, ...getContainedCards(card)] : [card]);
+  const moveCards = getCardsForMove(
+    selectedCards.length > 1
+      ? selectedCards
+      : [card]
+  );
 
   activeAction = {
     type: "move",
@@ -9034,12 +9144,16 @@ async function saveSettings() {
 
   if (window.desktopBoard?.updateAppConfig) {
     try {
-      appRuntimeConfig = await window.desktopBoard.updateAppConfig({
+      const requestVersion = ++appRuntimeConfigRequestVersion;
+      const nextAppConfig = await window.desktopBoard.updateAppConfig({
         diagnosticsEnabled: diagnosticsEnabledInput.checked,
         autoStartEnabled: autoStartWithWindowsInput?.checked === true,
         autoManageAssetsOnLaunch: autoManageAssetsOnLaunchInput?.checked === true
       });
-      refreshAppConfigUi();
+      if (requestVersion === appRuntimeConfigRequestVersion) {
+        appRuntimeConfig = nextAppConfig;
+        refreshAppConfigUi();
+      }
     } catch (error) {
       reportError("config.update", error);
       statusMessage = t("appConfigSaveError");
