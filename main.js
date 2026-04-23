@@ -1,5 +1,6 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, screen, dialog, nativeTheme, systemPreferences, shell, Notification, Tray, Menu } = require("electron");
 const crypto = require("crypto");
+const fsSync = require("fs");
 const fs = require("fs/promises");
 const path = require("path");
 const { autoUpdater } = require("electron-updater");
@@ -684,6 +685,26 @@ function isPortableBuild() {
   return Boolean(process.env.PORTABLE_EXECUTABLE_DIR || process.env.PORTABLE_EXECUTABLE_FILE);
 }
 
+function parseFlatYamlConfig(source = "") {
+  const result = {};
+  String(source || "")
+    .split(/\r?\n/)
+    .forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) {
+        return;
+      }
+      const match = trimmed.match(/^([A-Za-z0-9_]+):\s*(.+?)\s*$/);
+      if (!match) {
+        return;
+      }
+      const key = match[1];
+      const rawValue = match[2];
+      result[key] = rawValue.replace(/^["']|["']$/g, "");
+    });
+  return result;
+}
+
 function getGitHubPublishConfig() {
   const publishEntries = Array.isArray(packageJson?.build?.publish)
     ? packageJson.build.publish
@@ -692,6 +713,20 @@ function getGitHubPublishConfig() {
       : [];
   const githubConfig = publishEntries.find((entry) => entry?.provider === "github" && entry.owner && entry.repo);
   if (!githubConfig) {
+    try {
+      const updateConfigPath = path.join(process.resourcesPath, "app-update.yml");
+      if (fsSync.existsSync(updateConfigPath)) {
+        const parsedConfig = parseFlatYamlConfig(fsSync.readFileSync(updateConfigPath, "utf8"));
+        if (parsedConfig.provider === "github" && parsedConfig.owner && parsedConfig.repo) {
+          return {
+            owner: String(parsedConfig.owner),
+            repo: String(parsedConfig.repo)
+          };
+        }
+      }
+    } catch {
+      return null;
+    }
     return null;
   }
 
