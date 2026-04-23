@@ -1627,6 +1627,16 @@ async function checkForAppUpdates(source = "manual") {
   });
   void logEvent("info", "updates.check", "Checking for updates", { source });
 
+  const prefersGitHubReleaseApi = Boolean(getGitHubPublishConfig())
+    && ["manual", "startup", "scheduled"].includes(source);
+
+  if (prefersGitHubReleaseApi) {
+    const didResolveViaGitHub = await applyGitHubReleaseFallback(source);
+    if (didResolveViaGitHub) {
+      return getAutoUpdateStateForRenderer();
+    }
+  }
+
   if (!autoUpdaterInitialized) {
     const didFallback = await applyGitHubReleaseFallback(source);
     if (!didFallback) {
