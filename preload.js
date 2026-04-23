@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld("desktopBoard", {
   getUpdateState: () => ipcRenderer.invoke("updates:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   installAppUpdate: () => ipcRenderer.invoke("updates:install"),
+  getWindowModeState: () => ipcRenderer.invoke("window-mode:get-state"),
+  setWindowMode: (mode) => ipcRenderer.invoke("window-mode:set", mode),
   hideWindow: () => ipcRenderer.invoke("window:hide"),
   onToggleLock: (callback) => {
     ipcRenderer.on("board:toggle-lock", callback);
@@ -44,6 +46,11 @@ contextBridge.exposeInMainWorld("desktopBoard", {
     const listener = (_event, nextState) => callback(nextState);
     ipcRenderer.on("updates:state", listener);
     return () => ipcRenderer.removeListener("updates:state", listener);
+  },
+  onWindowModeState: (callback) => {
+    const listener = (_event, nextState) => callback(nextState);
+    ipcRenderer.on("window-mode:state", listener);
+    return () => ipcRenderer.removeListener("window-mode:state", listener);
   },
   onNotificationEvent: (callback) => {
     const listener = (_event, payload) => callback(payload);

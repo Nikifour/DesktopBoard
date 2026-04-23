@@ -187,6 +187,23 @@
         <p id="autoStartHelp" class="settings-help">Приложение будет запускаться автоматически после входа в Windows.</p>
 
         <label class="settings-row settings-checkbox">
+          <span class="settings-label-with-badge">
+            <span id="wallpaperModeEnabledLabel">Включить wallpaper mode</span>
+            <span class="settings-beta-badge">Beta</span>
+          </span>
+          <input id="wallpaperModeEnabledInput" type="checkbox" />
+        </label>
+        <label class="settings-row">
+          <span id="windowModeLabel">Режим окна</span>
+          <select id="windowModeInput">
+            <option value="normal">Обычный режим</option>
+            <option value="desktop-edit">Редактирование на рабочем столе</option>
+            <option value="wallpaper-view">Wallpaper view</option>
+          </select>
+        </label>
+        <p id="wallpaperModeHelp" class="settings-help">Wallpaper view делает окно кликабельным только через трей или хоткей. Для редактирования переключитесь обратно в режим рабочего стола.</p>
+
+        <label class="settings-row settings-checkbox">
           <span id="diagnosticsEnabledLabel">Локальный диагностический лог</span>
           <input id="diagnosticsEnabledInput" type="checkbox" checked />
         </label>

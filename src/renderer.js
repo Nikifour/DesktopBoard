@@ -140,6 +140,9 @@ const renameBoardButton = document.getElementById("renameBoardButton");
 const deleteBoardButton = document.getElementById("deleteBoardButton");
 const autoStartWithWindowsInput = document.getElementById("autoStartWithWindowsInput");
 const autoStartHelp = document.getElementById("autoStartHelp");
+const wallpaperModeEnabledInput = document.getElementById("wallpaperModeEnabledInput");
+const windowModeInput = document.getElementById("windowModeInput");
+const wallpaperModeHelp = document.getElementById("wallpaperModeHelp");
 const diagnosticsEnabledInput = document.getElementById("diagnosticsEnabledInput");
 const openLogsButton = document.getElementById("openLogsButton");
 const exportBoardButton = document.getElementById("exportBoardButton");
@@ -535,6 +538,9 @@ let appRuntimeConfig = {
   activeBoardId: defaultBoardId,
   autoStartEnabled: false,
   autoManageAssetsOnLaunch: true,
+  wallpaperModeEnabled: false,
+  windowMode: "normal",
+  windowModeSupported: false,
   autoStart: {
     supported: false,
     reason: "unknown",
@@ -542,6 +548,16 @@ let appRuntimeConfig = {
     effective: false
   },
   storageInfo: null
+};
+let windowModeState = {
+  supported: false,
+  enabled: false,
+  configuredMode: "normal",
+  currentMode: "normal",
+  effectiveMode: "normal",
+  attachedToWallpaper: false,
+  wallpaperParentClass: "",
+  wallpaperError: null
 };
 const defaultAppUpdateState = {
   supported: false,
@@ -827,7 +843,17 @@ Object.assign(translations.ru, {
   autoStartHelpSupported: "\u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0431\u0443\u0434\u0435\u0442 \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u043e\u0441\u043b\u0435 \u0432\u0445\u043e\u0434\u0430 \u0432 Windows.",
   autoStartHelpUnpacked: "\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u043e\u0439 \u0438\u043b\u0438 portable-\u0441\u0431\u043e\u0440\u043a\u0435 \u043d\u0430 Windows. Dev-\u0440\u0435\u0436\u0438\u043c \u0432 \u0430\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u043d\u0435 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.",
   autoStartHelpUnsupported: "\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 Windows.",
-  appConfigSaveError: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f."
+  appConfigSaveError: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f.",
+  wallpaperModeEnabled: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c wallpaper mode",
+  wallpaperModeHelp: "Wallpaper view \u0434\u0435\u043b\u0430\u0435\u0442 \u043e\u043a\u043d\u043e click-through. \u0414\u043b\u044f \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u0432\u0435\u0440\u043d\u0438\u0442\u0435\u0441\u044c \u0432 \u0440\u0435\u0436\u0438\u043c рабочего \u0441\u0442\u043e\u043b\u0430 \u0447\u0435\u0440\u0435\u0437 \u0442\u0440\u0435\u0439 \u0438\u043b\u0438 \u0445\u043e\u0442\u043a\u0435\u0439.",
+  wallpaperModeUnsupported: "Wallpaper mode \u043f\u043e\u043a\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 Windows.",
+  windowModeLabel: "\u0420\u0435\u0436\u0438\u043c \u043e\u043a\u043d\u0430",
+  windowModeNormal: "\u041e\u0431\u044b\u0447\u043d\u044b\u0439 \u0440\u0435\u0436\u0438\u043c",
+  windowModeDesktopEdit: "\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043d\u0430 \u0440\u0430\u0431\u043e\u0447\u0435\u043c \u0441\u0442\u043e\u043b\u0435",
+  windowModeWallpaperView: "Wallpaper view",
+  wallpaperModeAttachedStatus: "\u041f\u0440\u0438\u0432\u044f\u0437\u0430\u043d\u043e \u043a \u0441\u043b\u043e\u044e рабочего \u0441\u0442\u043e\u043b\u0430: {parent}.",
+  wallpaperModePendingStatus: "\u041e\u0436\u0438\u0434\u0430\u043d\u0438\u0435 \u043f\u0440\u0438\u0432\u044f\u0437\u043a\u0438 \u043a desktop layer.",
+  wallpaperModeErrorStatus: "\u041e\u0448\u0438\u0431\u043a\u0430 wallpaper mode: {message}"
 });
 
 Object.assign(translations.en, {
@@ -837,7 +863,17 @@ Object.assign(translations.en, {
   autoStartHelpSupported: "The app will start automatically after you sign in to Windows.",
   autoStartHelpUnpacked: "Available in installed or portable Windows builds. Dev mode is not added to startup.",
   autoStartHelpUnsupported: "Auto-start is available only on Windows.",
-  appConfigSaveError: "Could not save app settings."
+  appConfigSaveError: "Could not save app settings.",
+  wallpaperModeEnabled: "Enable wallpaper mode",
+  wallpaperModeHelp: "Wallpaper view makes the window click-through. Return to Desktop edit through the tray menu or hotkey when you need to edit the board.",
+  wallpaperModeUnsupported: "Wallpaper mode is currently available only on Windows.",
+  windowModeLabel: "Window mode",
+  windowModeNormal: "Normal",
+  windowModeDesktopEdit: "Desktop edit",
+  windowModeWallpaperView: "Wallpaper view",
+  wallpaperModeAttachedStatus: "Attached to desktop layer: {parent}.",
+  wallpaperModePendingStatus: "Waiting for wallpaper attach.",
+  wallpaperModeErrorStatus: "Wallpaper mode error: {message}"
 });
 
 Object.assign(translations.ru, {
@@ -1863,6 +1899,79 @@ function getAutoStartHelpKey() {
   return "autoStartHelpUnsupported";
 }
 
+function normalizeWindowModeState(nextState = {}) {
+  const supported = nextState.supported === true;
+  const enabled = nextState.enabled === true;
+  const configuredMode = typeof nextState.configuredMode === "string" ? nextState.configuredMode : "normal";
+  const currentMode = typeof nextState.currentMode === "string" ? nextState.currentMode : "normal";
+  return {
+    supported,
+    enabled,
+    configuredMode,
+    currentMode,
+    effectiveMode: typeof nextState.effectiveMode === "string" ? nextState.effectiveMode : currentMode,
+    attachedToWallpaper: nextState.attachedToWallpaper === true,
+    wallpaperParentClass: typeof nextState.wallpaperParentClass === "string" ? nextState.wallpaperParentClass : "",
+    wallpaperError: typeof nextState.wallpaperError === "string" && nextState.wallpaperError ? nextState.wallpaperError : null
+  };
+}
+
+function getCurrentWindowModeLabelKey() {
+  switch (windowModeState.currentMode) {
+    case "desktop-edit":
+      return "windowModeDesktopEdit";
+    case "wallpaper-view":
+      return "windowModeWallpaperView";
+    default:
+      return "windowModeNormal";
+  }
+}
+
+function refreshWallpaperModeUi(options = {}) {
+  const preserveOpenFormInputs = options.force !== true && isSettingsModalOpen();
+  const supported = appRuntimeConfig.windowModeSupported === true;
+  const liveEnabledValue = preserveOpenFormInputs && wallpaperModeEnabledInput
+    ? wallpaperModeEnabledInput.checked
+    : appRuntimeConfig.wallpaperModeEnabled === true;
+  const enabled = supported && liveEnabledValue;
+
+  if (wallpaperModeEnabledInput) {
+    if (!preserveOpenFormInputs) {
+      wallpaperModeEnabledInput.checked = enabled;
+    }
+    wallpaperModeEnabledInput.disabled = !supported;
+  }
+
+  if (windowModeInput) {
+    if (!preserveOpenFormInputs) {
+      windowModeInput.value = windowModeState.currentMode || appRuntimeConfig.windowMode || "normal";
+    }
+    windowModeInput.disabled = !supported || !enabled;
+  }
+
+  if (wallpaperModeHelp) {
+    let helpText = supported ? t("wallpaperModeHelp") : t("wallpaperModeUnsupported");
+    if (supported && enabled && windowModeState.currentMode === "wallpaper-view") {
+      if (windowModeState.attachedToWallpaper) {
+        helpText += ` ${t("wallpaperModeAttachedStatus", {
+          parent: windowModeState.wallpaperParentClass || "desktop"
+        })}`;
+      } else if (windowModeState.wallpaperError) {
+        helpText += ` ${t("wallpaperModeErrorStatus", {
+          message: windowModeState.wallpaperError
+        })}`;
+      } else {
+        helpText += ` ${t("wallpaperModePendingStatus")}`;
+      }
+    } else if (windowModeState.wallpaperError) {
+      helpText += ` ${t("wallpaperModeErrorStatus", {
+        message: windowModeState.wallpaperError
+      })}`;
+    }
+    wallpaperModeHelp.textContent = helpText;
+  }
+}
+
 function isSettingsModalOpen() {
   return Boolean(settingsModal && settingsModal.hidden === false);
 }
@@ -1889,6 +1998,7 @@ function refreshAppConfigUi(options = {}) {
   if (autoStartHelp) {
     autoStartHelp.textContent = t(getAutoStartHelpKey());
   }
+  refreshWallpaperModeUi(options);
   if (diagnosticsEnabledInput) {
     if (!preserveOpenFormInputs) {
       diagnosticsEnabledInput.checked = appRuntimeConfig.diagnosticsEnabled !== false;
@@ -2444,6 +2554,26 @@ async function loadAppRuntimeConfig() {
   }
 
   refreshAppConfigUi({ force: true });
+}
+
+async function loadWindowModeState() {
+  if (!window.desktopBoard?.getWindowModeState) {
+    windowModeState = normalizeWindowModeState();
+    updateModeUi();
+    return;
+  }
+
+  try {
+    windowModeState = normalizeWindowModeState(await window.desktopBoard.getWindowModeState());
+  } catch (error) {
+    reportError("windowMode.load", error);
+  }
+
+  if (windowModeState.currentMode === "wallpaper-view" && !state.locked) {
+    setLocked(true);
+  }
+  refreshWallpaperModeUi({ force: true });
+  updateModeUi();
 }
 
 function normalizeAppUpdateState(nextState = {}) {
@@ -3538,6 +3668,8 @@ function applyTranslations() {
   setText("themeModeLabel", "themeMode");
   setText("languageModeLabel", "languageMode");
   setText("autoStartWithWindowsLabel", "autoStartWithWindows");
+  setText("wallpaperModeEnabledLabel", "wallpaperModeEnabled");
+  setText("windowModeLabel", "windowModeLabel");
   setText("timeFormatLabel", "timeFormat");
   setText("backgroundColorLabel", "backgroundColor");
   setText("connectionColorLabel", "connectionColor");
@@ -3551,6 +3683,7 @@ function applyTranslations() {
   setText("assetManagerHelp", "assetManagerHelp");
   setText("autoManageAssetsOnLaunchLabel", "autoManageAssetsOnLaunch");
   setText("autoManageAssetsOnLaunchHelp", "autoManageAssetsOnLaunchHelp");
+  setText("wallpaperModeHelp", appRuntimeConfig.windowModeSupported ? "wallpaperModeHelp" : "wallpaperModeUnsupported");
   setText("updatesLabel", "updatesLabel");
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
@@ -3590,6 +3723,9 @@ function applyTranslations() {
   setSelectOptionText(languageModeInput, "en", "english");
   setSelectOptionText(timeFormatInput, "24h", "timeFormat24");
   setSelectOptionText(timeFormatInput, "12h", "timeFormat12");
+  setSelectOptionText(windowModeInput, "normal", "windowModeNormal");
+  setSelectOptionText(windowModeInput, "desktop-edit", "windowModeDesktopEdit");
+  setSelectOptionText(windowModeInput, "wallpaper-view", "windowModeWallpaperView");
   if (pickStoragePathButton) {
     pickStoragePathButton.textContent = t("storagePick");
   }
@@ -3627,6 +3763,7 @@ function applyTranslations() {
   renderQuickCreateSettings();
   refreshAssetManagerUi();
   refreshAppUpdateUi();
+  refreshWallpaperModeUi();
 
   urlModalTitle.textContent = t(urlInput.dataset.mode === "edit" ? "editUrlTitle" : "urlTitle");
   closeUrlButton.setAttribute("aria-label", t("closeUrl"));
@@ -4107,19 +4244,30 @@ function getVisibleWorldCenter() {
 }
 
 function updateModeUi() {
+  const boardModeLabel = connectionMode
+    ? (connectionDraft ? t("modeConnectionEnd") : t("modeConnectionStart"))
+    : (state.locked ? t("modeView") : t("modeEdit"));
+  const windowModeLabel = windowModeState.currentMode !== "normal"
+    ? t(getCurrentWindowModeLabelKey())
+    : "";
+
   document.body.classList.toggle("is-locked", state.locked);
+  document.body.classList.toggle("is-wallpaper-view", windowModeState.currentMode === "wallpaper-view");
+  document.body.classList.toggle("is-desktop-edit", windowModeState.currentMode === "desktop-edit");
   board.classList.toggle("is-connecting", connectionMode);
   addConnectionButton.classList.toggle("is-active", connectionMode);
   addConnectionButton.dataset.tooltip = t(connectionMode ? "cancelConnection" : "connection");
   addConnectionButton.setAttribute("aria-label", t(connectionMode ? "cancelConnection" : "addConnection"));
-  modeLabel.textContent = connectionMode
-    ? (connectionDraft ? t("modeConnectionEnd") : t("modeConnectionStart"))
-    : (state.locked ? t("modeView") : t("modeEdit"));
+  modeLabel.textContent = windowModeLabel ? `${windowModeLabel} - ${boardModeLabel}` : boardModeLabel;
   lockButton.dataset.tooltip = t(state.locked ? "edit" : "lock");
   lockButton.setAttribute("aria-label", t(state.locked ? "edit" : "lock"));
 }
 
 function setLocked(locked) {
+  if (windowModeState.currentMode === "wallpaper-view") {
+    locked = true;
+  }
+
   if (locked) {
     setConnectionMode(false);
   }
@@ -4139,6 +4287,11 @@ function setLocked(locked) {
 }
 
 function ensureEditMode() {
+  if (windowModeState.currentMode === "wallpaper-view") {
+    setLocked(true);
+    return;
+  }
+
   if (state.locked) {
     setLocked(false);
   }
@@ -8911,6 +9064,7 @@ function openSettings() {
   refreshAppConfigUi({ force: true });
   settingsModal.hidden = false;
   void loadAppRuntimeConfig();
+  void loadWindowModeState();
   void loadAppUpdateState();
   void loadBoardsList();
 }
@@ -9160,14 +9314,24 @@ async function saveSettings() {
   if (window.desktopBoard?.updateAppConfig) {
     try {
       const requestVersion = ++appRuntimeConfigRequestVersion;
+      const wallpaperModeEnabled = wallpaperModeEnabledInput?.checked === true;
       const nextAppConfig = await window.desktopBoard.updateAppConfig({
         diagnosticsEnabled: diagnosticsEnabledInput.checked,
         autoStartEnabled: autoStartWithWindowsInput?.checked === true,
-        autoManageAssetsOnLaunch: autoManageAssetsOnLaunchInput?.checked === true
+        autoManageAssetsOnLaunch: autoManageAssetsOnLaunchInput?.checked === true,
+        wallpaperModeEnabled
       });
       if (requestVersion === appRuntimeConfigRequestVersion) {
         appRuntimeConfig = nextAppConfig;
         refreshAppConfigUi({ force: true });
+      }
+
+      if (window.desktopBoard?.setWindowMode) {
+        windowModeState = normalizeWindowModeState(await window.desktopBoard.setWindowMode(
+          wallpaperModeEnabled ? windowModeInput?.value || "normal" : "normal"
+        ));
+        refreshWallpaperModeUi({ force: true });
+        updateModeUi();
       }
     } catch (error) {
       reportError("config.update", error);
@@ -9421,6 +9585,7 @@ analyzeAssetsButton?.addEventListener("click", analyzeAssetsFromSettings);
 cleanupAssetsButton?.addEventListener("click", cleanupAssetsFromSettings);
 checkUpdatesButton?.addEventListener("click", checkForUpdatesFromSettings);
 installUpdateButton?.addEventListener("click", installDownloadedUpdateFromSettings);
+wallpaperModeEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
 closeUrlButton.addEventListener("click", () => closeUrlModal(""));
 cancelUrlButton.addEventListener("click", () => closeUrlModal(""));
 saveUrlButton.addEventListener("click", submitUrlModal);
@@ -9477,6 +9642,14 @@ if (window.desktopBoard) {
     appUpdateState = normalizeAppUpdateState(nextState);
     refreshAppUpdateUi();
   });
+  window.desktopBoard.onWindowModeState?.((nextState) => {
+    windowModeState = normalizeWindowModeState(nextState);
+    if (windowModeState.currentMode === "wallpaper-view" && !state.locked) {
+      setLocked(true);
+    }
+    refreshWallpaperModeUi({ force: true });
+    updateModeUi();
+  });
   window.desktopBoard.onNotificationEvent?.((payload) => {
     const cardId = typeof payload?.cardId === "string" ? payload.cardId : "";
     if (!cardId) {
@@ -9509,7 +9682,7 @@ window.addEventListener("unhandledrejection", (event) => {
   reportError("window.unhandledrejection", reason);
 });
 
-loadSystemTheme().then(loadAppRuntimeConfig).then(loadAppUpdateState).then(loadState).then(() => {
+loadSystemTheme().then(loadAppRuntimeConfig).then(loadWindowModeState).then(loadAppUpdateState).then(loadState).then(() => {
   applySystemTheme(currentSystemTheme);
   render();
   saveState();
