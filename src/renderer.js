@@ -1863,22 +1863,36 @@ function getAutoStartHelpKey() {
   return "autoStartHelpUnsupported";
 }
 
-function refreshAppConfigUi() {
+function isSettingsModalOpen() {
+  return Boolean(settingsModal && settingsModal.hidden === false);
+}
+
+function refreshAppConfigUi(options = {}) {
+  const force = options.force === true;
+  const preserveOpenFormInputs = !force && isSettingsModalOpen();
   if (storagePathInput) {
-    storagePathInput.value = getCurrentStoragePath();
+    if (!preserveOpenFormInputs || document.activeElement !== storagePathInput) {
+      storagePathInput.value = getCurrentStoragePath();
+    }
   }
   if (autoManageAssetsOnLaunchInput) {
-    autoManageAssetsOnLaunchInput.checked = appRuntimeConfig.autoManageAssetsOnLaunch === true;
+    if (!preserveOpenFormInputs) {
+      autoManageAssetsOnLaunchInput.checked = appRuntimeConfig.autoManageAssetsOnLaunch === true;
+    }
   }
   if (autoStartWithWindowsInput) {
-    autoStartWithWindowsInput.checked = appRuntimeConfig.autoStartEnabled === true;
+    if (!preserveOpenFormInputs) {
+      autoStartWithWindowsInput.checked = appRuntimeConfig.autoStartEnabled === true;
+    }
     autoStartWithWindowsInput.disabled = !appRuntimeConfig.autoStart?.supported;
   }
   if (autoStartHelp) {
     autoStartHelp.textContent = t(getAutoStartHelpKey());
   }
   if (diagnosticsEnabledInput) {
-    diagnosticsEnabledInput.checked = appRuntimeConfig.diagnosticsEnabled !== false;
+    if (!preserveOpenFormInputs) {
+      diagnosticsEnabledInput.checked = appRuntimeConfig.diagnosticsEnabled !== false;
+    }
   }
   if (pickStoragePathButton) {
     pickStoragePathButton.disabled = !window.desktopBoard?.pickStorageDirectory;
@@ -2415,7 +2429,7 @@ async function deleteBoardFromSettings() {
 async function loadAppRuntimeConfig() {
   const requestVersion = ++appRuntimeConfigRequestVersion;
   if (!window.desktopBoard?.getAppConfig) {
-    refreshAppConfigUi();
+    refreshAppConfigUi({ force: true });
     return;
   }
 
@@ -2429,7 +2443,7 @@ async function loadAppRuntimeConfig() {
     reportError("config.load", error);
   }
 
-  refreshAppConfigUi();
+  refreshAppConfigUi({ force: true });
 }
 
 function normalizeAppUpdateState(nextState = {}) {
@@ -8893,8 +8907,9 @@ function openContextMenu(event) {
 function openSettings() {
   closeContextMenu();
   settingsStatus.textContent = "";
-  settingsModal.hidden = false;
   applySettings();
+  refreshAppConfigUi({ force: true });
+  settingsModal.hidden = false;
   void loadAppRuntimeConfig();
   void loadAppUpdateState();
   void loadBoardsList();
@@ -9152,7 +9167,7 @@ async function saveSettings() {
       });
       if (requestVersion === appRuntimeConfigRequestVersion) {
         appRuntimeConfig = nextAppConfig;
-        refreshAppConfigUi();
+        refreshAppConfigUi({ force: true });
       }
     } catch (error) {
       reportError("config.update", error);

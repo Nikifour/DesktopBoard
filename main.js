@@ -780,6 +780,11 @@ function delay(ms) {
   });
 }
 
+function loadNativeImage(assetPath) {
+  const image = nativeImage.createFromPath(assetPath);
+  return image.isEmpty() ? null : image;
+}
+
 async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
@@ -2741,6 +2746,7 @@ async function handleRendererLog(payload = {}) {
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay();
   ensureTray();
+  const runtimeWindowIcon = loadNativeImage(trayIconPath);
 
   mainWindow = new BrowserWindow({
     x: workArea.x,
@@ -2755,7 +2761,7 @@ function createWindow() {
     maximizable: true,
     autoHideMenuBar: true,
     backgroundColor: "#f4f5f0",
-    icon: windowIconPath,
+    icon: runtimeWindowIcon || windowIconPath,
     title: "Desktop Board",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
