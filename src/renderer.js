@@ -7,6 +7,7 @@ const hideButton = document.getElementById("hideButton");
 const addNoteButton = document.getElementById("addNoteButton");
 const addCodeButton = document.getElementById("addCodeButton");
 const addTableButton = document.getElementById("addTableButton");
+const addCalculatorButton = document.getElementById("addCalculatorButton");
 const addTasksButton = document.getElementById("addTasksButton");
 const addScheduleButton = document.getElementById("addScheduleButton");
 const addBookmarkButton = document.getElementById("addBookmarkButton");
@@ -69,6 +70,8 @@ const codeHeaderColorInput = document.getElementById("codeHeaderColorInput");
 const codeBodyColorInput = document.getElementById("codeBodyColorInput");
 const tableHeaderColorInput = document.getElementById("tableHeaderColorInput");
 const tableBodyColorInput = document.getElementById("tableBodyColorInput");
+const calculatorHeaderColorInput = document.getElementById("calculatorHeaderColorInput");
+const calculatorBodyColorInput = document.getElementById("calculatorBodyColorInput");
 const tasksHeaderColorInput = document.getElementById("tasksHeaderColorInput");
 const tasksBodyColorInput = document.getElementById("tasksBodyColorInput");
 const scheduleHeaderColorInput = document.getElementById("scheduleHeaderColorInput");
@@ -97,6 +100,7 @@ const colorInputRefs = {
   note: { header: noteHeaderColorInput, body: noteBodyColorInput },
   code: { header: codeHeaderColorInput, body: codeBodyColorInput },
   table: { header: tableHeaderColorInput, body: tableBodyColorInput },
+  calculator: { header: calculatorHeaderColorInput, body: calculatorBodyColorInput },
   tasks: { header: tasksHeaderColorInput, body: tasksBodyColorInput },
   schedule: { header: scheduleHeaderColorInput, body: scheduleBodyColorInput },
   bookmark: { header: bookmarkHeaderColorInput, body: bookmarkBodyColorInput },
@@ -228,6 +232,17 @@ const cardTypeRegistry = [
     defaultSize: { width: 440, height: 300 },
     toolbarButton: addTableButton,
     icon: '<svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 5v14M15 5v14"/></svg>'
+  },
+  {
+    kind: "calculator",
+    labelKey: "calculator",
+    createLabelKey: "addCalculator",
+    colorKind: "calculator",
+    quickCreateGroup: "text",
+    createMode: "card",
+    defaultSize: { width: 320, height: 270 },
+    toolbarButton: addCalculatorButton,
+    icon: '<svg viewBox="0 0 24 24"><path d="M7 4h10v16H7z"/><path d="M9 8h6"/><path d="M9 12h2M13 12h2"/><path d="M9 16h2M13 16h2"/></svg>'
   },
   {
     kind: "tasks",
@@ -378,6 +393,7 @@ const defaultSettings = {
     note: { header: "#f2c94c", body: "#fff8d7" },
     code: { header: "#4c6ef5", body: "#e9efff" },
     table: { header: "#5b7bd5", body: "#eef3ff" },
+    calculator: { header: "#d66f45", body: "#fde8de" },
     tasks: { header: "#2f7d57", body: "#e7f3ec" },
     schedule: { header: "#3a8f9f", body: "#e6f6f8" },
     bookmark: { header: "#f2c94c", body: "#fff8d7" },
@@ -816,6 +832,62 @@ Object.assign(translations.en, {
   autoStartHelpUnpacked: "Available in installed or portable Windows builds. Dev mode is not added to startup.",
   autoStartHelpUnsupported: "Auto-start is available only on Windows.",
   appConfigSaveError: "Could not save app settings."
+});
+
+Object.assign(translations.ru, {
+  calculator: "\u041a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440",
+  addCalculator: "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440",
+  newCalculator: "\u041d\u043e\u0432\u044b\u0439 \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440",
+  calculatorOperation: "\u041e\u043f\u0435\u0440\u0430\u0446\u0438\u044f",
+  calculatorOperationAdd: "\u0421\u043b\u043e\u0436\u0435\u043d\u0438\u0435",
+  calculatorOperationSubtract: "\u0412\u044b\u0447\u0438\u0442\u0430\u043d\u0438\u0435",
+  calculatorOperationMultiply: "\u0423\u043c\u043d\u043e\u0436\u0435\u043d\u0438\u0435",
+  calculatorOperationDivide: "\u0414\u0435\u043b\u0435\u043d\u0438\u0435",
+  calculatorInputPlaceholder: "\u0427\u0438\u0441\u043b\u043e",
+  addCalculatorInput: "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0432\u0445\u043e\u0434",
+  removeCalculatorInput: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0432\u0445\u043e\u0434",
+  calculatorResult: "\u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442",
+  calculatorResultEmpty: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043c\u0438\u043d\u0438\u043c\u0443\u043c \u0434\u0432\u0430 \u0447\u0438\u0441\u043b\u0430",
+  calculatorDivisionByZero: "\u0414\u0435\u043b\u0435\u043d\u0438\u0435 \u043d\u0430 \u043d\u043e\u043b\u044c"
+});
+
+Object.assign(translations.en, {
+  calculator: "Calculator",
+  addCalculator: "Add calculator",
+  newCalculator: "New calculator",
+  calculatorOperation: "Operation",
+  calculatorOperationAdd: "Add",
+  calculatorOperationSubtract: "Subtract",
+  calculatorOperationMultiply: "Multiply",
+  calculatorOperationDivide: "Divide",
+  calculatorInputPlaceholder: "Number",
+  addCalculatorInput: "Add input",
+  removeCalculatorInput: "Remove input",
+  calculatorResult: "Result",
+  calculatorResultEmpty: "Enter at least two numbers",
+  calculatorDivisionByZero: "Division by zero"
+});
+
+Object.assign(translations.ru, {
+  connectionPathStyle: "\u0422\u0440\u0430\u0435\u043a\u0442\u043e\u0440\u0438\u044f",
+  connectionPathSegmented: "\u041b\u043e\u043c\u0430\u043d\u0430\u044f",
+  connectionPathSmooth: "\u041f\u043b\u0430\u0432\u043d\u0430\u044f",
+  connectionStartCap: "\u041d\u0430\u0447\u0430\u043b\u043e",
+  connectionEndCap: "\u041a\u043e\u043d\u0435\u0446",
+  connectionCapNone: "\u0411\u0435\u0437 \u043c\u0430\u0440\u043a\u0435\u0440\u0430",
+  connectionCapArrow: "\u0421\u0442\u0440\u0435\u043b\u043a\u0430",
+  connectionCapDot: "\u0422\u043e\u0447\u043a\u0430"
+});
+
+Object.assign(translations.en, {
+  connectionPathStyle: "Path",
+  connectionPathSegmented: "Segmented",
+  connectionPathSmooth: "Smooth",
+  connectionStartCap: "Start",
+  connectionEndCap: "End",
+  connectionCapNone: "No cap",
+  connectionCapArrow: "Arrow",
+  connectionCapDot: "Dot"
 });
 
 Object.assign(translations.ru, {
@@ -1325,6 +1397,82 @@ function createTableRow(row = {}, columnCount = 1) {
 function normalizeTableRows(rows, columnCount = 1) {
   const source = Array.isArray(rows) ? rows : [];
   return source.map((row) => createTableRow(row, columnCount));
+}
+
+function createCalculatorInput(input = {}) {
+  return {
+    id: typeof input?.id === "string" && input.id ? input.id : createId("calculator-input"),
+    value: typeof input?.value === "string" ? input.value : ""
+  };
+}
+
+function normalizeCalculatorInputs(inputs, minimumCount = 2) {
+  const source = Array.isArray(inputs) ? inputs : [];
+  const normalized = source.map((input) => createCalculatorInput(input));
+  while (normalized.length < minimumCount) {
+    normalized.push(createCalculatorInput());
+  }
+  return normalized;
+}
+
+function normalizeCalculatorOperation(value) {
+  switch (value) {
+    case "subtract":
+    case "multiply":
+    case "divide":
+      return value;
+    default:
+      return "add";
+  }
+}
+
+function parseCalculatorNumber(value) {
+  const normalized = String(value ?? "").trim().replace(",", ".");
+  if (!normalized) {
+    return null;
+  }
+
+  const result = Number(normalized);
+  return Number.isFinite(result) ? result : null;
+}
+
+function formatCalculatorNumber(value) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  const rounded = Number(value.toPrecision(12));
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+function computeCalculatorResult(card) {
+  const values = (Array.isArray(card.calculatorInputs) ? card.calculatorInputs : [])
+    .map((input) => parseCalculatorNumber(input.value))
+    .filter((value) => value !== null);
+
+  if (values.length < 2) {
+    return { empty: true, messageOnly: true, value: "", text: t("calculatorResultEmpty") };
+  }
+
+  const operation = normalizeCalculatorOperation(card.calculatorOperation);
+  let result = values[0];
+
+  for (let index = 1; index < values.length; index += 1) {
+    const nextValue = values[index];
+    if (operation === "add") {
+      result += nextValue;
+    } else if (operation === "subtract") {
+      result -= nextValue;
+    } else if (operation === "multiply") {
+      result *= nextValue;
+    } else if (nextValue === 0) {
+      return { empty: false, messageOnly: true, value: "", text: t("calculatorDivisionByZero") };
+    } else {
+      result /= nextValue;
+    }
+  }
+
+  return { empty: false, messageOnly: false, value: result, text: formatCalculatorNumber(result) };
 }
 
 function normalizeScheduleTime(value) {
@@ -2726,6 +2874,11 @@ function normalizeCard(card, settings) {
     normalized.codeLanguage = typeof normalized.codeLanguage === "string" ? normalized.codeLanguage : "";
   }
 
+  if (normalized.kind === "calculator") {
+    normalized.calculatorOperation = normalizeCalculatorOperation(normalized.calculatorOperation);
+    normalized.calculatorInputs = normalizeCalculatorInputs(normalized.calculatorInputs);
+  }
+
   if (normalized.kind === "table") {
     const legacyColumns = Array.isArray(card.columns) ? card.columns : [];
     const legacyRows = Array.isArray(card.rows) ? card.rows : [];
@@ -2818,8 +2971,34 @@ function normalizeConnectionPoint(point = {}) {
   return normalized;
 }
 
+function normalizeConnectionCap(value) {
+  switch (value) {
+    case "arrow":
+    case "dot":
+      return value;
+    default:
+      return "none";
+  }
+}
+
+function getLegacyConnectionCaps(arrowMode) {
+  switch (arrowMode) {
+    case "both":
+      return { startCap: "arrow", endCap: "arrow" };
+    case "start":
+      return { startCap: "arrow", endCap: "none" };
+    case "none":
+      return { startCap: "none", endCap: "none" };
+    default:
+      return { startCap: "none", endCap: "arrow" };
+  }
+}
+
+function normalizeConnectionPathStyle(value) {
+  return value === "smooth" ? "smooth" : "segmented";
+}
+
 function normalizeConnection(connection = {}, settings = state.settings) {
-  const allowedArrowModes = ["none", "end", "start", "both"];
   const fallbackColor = settings.connectionColor || getDefaultConnectionColor(settings.backgroundColor);
   const legacyDefaultColor = "#2f7d57";
   const hasConnectionColor = isHexColor(connection.color);
@@ -2829,6 +3008,7 @@ function normalizeConnection(connection = {}, settings = state.settings) {
     : hasConnectionColor
       && color.toLowerCase() !== fallbackColor.toLowerCase()
       && color.toLowerCase() !== legacyDefaultColor;
+  const legacyCaps = getLegacyConnectionCaps(connection.arrowMode);
 
   return {
     id: connection.id || createId("connection"),
@@ -2839,7 +3019,9 @@ function normalizeConnection(connection = {}, settings = state.settings) {
       : [],
     color: customColor ? color : fallbackColor,
     customColor,
-    arrowMode: allowedArrowModes.includes(connection.arrowMode) ? connection.arrowMode : "end"
+    startCap: normalizeConnectionCap(Object.hasOwn(connection, "startCap") ? connection.startCap : legacyCaps.startCap),
+    endCap: normalizeConnectionCap(Object.hasOwn(connection, "endCap") ? connection.endCap : legacyCaps.endCap),
+    pathStyle: normalizeConnectionPathStyle(connection.pathStyle)
   };
 }
 
@@ -3235,6 +3417,7 @@ function applyTranslations() {
     ["noteColorRuleLabel", "note"],
     ["codeColorRuleLabel", "code"],
     ["tableColorRuleLabel", "table"],
+    ["calculatorColorRuleLabel", "calculator"],
     ["tasksColorRuleLabel", "tasks"],
     ["scheduleColorRuleLabel", "schedule"],
     ["bookmarkColorRuleLabel", "bookmark"],
@@ -3549,6 +3732,13 @@ function getCardTextParts(card) {
 
   if (card.kind === "code") {
     parts.push(card.codeLanguage || "");
+  }
+
+  if (card.kind === "calculator") {
+    parts.push(normalizeCalculatorOperation(card.calculatorOperation));
+    if (Array.isArray(card.calculatorInputs)) {
+      parts.push(...card.calculatorInputs.map((input) => input.value || ""));
+    }
   }
 
   if (card.kind === "table") {
@@ -3975,6 +4165,10 @@ function renderCardBody(card) {
     return renderSimpleTable(card);
   }
 
+  if (card.kind === "calculator") {
+    return renderCalculator(card);
+  }
+
   if (card.kind === "progress") {
     return renderProgress(card);
   }
@@ -4082,6 +4276,124 @@ function renderCodeSnippet(card) {
   textarea.addEventListener("keydown", (event) => handleCodeEditorKeydown(event, card, textarea));
 
   wrapper.append(languageInput, textarea);
+  return wrapper;
+}
+
+function syncCalculatorResult(card, valueElement) {
+  if (!valueElement) {
+    return;
+  }
+
+  const result = computeCalculatorResult(card);
+  valueElement.textContent = result.text;
+  valueElement.classList.toggle("is-empty", !result.text || result.empty || result.messageOnly);
+}
+
+function renderCalculator(card) {
+  card.calculatorOperation = normalizeCalculatorOperation(card.calculatorOperation);
+  card.calculatorInputs = normalizeCalculatorInputs(card.calculatorInputs);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "calculator-card";
+
+  const operationRow = document.createElement("div");
+  operationRow.className = "calculator-operation-row";
+
+  const operationLabel = document.createElement("div");
+  operationLabel.className = "calculator-label";
+  operationLabel.textContent = t("calculatorOperation");
+
+  const operationSelect = document.createElement("select");
+  operationSelect.className = "card-field";
+  operationSelect.disabled = state.locked;
+  [
+    ["add", "calculatorOperationAdd"],
+    ["subtract", "calculatorOperationSubtract"],
+    ["multiply", "calculatorOperationMultiply"],
+    ["divide", "calculatorOperationDivide"]
+  ].forEach(([value, key]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = t(key);
+    operationSelect.appendChild(option);
+  });
+  operationSelect.value = card.calculatorOperation;
+  operationSelect.addEventListener("change", () => {
+    card.calculatorOperation = normalizeCalculatorOperation(operationSelect.value);
+    syncCalculatorResult(card, resultValue);
+    scheduleSave();
+  });
+  operationRow.append(operationLabel, operationSelect);
+
+  const inputList = document.createElement("div");
+  inputList.className = "calculator-input-list";
+
+  const resultBlock = document.createElement("div");
+  resultBlock.className = "calculator-result";
+
+  const resultLabel = document.createElement("div");
+  resultLabel.className = "calculator-label";
+  resultLabel.textContent = t("calculatorResult");
+
+  const resultValue = document.createElement("div");
+  resultValue.className = "calculator-result-value";
+
+  const canRemoveInputs = card.calculatorInputs.length > 2;
+  card.calculatorInputs.forEach((input, index) => {
+    const row = document.createElement("div");
+    row.className = "calculator-input-row";
+
+    const field = document.createElement("input");
+    field.type = "text";
+    field.inputMode = "decimal";
+    field.className = "card-field";
+    field.placeholder = `${t("calculatorInputPlaceholder")} ${index + 1}`;
+    field.value = input.value || "";
+    field.readOnly = state.locked;
+    field.addEventListener("input", () => {
+      input.value = field.value;
+      syncCalculatorResult(card, resultValue);
+      scheduleSave();
+    });
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "calculator-input-remove";
+    removeButton.textContent = "x";
+    removeButton.title = t("removeCalculatorInput");
+    removeButton.disabled = state.locked || !canRemoveInputs;
+    removeButton.addEventListener("click", () => {
+      if (state.locked || card.calculatorInputs.length <= 2) {
+        return;
+      }
+      card.calculatorInputs = card.calculatorInputs.filter((item) => item.id !== input.id);
+      render();
+      scheduleSave();
+    });
+
+    row.append(field, removeButton);
+    inputList.appendChild(row);
+  });
+
+  resultBlock.append(resultLabel, resultValue);
+
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.className = "calculator-add";
+  addButton.textContent = t("addCalculatorInput");
+  addButton.disabled = state.locked;
+  addButton.addEventListener("click", () => {
+    if (state.locked) {
+      return;
+    }
+    card.calculatorInputs = [...card.calculatorInputs, createCalculatorInput()];
+    growCardHeight(card, 44);
+    render();
+    scheduleSave();
+  });
+
+  syncCalculatorResult(card, resultValue);
+  wrapper.append(operationRow, inputList, resultBlock, addButton);
   return wrapper;
 }
 
@@ -5877,13 +6189,45 @@ function getRoundedPathData(points, radius = 14) {
   return commands.join(" ");
 }
 
+function getSmoothPathData(points, tension = 1) {
+  if (!points || points.length < 2) {
+    return "";
+  }
+
+  if (points.length === 2) {
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+  }
+
+  const factor = tension / 6;
+  const commands = [`M ${points[0].x} ${points[0].y}`];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] || points[index];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[index + 2] || next;
+    const controlStart = {
+      x: current.x + (next.x - previous.x) * factor,
+      y: current.y + (next.y - previous.y) * factor
+    };
+    const controlEnd = {
+      x: next.x - (afterNext.x - current.x) * factor,
+      y: next.y - (afterNext.y - current.y) * factor
+    };
+    commands.push(`C ${controlStart.x} ${controlStart.y} ${controlEnd.x} ${controlEnd.y} ${next.x} ${next.y}`);
+  }
+
+  return commands.join(" ");
+}
+
 function getConnectionPathData(connection) {
   const routePoints = getConnectionRoutePoints(connection);
   if (!routePoints) {
     return "";
   }
 
-  return getRoundedPathData(routePoints);
+  return connection.pathStyle === "smooth"
+    ? getSmoothPathData(routePoints)
+    : getRoundedPathData(routePoints);
 }
 
 function getDistanceToSegment(point, start, end) {
@@ -5924,6 +6268,144 @@ function getWaypointInsertIndex(connection, point) {
   return clamp(insertIndex, 0, connection.points.length);
 }
 
+function getCardRect(card, padding = 0) {
+  return {
+    left: card.x - padding,
+    top: card.y - padding,
+    right: card.x + card.width + padding,
+    bottom: card.y + card.height + padding
+  };
+}
+
+function getSegmentOrientation(first, second, third) {
+  const value = (second.y - first.y) * (third.x - second.x) - (second.x - first.x) * (third.y - second.y);
+  if (Math.abs(value) < 0.0001) {
+    return 0;
+  }
+  return value > 0 ? 1 : 2;
+}
+
+function isPointOnSegment(point, start, end) {
+  return (
+    point.x <= Math.max(start.x, end.x) + 0.001 &&
+    point.x >= Math.min(start.x, end.x) - 0.001 &&
+    point.y <= Math.max(start.y, end.y) + 0.001 &&
+    point.y >= Math.min(start.y, end.y) - 0.001
+  );
+}
+
+function segmentsIntersect(startA, endA, startB, endB) {
+  const orientation1 = getSegmentOrientation(startA, endA, startB);
+  const orientation2 = getSegmentOrientation(startA, endA, endB);
+  const orientation3 = getSegmentOrientation(startB, endB, startA);
+  const orientation4 = getSegmentOrientation(startB, endB, endA);
+
+  if (orientation1 !== orientation2 && orientation3 !== orientation4) {
+    return true;
+  }
+
+  if (orientation1 === 0 && isPointOnSegment(startB, startA, endA)) {
+    return true;
+  }
+  if (orientation2 === 0 && isPointOnSegment(endB, startA, endA)) {
+    return true;
+  }
+  if (orientation3 === 0 && isPointOnSegment(startA, startB, endB)) {
+    return true;
+  }
+  if (orientation4 === 0 && isPointOnSegment(endA, startB, endB)) {
+    return true;
+  }
+
+  return false;
+}
+
+function segmentIntersectsRect(start, end, rect) {
+  if (isPointInsideRect(start, rect) || isPointInsideRect(end, rect)) {
+    return true;
+  }
+
+  const topLeft = { x: rect.left, y: rect.top };
+  const topRight = { x: rect.right, y: rect.top };
+  const bottomRight = { x: rect.right, y: rect.bottom };
+  const bottomLeft = { x: rect.left, y: rect.bottom };
+
+  return (
+    segmentsIntersect(start, end, topLeft, topRight)
+    || segmentsIntersect(start, end, topRight, bottomRight)
+    || segmentsIntersect(start, end, bottomRight, bottomLeft)
+    || segmentsIntersect(start, end, bottomLeft, topLeft)
+  );
+}
+
+function candidateRouteIntersectsCards(points, obstacleCards) {
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    for (const obstacle of obstacleCards) {
+      if (segmentIntersectsRect(start, end, obstacle.rect)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function computeAutoRouteWaypoints(connection) {
+  if ((Array.isArray(connection.points) && connection.points.length) || connection.pathStyle === "smooth") {
+    return [];
+  }
+
+  const routePoints = getConnectionRoutePoints({
+    ...connection,
+    points: []
+  });
+  if (!routePoints || routePoints.length < 2) {
+    return [];
+  }
+
+  const from = routePoints[0];
+  const to = routePoints[routePoints.length - 1];
+  const excludedIds = new Set([
+    connection.from?.type === "card" ? connection.from.cardId : null,
+    connection.to?.type === "card" ? connection.to.cardId : null
+  ].filter(Boolean));
+  const obstaclePadding = gridSize * 2;
+  const obstacleCards = state.cards
+    .filter((card) => card.kind !== "group" && !excludedIds.has(card.id))
+    .map((card) => ({ card, rect: getCardRect(card, obstaclePadding) }));
+  const blockingObstacle = obstacleCards.find((obstacle) => segmentIntersectsRect(from, to, obstacle.rect));
+  if (!blockingObstacle) {
+    return [];
+  }
+
+  const rect = blockingObstacle.rect;
+  const routeOffset = gridSize;
+  const candidates = [
+    [{ x: from.x, y: rect.top - routeOffset }, { x: to.x, y: rect.top - routeOffset }],
+    [{ x: from.x, y: rect.bottom + routeOffset }, { x: to.x, y: rect.bottom + routeOffset }],
+    [{ x: rect.left - routeOffset, y: from.y }, { x: rect.left - routeOffset, y: to.y }],
+    [{ x: rect.right + routeOffset, y: from.y }, { x: rect.right + routeOffset, y: to.y }]
+  ];
+
+  const validCandidates = candidates
+    .map((candidate) => ({
+      points: candidate,
+      score: Math.hypot(from.x - candidate[0].x, from.y - candidate[0].y)
+        + Math.hypot(candidate[0].x - candidate[1].x, candidate[0].y - candidate[1].y)
+        + Math.hypot(candidate[1].x - to.x, candidate[1].y - to.y)
+    }))
+    .filter((candidate) => !candidateRouteIntersectsCards([from, ...candidate.points, to], obstacleCards));
+
+  if (!validCandidates.length) {
+    return [];
+  }
+
+  validCandidates.sort((first, second) => first.score - second.score);
+  return validCandidates[0].points.map((point) => createConnectionPoint(point));
+}
+
 function addWaypointToConnection(connection, point) {
   ensureEditMode();
   const nextPoint = createConnectionPoint(point);
@@ -5937,23 +6419,46 @@ function getConnectionMarkerId(connection, suffix) {
   return `${connection.id}-${suffix}`.replace(/[^a-z0-9_-]/gi, "-");
 }
 
-function renderConnectionMarker(defs, connection) {
+function renderConnectionMarker(defs, connection, capType) {
   const marker = createSvgElement("marker");
-  marker.setAttribute("id", getConnectionMarkerId(connection, "arrow"));
-  marker.setAttribute("viewBox", "0 0 10 10");
-  marker.setAttribute("refX", "8.4");
-  marker.setAttribute("refY", "5");
-  marker.setAttribute("markerWidth", "10");
-  marker.setAttribute("markerHeight", "10");
+  marker.setAttribute("id", getConnectionMarkerId(connection, capType));
   marker.setAttribute("markerUnits", "userSpaceOnUse");
   marker.setAttribute("orient", "auto-start-reverse");
+  if (capType === "dot") {
+    marker.setAttribute("viewBox", "0 0 12 12");
+    marker.setAttribute("refX", "6");
+    marker.setAttribute("refY", "6");
+    marker.setAttribute("markerWidth", "8");
+    marker.setAttribute("markerHeight", "8");
+    const dot = createSvgElement("circle");
+    dot.setAttribute("cx", "6");
+    dot.setAttribute("cy", "6");
+    dot.setAttribute("r", "3.5");
+    dot.setAttribute("fill", connection.color);
+    dot.setAttribute("stroke", "var(--connection-outline)");
+    dot.setAttribute("stroke-width", "1.4");
+    marker.appendChild(dot);
+  } else {
+    marker.setAttribute("viewBox", "0 0 10 10");
+    marker.setAttribute("refX", "8.4");
+    marker.setAttribute("refY", "5");
+    marker.setAttribute("markerWidth", "10");
+    marker.setAttribute("markerHeight", "10");
+    const arrow = createSvgElement("path");
+    arrow.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+    arrow.setAttribute("fill", connection.color);
+    arrow.setAttribute("stroke", "var(--connection-outline)");
+    arrow.setAttribute("stroke-width", "0.9");
+    arrow.setAttribute("stroke-linejoin", "round");
+    marker.appendChild(arrow);
+  }
 
-  const arrow = createSvgElement("path");
-  arrow.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
-  arrow.setAttribute("fill", connection.color);
-
-  marker.appendChild(arrow);
   defs.appendChild(marker);
+}
+
+function renderConnectionMarkers(defs, connection) {
+  const markerTypes = new Set([connection.startCap, connection.endCap].filter((capType) => capType && capType !== "none"));
+  markerTypes.forEach((capType) => renderConnectionMarker(defs, connection, capType));
 }
 
 function renderConnectionPath(layer, connection, draft = false) {
@@ -5980,12 +6485,12 @@ function renderConnectionPath(layer, connection, draft = false) {
   visiblePath.setAttribute("stroke", connection.color);
   visiblePath.setAttribute("stroke-width", draft ? "2" : (isSelected ? "3.5" : "3"));
 
-  if (!draft && (connection.arrowMode === "start" || connection.arrowMode === "both")) {
-    visiblePath.setAttribute("marker-start", `url(#${getConnectionMarkerId(connection, "arrow")})`);
+  if (!draft && connection.startCap && connection.startCap !== "none") {
+    visiblePath.setAttribute("marker-start", `url(#${getConnectionMarkerId(connection, connection.startCap)})`);
   }
 
-  if (!draft && (connection.arrowMode === "end" || connection.arrowMode === "both")) {
-    visiblePath.setAttribute("marker-end", `url(#${getConnectionMarkerId(connection, "arrow")})`);
+  if (!draft && connection.endCap && connection.endCap !== "none") {
+    visiblePath.setAttribute("marker-end", `url(#${getConnectionMarkerId(connection, connection.endCap)})`);
   }
 
   layer.appendChild(visiblePath);
@@ -6089,7 +6594,7 @@ function renderConnections() {
   layer.innerHTML = "";
 
   const defs = createSvgElement("defs");
-  state.connections.forEach((connection) => renderConnectionMarker(defs, connection));
+  state.connections.forEach((connection) => renderConnectionMarkers(defs, connection));
   layer.appendChild(defs);
 
   state.connections.forEach((connection) => renderConnectionPath(layer, connection));
@@ -6099,7 +6604,9 @@ function renderConnections() {
       from: connectionDraft.from,
       to: connectionDraft.to,
       color: connectionDraft.color,
-      arrowMode: connectionDraft.arrowMode
+      startCap: connectionDraft.startCap,
+      endCap: connectionDraft.endCap,
+      pathStyle: connectionDraft.pathStyle
     }, true);
   }
 }
@@ -6165,7 +6672,9 @@ function startConnectionFromAnchor(anchor) {
     from: normalizedAnchor,
     to: createConnectionPointAnchor(point),
     color: getConnectionColor(),
-    arrowMode: "end"
+    startCap: "none",
+    endCap: "arrow",
+    pathStyle: "segmented"
   };
   updateModeUi();
   renderConnections();
@@ -6190,7 +6699,9 @@ function handleConnectionPointerDown(event) {
       from: anchor,
       to: anchor.type === "point" ? anchor : createConnectionPointAnchor(screenToWorld(event.clientX, event.clientY)),
       color: getConnectionColor(),
-      arrowMode: "end"
+      startCap: "none",
+      endCap: "arrow",
+      pathStyle: "segmented"
     };
     updateModeUi();
     renderConnections();
@@ -6202,15 +6713,19 @@ function handleConnectionPointerDown(event) {
     return;
   }
 
-  state.connections.push({
+  const connection = normalizeConnection({
     id: createId("connection"),
     from: connectionDraft.from,
     to: anchor,
     points: [],
     color: connectionDraft.color,
     customColor: false,
-    arrowMode: connectionDraft.arrowMode
+    startCap: connectionDraft.startCap,
+    endCap: connectionDraft.endCap,
+    pathStyle: connectionDraft.pathStyle
   });
+  connection.points = computeAutoRouteWaypoints(connection);
+  state.connections.push(connection);
   connectionDraft = null;
   setConnectionMode(false);
   renderConnections();
@@ -6713,6 +7228,13 @@ function addCard(kind, worldPoint = null) {
       title: t("newCode"),
       codeLanguage: "",
       text: ""
+    });
+  } else if (kind === "calculator") {
+    state.cards.push({
+      ...base,
+      title: t("newCalculator"),
+      calculatorOperation: "add",
+      calculatorInputs: normalizeCalculatorInputs([], 2)
     });
   } else if (kind === "table") {
     state.cards.push({
@@ -7556,6 +8078,10 @@ function duplicateCard(card) {
     copy.tableRows = copy.tableRows.map((row) => createTableRow({ ...row, id: "" }, copy.tableColumns?.length || row.cells?.length || 1));
   }
 
+  if (Array.isArray(copy.calculatorInputs)) {
+    copy.calculatorInputs = copy.calculatorInputs.map((input) => createCalculatorInput({ ...input, id: "" }));
+  }
+
   if (copy.kind === "timer") {
     copy.timerRemainingMs = getTimerRemainingMs(card);
     copy.timerEndsAt = null;
@@ -7728,9 +8254,20 @@ function resetConnectionColor(connection) {
   scheduleSave();
 }
 
-function setConnectionArrowMode(connection, value) {
+function setConnectionCap(connection, edge, value) {
   ensureEditMode();
-  connection.arrowMode = value;
+  if (edge === "start") {
+    connection.startCap = normalizeConnectionCap(value);
+  } else {
+    connection.endCap = normalizeConnectionCap(value);
+  }
+  renderConnections();
+  scheduleSave();
+}
+
+function setConnectionPathStyle(connection, value) {
+  ensureEditMode();
+  connection.pathStyle = normalizeConnectionPathStyle(value);
   renderConnections();
   scheduleSave();
 }
@@ -7754,15 +8291,19 @@ function connectSelectedCards(cards = getSelectedCards()) {
   ensureEditMode();
   const newConnections = [];
   for (let index = 0; index < cards.length - 1; index += 1) {
-    newConnections.push({
+    const connection = normalizeConnection({
       id: createId("connection"),
       from: { type: "card", cardId: cards[index].id },
       to: { type: "card", cardId: cards[index + 1].id },
       points: [],
       color: getConnectionColor(),
       customColor: false,
-      arrowMode: "end"
+      startCap: "none",
+      endCap: "arrow",
+      pathStyle: "segmented"
     });
+    connection.points = computeAutoRouteWaypoints(connection);
+    newConnections.push(connection);
   }
 
   state.connections.push(...newConnections);
@@ -7815,12 +8356,20 @@ function renderConnectionContextMenu(connection) {
   contextMenu.append(
     title,
     createContextSection([
-      createContextSelectRow(t("arrowKind"), connection.arrowMode, [
-        { value: "end", label: t("arrowEnd") },
-        { value: "both", label: t("arrowBoth") },
-        { value: "start", label: t("arrowStart") },
-        { value: "none", label: t("line") }
-      ], (value) => setConnectionArrowMode(connection, value)),
+      createContextSelectRow(t("connectionPathStyle"), connection.pathStyle, [
+        { value: "segmented", label: t("connectionPathSegmented") },
+        { value: "smooth", label: t("connectionPathSmooth") }
+      ], (value) => setConnectionPathStyle(connection, value)),
+      createContextSelectRow(t("connectionStartCap"), connection.startCap, [
+        { value: "none", label: t("connectionCapNone") },
+        { value: "arrow", label: t("connectionCapArrow") },
+        { value: "dot", label: t("connectionCapDot") }
+      ], (value) => setConnectionCap(connection, "start", value)),
+      createContextSelectRow(t("connectionEndCap"), connection.endCap, [
+        { value: "none", label: t("connectionCapNone") },
+        { value: "arrow", label: t("connectionCapArrow") },
+        { value: "dot", label: t("connectionCapDot") }
+      ], (value) => setConnectionCap(connection, "end", value)),
       createContextColorRow(t("color"), connection.color, (value) => setConnectionColor(connection, value)),
       createContextButton(t("resetColors"), () => resetConnectionColor(connection))
     ]),

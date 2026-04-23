@@ -802,6 +802,78 @@ button:active {
   gap: 8px;
 }
 
+.calculator-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.calculator-operation-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.calculator-label {
+  color: color-mix(in srgb, var(--card-body-text) 70%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.calculator-input-list {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  align-content: start;
+}
+
+.calculator-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.calculator-input-remove {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.calculator-result {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--card-body-text) 14%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--card-body-color) 88%, #ffffff 12%);
+}
+
+.calculator-result-value {
+  font-size: 22px;
+  line-height: 1.15;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.calculator-result-value.is-empty {
+  color: color-mix(in srgb, var(--card-body-text) 70%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.calculator-add {
+  width: 100%;
+  align-self: start;
+}
+
 .task-list {
   display: grid;
   gap: 8px;
