@@ -3829,18 +3829,18 @@ function applyOverlayWindowInteractivity(options = {}) {
 
   if (currentWindowMode === "widget-mode") {
     overlayWindow.setAlwaysOnTop(false);
-    overlayWindow.setSkipTaskbar(true);
-    overlayWindow.setFocusable(false);
+    overlayWindow.setSkipTaskbar(false);
+    overlayWindow.setFocusable(true);
     if (interactive) {
       overlayWindow.setIgnoreMouseEvents(false);
     } else {
       overlayWindow.setIgnoreMouseEvents(true, { forward: true });
-    }
-    if (overlayWindow.isFocused()) {
-      try {
-        overlayWindow.blur();
-      } catch {
-        // Ignore focus reset failures.
+      if (overlayWindow.isFocused()) {
+        try {
+          overlayWindow.blur();
+        } catch {
+          // Ignore focus reset failures.
+        }
       }
     }
     return interactive;
