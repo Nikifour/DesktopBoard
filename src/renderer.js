@@ -2,6 +2,7 @@ const board = document.getElementById("board");
 const workspace = document.getElementById("workspace");
 const urlParams = new URLSearchParams(window.location.search);
 const isOverlayWindow = urlParams.get("role") === "overlay";
+const brandMark = document.querySelector(".brand-mark");
 const toolbarBoardSelect = document.getElementById("toolbarBoardSelect");
 const toolbarWindowModeSelect = document.getElementById("toolbarWindowModeSelect");
 const modeLabel = document.getElementById("modeLabel");
@@ -124,6 +125,15 @@ const quickCreateDetails = document.getElementById("quickCreateDetails");
 const quickCreateTitle = document.getElementById("quickCreateTitle");
 const quickCreateKindsGrid = document.getElementById("quickCreateKindsGrid");
 const quickCreateHelp = document.getElementById("quickCreateHelp");
+const toolbarCreateDetails = document.getElementById("toolbarCreateDetails");
+const toolbarCreateTitle = document.getElementById("toolbarCreateTitle");
+const toolbarCreateKindsGrid = document.getElementById("toolbarCreateKindsGrid");
+const toolbarCreateHelp = document.getElementById("toolbarCreateHelp");
+const colorSchemePresetGrid = document.getElementById("colorSchemePresetGrid");
+const colorSchemePresetsLabel = document.getElementById("colorSchemePresetsLabel");
+const colorSchemeHelp = document.getElementById("colorSchemeHelp");
+const saveColorSchemeButton = document.getElementById("saveColorSchemeButton");
+const exportColorSchemeButton = document.getElementById("exportColorSchemeButton");
 const snapToGridInput = document.getElementById("snapToGridInput");
 const toggleHotkeyInput = document.getElementById("toggleHotkeyInput");
 const lockHotkeyInput = document.getElementById("lockHotkeyInput");
@@ -148,9 +158,11 @@ const autoStartWithWindowsInput = document.getElementById("autoStartWithWindowsI
 const autoStartHelp = document.getElementById("autoStartHelp");
 const wallpaperModeEnabledInput = document.getElementById("wallpaperModeEnabledInput");
 const wallpaperInteractionEnabledInput = document.getElementById("wallpaperInteractionEnabledInput");
+const multiMonitorEnabledInput = document.getElementById("multiMonitorEnabledInput");
 const windowModeInput = document.getElementById("windowModeInput");
 const wallpaperModeHelp = document.getElementById("wallpaperModeHelp");
 const wallpaperInteractionHelp = document.getElementById("wallpaperInteractionHelp");
+const multiMonitorHelp = document.getElementById("multiMonitorHelp");
 const diagnosticsEnabledInput = document.getElementById("diagnosticsEnabledInput");
 const openLogsButton = document.getElementById("openLogsButton");
 const exportBoardButton = document.getElementById("exportBoardButton");
@@ -205,6 +217,15 @@ const defaultReminderRepeatIntervalMinutes = 5;
 const minReminderRepeatIntervalMinutes = 1;
 const maxReminderRepeatIntervalMinutes = 1440;
 const timerTickIntervalMs = 1000;
+const brandLogoSrc = "./assets/app-logo.png";
+const brandLogoAnimationIntervalMs = 30000;
+const brandLogoAnimationLoops = 3;
+const brandLogoAnimations = [
+  { src: "./assets/logo-animations/01_pulse_transparent.gif", loopMs: 1920 },
+  { src: "./assets/logo-animations/02_spin_transparent.gif", loopMs: 1200 },
+  { src: "./assets/logo-animations/03_float_transparent.gif", loopMs: 1920 },
+  { src: "./assets/logo-animations/04_shine_transparent.gif", loopMs: 2110 }
+];
 const historyLimit = 100;
 const svgNamespace = "http://www.w3.org/2000/svg";
 const connectionCanvasOffset = 100000;
@@ -396,6 +417,87 @@ const cardTypeRegistry = [
 const cardTypeMap = new Map(cardTypeRegistry.map((definition) => [definition.kind, definition]));
 const quickCreateGroupOrder = ["text", "media", "board"];
 const defaultQuickCreateKinds = cardTypeRegistry.map((definition) => definition.kind);
+const defaultToolbarCreateKinds = cardTypeRegistry
+  .filter((definition) => Boolean(definition.toolbarButton))
+  .map((definition) => definition.kind);
+
+const builtInColorSchemes = [
+  {
+    id: "classic",
+    nameKey: "colorSchemeClassic",
+    backgroundColor: "#f4f5f0",
+    backgroundOpacity: 0,
+    connectionColor: "#171916",
+    colors: {
+      note: { header: "#f2c94c", body: "#fff8d7" },
+      code: { header: "#4c6ef5", body: "#e9efff" },
+      table: { header: "#5b7bd5", body: "#eef3ff" },
+      calculator: { header: "#d66f45", body: "#fde8de" },
+      tasks: { header: "#2f7d57", body: "#e7f3ec" },
+      schedule: { header: "#3a8f9f", body: "#e6f6f8" },
+      bookmark: { header: "#f2c94c", body: "#fff8d7" },
+      progress: { header: "#2f7d57", body: "#e7f3ec" },
+      timer: { header: "#3a8f9f", body: "#e6f6f8" },
+      reminder: { header: "#d96b5f", body: "#fdebe7" },
+      image: { header: "#7453a6", body: "#f0ebf8" },
+      video: { header: "#7453a6", body: "#f0ebf8" },
+      audio: { header: "#7453a6", body: "#f0ebf8" },
+      file: { header: "#7453a6", body: "#f0ebf8" },
+      web: { header: "#7453a6", body: "#f0ebf8" },
+      group: { header: "#7aa884", body: "#d4e6da" }
+    }
+  },
+  {
+    id: "graphite",
+    nameKey: "colorSchemeGraphite",
+    backgroundColor: "#2f3331",
+    backgroundOpacity: 0,
+    connectionColor: "#f4f7f2",
+    colors: {
+      note: { header: "#d6b23c", body: "#f7efc9" },
+      code: { header: "#6072d6", body: "#e5e9fb" },
+      table: { header: "#536fb5", body: "#e7edf9" },
+      calculator: { header: "#c56f4d", body: "#f7e2d7" },
+      tasks: { header: "#31805f", body: "#dcefe6" },
+      schedule: { header: "#428f9b", body: "#dff1f3" },
+      bookmark: { header: "#d6b23c", body: "#f7efc9" },
+      progress: { header: "#31805f", body: "#dcefe6" },
+      timer: { header: "#428f9b", body: "#dff1f3" },
+      reminder: { header: "#bd655b", body: "#f5dfdb" },
+      image: { header: "#7555a5", body: "#ebe5f4" },
+      video: { header: "#7555a5", body: "#ebe5f4" },
+      audio: { header: "#7555a5", body: "#ebe5f4" },
+      file: { header: "#7555a5", body: "#ebe5f4" },
+      web: { header: "#7555a5", body: "#ebe5f4" },
+      group: { header: "#6d9a79", body: "#ccded1" }
+    }
+  },
+  {
+    id: "studio",
+    nameKey: "colorSchemeStudio",
+    backgroundColor: "#e8edf1",
+    backgroundOpacity: 0,
+    connectionColor: "#263133",
+    colors: {
+      note: { header: "#e2b94b", body: "#fff4ce" },
+      code: { header: "#3e70b8", body: "#e3edf8" },
+      table: { header: "#4f85a6", body: "#e4f0f4" },
+      calculator: { header: "#b9674c", body: "#f5e1d7" },
+      tasks: { header: "#3f8b66", body: "#e2f1e8" },
+      schedule: { header: "#2894a3", body: "#ddf3f5" },
+      bookmark: { header: "#e2b94b", body: "#fff4ce" },
+      progress: { header: "#3f8b66", body: "#e2f1e8" },
+      timer: { header: "#2894a3", body: "#ddf3f5" },
+      reminder: { header: "#c25c65", body: "#f7e0e3" },
+      image: { header: "#6b62a8", body: "#eceafd" },
+      video: { header: "#6b62a8", body: "#eceafd" },
+      audio: { header: "#6b62a8", body: "#eceafd" },
+      file: { header: "#6b62a8", body: "#eceafd" },
+      web: { header: "#6b62a8", body: "#eceafd" },
+      group: { header: "#6ba17d", body: "#d6e8dd" }
+    }
+  }
+];
 
 const defaultSettings = {
   themeMode: "system",
@@ -406,6 +508,8 @@ const defaultSettings = {
   connectionColor: "#171916",
   snapToGrid: true,
   quickCreateKinds: [...defaultQuickCreateKinds],
+  toolbarCreateKinds: [...defaultToolbarCreateKinds],
+  colorSchemes: [],
   colors: {
     note: { header: "#f2c94c", body: "#fff8d7" },
     code: { header: "#4c6ef5", body: "#e9efff" },
@@ -554,8 +658,10 @@ let appRuntimeConfig = {
   autoManageAssetsOnLaunch: true,
   wallpaperModeEnabled: false,
   wallpaperInteractionEnabled: false,
+  multiMonitorEnabled: false,
   windowMode: "normal",
   windowModeSupported: false,
+  displayLayout: null,
   autoStart: {
     supported: false,
     reason: "unknown",
@@ -575,7 +681,8 @@ let windowModeState = {
   wallpaperParentClass: "",
   wallpaperError: null,
   overlayVisible: false,
-  widgetInteractive: false
+  widgetInteractive: false,
+  displayLayout: null
 };
 const defaultAppUpdateState = {
   supported: false,
@@ -623,7 +730,96 @@ const webResizeObserver = typeof ResizeObserver === "function"
 let cardIndex = new Map();
 let backlinkIndex = new Map();
 const quickCreateInputMap = new Map();
+const toolbarCreateInputMap = new Map();
 let timerTickHandle = null;
+let brandLogoAnimationTimer = null;
+let brandLogoResetTimer = null;
+let brandLogoAnimationActive = false;
+let lastBrandLogoAnimationSrc = "";
+let settingsLayoutInitialized = false;
+let activeSettingsSectionId = "general";
+
+const settingsSectionDefinitions = [
+  {
+    id: "general",
+    labelKey: "settingsSectionGeneral",
+    selectors: [
+      "#themeModeLabel",
+      "#languageModeLabel",
+      "#timeFormatLabel",
+      "#boardsLabel"
+    ]
+  },
+  {
+    id: "appearance",
+    labelKey: "settingsSectionAppearance",
+    selectors: [
+      "#backgroundColorLabel",
+      "#backgroundOpacityLabel",
+      "#connectionColorLabel",
+      "#colorSchemeSettingsBlock",
+      "#colorRulesDetails"
+    ]
+  },
+  {
+    id: "desktop",
+    labelKey: "settingsSectionDesktop",
+    selectors: [
+      "#autoStartWithWindowsLabel",
+      "#autoStartHelp",
+      "#wallpaperModeEnabledLabel",
+      "#windowModeLabel",
+      "#wallpaperModeHelp",
+      "#multiMonitorEnabledLabel",
+      "#multiMonitorHelp",
+      "#wallpaperInteractionEnabledLabel",
+      "#wallpaperInteractionHelp"
+    ]
+  },
+  {
+    id: "cards",
+    labelKey: "settingsSectionCards",
+    selectors: [
+      "#quickCreateDetails",
+      "#toolbarCreateDetails",
+      "#snapToGridLabel"
+    ]
+  },
+  {
+    id: "storage",
+    labelKey: "settingsSectionStorage",
+    selectors: [
+      "#storagePathLabel",
+      "#storagePathHelp",
+      "#boardArchiveLabel",
+      "#assetManagerLabel"
+    ]
+  },
+  {
+    id: "diagnostics",
+    labelKey: "settingsSectionDiagnostics",
+    selectors: [
+      "#diagnosticsEnabledLabel",
+      "#logsFolderLabel"
+    ]
+  },
+  {
+    id: "hotkeys",
+    labelKey: "settingsSectionHotkeys",
+    selectors: [
+      "#toggleHotkeyLabel",
+      "#lockHotkeyLabel",
+      "#settingsHelp"
+    ]
+  },
+  {
+    id: "updates",
+    labelKey: "settingsSectionUpdates",
+    selectors: [
+      "#updatesLabel"
+    ]
+  }
+];
 
 const translations = {
   ru: {
@@ -906,6 +1102,66 @@ Object.assign(translations.en, {
   wallpaperInteractionEnabled: "Interact in Wallpaper view",
   wallpaperInteractionHelp: "Shows a separate overlay window above the wallpaper layer. The board stays in view mode, but you can click it and navigate without breaking desktop z-order.",
   backgroundOpacity: "Board transparency"
+});
+
+Object.assign(translations.ru, {
+  multiMonitorEnabled: "Бесшовная доска на всех экранах",
+  multiMonitorHelp: "Используются все подключенные экраны: {count}.",
+  multiMonitorSingleDisplayHelp: "Сейчас подключен один экран. При подключении второго доска сможет занять общую область.",
+  settingsSections: "Разделы настроек",
+  settingsSectionGeneral: "Основное",
+  settingsSectionAppearance: "Внешний вид",
+  settingsSectionDesktop: "Рабочий стол",
+  settingsSectionCards: "Карточки",
+  settingsSectionStorage: "Файлы и хранение",
+  settingsSectionDiagnostics: "Логи",
+  settingsSectionHotkeys: "Горячие клавиши",
+  settingsSectionUpdates: "Обновления",
+  toolbarCreateMenu: "Верхняя панель",
+  toolbarCreateHelp: "Выберите типы карточек, которые будут видны в верхней панели быстрого создания.",
+  colorSchemePresets: "Цветовые схемы",
+  colorSchemeHelp: "Пресеты меняют фон, цвет соединений и цвета новых элементов.",
+  saveColorScheme: "Сохранить схему",
+  exportColorScheme: "Экспортировать схему",
+  colorSchemeClassic: "Классическая",
+  colorSchemeGraphite: "Графит",
+  colorSchemeStudio: "Студия",
+  colorSchemeApplied: "Цветовая схема применена. Нажмите «Сохранить», чтобы закрепить изменения.",
+  colorSchemeSaved: "Цветовая схема сохранена.",
+  colorSchemeExported: "Цветовая схема экспортирована.",
+  colorSchemeNamePrompt: "Название цветовой схемы",
+  customColorSchemeName: "Моя схема",
+  exportedColorSchemeName: "Экспортированная схема"
+});
+
+Object.assign(translations.en, {
+  multiMonitorEnabled: "Seamless board across all screens",
+  multiMonitorHelp: "Using all connected screens: {count}.",
+  multiMonitorSingleDisplayHelp: "One screen is connected now. When another screen is connected, the board can use the combined area.",
+  settingsSections: "Settings sections",
+  settingsSectionGeneral: "General",
+  settingsSectionAppearance: "Appearance",
+  settingsSectionDesktop: "Desktop",
+  settingsSectionCards: "Cards",
+  settingsSectionStorage: "Files and storage",
+  settingsSectionDiagnostics: "Logs",
+  settingsSectionHotkeys: "Hotkeys",
+  settingsSectionUpdates: "Updates",
+  toolbarCreateMenu: "Top toolbar",
+  toolbarCreateHelp: "Choose which card types are visible in the top quick-create toolbar.",
+  colorSchemePresets: "Color schemes",
+  colorSchemeHelp: "Presets change the board background, connection color, and new element colors.",
+  saveColorScheme: "Save scheme",
+  exportColorScheme: "Export scheme",
+  colorSchemeClassic: "Classic",
+  colorSchemeGraphite: "Graphite",
+  colorSchemeStudio: "Studio",
+  colorSchemeApplied: "Color scheme applied. Click Save to keep the changes.",
+  colorSchemeSaved: "Color scheme saved.",
+  colorSchemeExported: "Color scheme exported.",
+  colorSchemeNamePrompt: "Color scheme name",
+  customColorSchemeName: "My scheme",
+  exportedColorSchemeName: "Exported scheme"
 });
 
 Object.assign(translations.ru, {
@@ -1824,6 +2080,106 @@ function setText(id, key, replacements = {}) {
   }
 }
 
+function getSettingsGroupElement(selector) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    return null;
+  }
+
+  return element.closest(".settings-block")
+    || element.closest(".settings-row, .settings-help, .settings-status")
+    || element;
+}
+
+function setSettingsSection(sectionId) {
+  const normalizedSectionId = settingsSectionDefinitions.some((section) => section.id === sectionId)
+    ? sectionId
+    : settingsSectionDefinitions[0].id;
+
+  activeSettingsSectionId = normalizedSectionId;
+
+  document.querySelectorAll(".settings-nav-button").forEach((button) => {
+    const active = button.dataset.settingsSection === activeSettingsSectionId;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", active ? "true" : "false");
+    button.tabIndex = 0;
+  });
+
+  document.querySelectorAll(".settings-section-panel").forEach((panel) => {
+    panel.hidden = panel.dataset.settingsSection !== activeSettingsSectionId;
+  });
+}
+
+function updateSettingsSectionLabels() {
+  if (!settingsLayoutInitialized) {
+    return;
+  }
+
+  document.querySelectorAll(".settings-nav-button").forEach((button) => {
+    const section = settingsSectionDefinitions.find((entry) => entry.id === button.dataset.settingsSection);
+    if (!section) {
+      return;
+    }
+
+    button.textContent = t(section.labelKey);
+  });
+}
+
+function ensureSettingsLayout() {
+  if (settingsLayoutInitialized || !settingsModal) {
+    return;
+  }
+
+  const panel = settingsModal.querySelector(".settings-panel");
+  const header = settingsModal.querySelector(".settings-header");
+  if (!panel || !header) {
+    return;
+  }
+
+  const layout = document.createElement("div");
+  layout.className = "settings-layout";
+
+  const nav = document.createElement("nav");
+  nav.className = "settings-nav";
+  nav.setAttribute("aria-label", t("settingsSections"));
+  nav.setAttribute("role", "tablist");
+
+  const sections = document.createElement("div");
+  sections.className = "settings-sections";
+
+  settingsSectionDefinitions.forEach((section) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "settings-nav-button";
+    button.dataset.settingsSection = section.id;
+    button.setAttribute("role", "tab");
+    button.addEventListener("click", () => setSettingsSection(section.id));
+    nav.appendChild(button);
+
+    const sectionPanel = document.createElement("section");
+    sectionPanel.className = "settings-section-panel";
+    sectionPanel.dataset.settingsSection = section.id;
+    sectionPanel.setAttribute("role", "tabpanel");
+    sections.appendChild(sectionPanel);
+
+    const movedElements = new Set();
+    section.selectors.forEach((selector) => {
+      const target = getSettingsGroupElement(selector);
+      if (!target || movedElements.has(target)) {
+        return;
+      }
+      movedElements.add(target);
+      sectionPanel.appendChild(target);
+    });
+  });
+
+  layout.append(nav, sections);
+  header.after(layout);
+  settingsLayoutInitialized = true;
+  updateSettingsSectionLabels();
+  setSettingsSection(activeSettingsSectionId);
+}
+
 function setSelectOptionText(select, value, key) {
   const option = select?.querySelector(`option[value="${value}"]`);
   if (option) {
@@ -1933,6 +2289,43 @@ function getAutoStartHelpKey() {
   return "autoStartHelpUnsupported";
 }
 
+function normalizeRectLike(rect = {}) {
+  return {
+    x: Number(rect.x) || 0,
+    y: Number(rect.y) || 0,
+    width: Math.max(0, Number(rect.width) || 0),
+    height: Math.max(0, Number(rect.height) || 0)
+  };
+}
+
+function normalizeDisplayLayout(layout = {}) {
+  const bounds = normalizeRectLike(layout.bounds);
+  const primaryBounds = normalizeRectLike(layout.primaryBounds);
+  return {
+    multiMonitorEnabled: layout.multiMonitorEnabled === true,
+    displayCount: Math.max(1, Number(layout.displayCount) || 1),
+    bounds,
+    primaryBounds: {
+      x: primaryBounds.x,
+      y: primaryBounds.y,
+      width: primaryBounds.width || window.innerWidth,
+      height: primaryBounds.height || window.innerHeight
+    }
+  };
+}
+
+function getActiveDisplayLayout() {
+  return normalizeDisplayLayout(windowModeState.displayLayout || appRuntimeConfig.displayLayout || {});
+}
+
+function getPrimaryDisplayClientCenter() {
+  const layout = getActiveDisplayLayout();
+  return {
+    x: layout.primaryBounds.x + layout.primaryBounds.width / 2,
+    y: layout.primaryBounds.y + layout.primaryBounds.height / 2
+  };
+}
+
 function normalizeWindowModeState(nextState = {}) {
   const supported = nextState.supported === true;
   const enabled = nextState.enabled === true;
@@ -1949,7 +2342,8 @@ function normalizeWindowModeState(nextState = {}) {
     wallpaperParentClass: typeof nextState.wallpaperParentClass === "string" ? nextState.wallpaperParentClass : "",
     wallpaperError: typeof nextState.wallpaperError === "string" && nextState.wallpaperError ? nextState.wallpaperError : null,
     overlayVisible: nextState.overlayVisible === true,
-    widgetInteractive: nextState.widgetInteractive === true
+    widgetInteractive: nextState.widgetInteractive === true,
+    displayLayout: normalizeDisplayLayout(nextState.displayLayout || {})
   };
 }
 
@@ -2086,6 +2480,15 @@ function refreshAppConfigUi(options = {}) {
   }
   if (wallpaperInteractionEnabledInput && !preserveOpenFormInputs) {
     wallpaperInteractionEnabledInput.checked = appRuntimeConfig.wallpaperInteractionEnabled === true;
+  }
+  if (multiMonitorEnabledInput && !preserveOpenFormInputs) {
+    multiMonitorEnabledInput.checked = appRuntimeConfig.multiMonitorEnabled === true;
+  }
+  if (multiMonitorHelp) {
+    const displayCount = Number((windowModeState.displayLayout || appRuntimeConfig.displayLayout || {}).displayCount || 1);
+    multiMonitorHelp.textContent = displayCount > 1
+      ? t("multiMonitorHelp", { count: displayCount })
+      : t("multiMonitorSingleDisplayHelp");
   }
   refreshWallpaperModeUi(options);
   if (diagnosticsEnabledInput) {
@@ -2641,6 +3044,7 @@ async function loadAppRuntimeConfig() {
       return;
     }
     appRuntimeConfig = nextConfig;
+    applyViewport();
   } catch (error) {
     reportError("config.load", error);
   }
@@ -2657,6 +3061,7 @@ async function loadWindowModeState() {
 
   try {
     windowModeState = normalizeWindowModeState(await window.desktopBoard.getWindowModeState());
+    applyViewport();
   } catch (error) {
     reportError("windowMode.load", error);
   }
@@ -2898,9 +3303,9 @@ function getToolbarCardTypes() {
   return cardTypeRegistry.filter((definition) => Boolean(definition.toolbarButton));
 }
 
-function normalizeQuickCreateKinds(kinds) {
-  const allowedKinds = new Set(cardTypeRegistry.map((definition) => definition.kind));
-  const source = Array.isArray(kinds) ? kinds : defaultQuickCreateKinds;
+function normalizeCardKindList(kinds, allowedDefinitions = cardTypeRegistry, fallbackKinds = defaultQuickCreateKinds) {
+  const allowedKinds = new Set(allowedDefinitions.map((definition) => definition.kind));
+  const source = Array.isArray(kinds) ? kinds : fallbackKinds;
   const normalized = [];
 
   source.forEach((kind) => {
@@ -2913,9 +3318,22 @@ function normalizeQuickCreateKinds(kinds) {
   return normalized;
 }
 
+function normalizeQuickCreateKinds(kinds) {
+  return normalizeCardKindList(kinds, cardTypeRegistry, defaultQuickCreateKinds);
+}
+
+function normalizeToolbarCreateKinds(kinds) {
+  return normalizeCardKindList(kinds, getToolbarCardTypes(), defaultToolbarCreateKinds);
+}
+
 function getVisibleQuickCreateDefinitions(kinds = state.settings?.quickCreateKinds) {
   const visibleKinds = new Set(normalizeQuickCreateKinds(kinds));
   return cardTypeRegistry.filter((definition) => visibleKinds.has(definition.kind));
+}
+
+function getVisibleToolbarCreateDefinitions(kinds = state.settings?.toolbarCreateKinds) {
+  const visibleKinds = new Set(normalizeToolbarCreateKinds(kinds));
+  return getToolbarCardTypes().filter((definition) => visibleKinds.has(definition.kind));
 }
 
 function renderQuickCreateSettings() {
@@ -2961,6 +3379,189 @@ function getSelectedQuickCreateKinds() {
   return cardTypeRegistry
     .filter((definition) => quickCreateInputMap.get(definition.kind)?.input.checked)
     .map((definition) => definition.kind);
+}
+
+function renderToolbarCreateSettings() {
+  if (!toolbarCreateKindsGrid) {
+    return;
+  }
+
+  const toolbarDefinitions = getToolbarCardTypes();
+  if (toolbarCreateInputMap.size === 0) {
+    toolbarDefinitions.forEach((definition) => {
+      const label = document.createElement("label");
+      label.className = "settings-toggle-item";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = definition.kind;
+
+      const text = document.createElement("span");
+      text.className = "settings-toggle-item-label";
+
+      label.append(input, text);
+      toolbarCreateKindsGrid.appendChild(label);
+      toolbarCreateInputMap.set(definition.kind, { input, text });
+    });
+  }
+
+  const selectedKinds = new Set(normalizeToolbarCreateKinds(state.settings.toolbarCreateKinds));
+  toolbarDefinitions.forEach((definition) => {
+    const item = toolbarCreateInputMap.get(definition.kind);
+    if (!item) {
+      return;
+    }
+    item.input.checked = selectedKinds.has(definition.kind);
+    item.input.setAttribute("aria-label", t(definition.labelKey));
+    item.text.textContent = t(definition.labelKey);
+  });
+}
+
+function getSelectedToolbarCreateKinds() {
+  if (!toolbarCreateInputMap.size) {
+    return normalizeToolbarCreateKinds(state.settings?.toolbarCreateKinds);
+  }
+
+  return getToolbarCardTypes()
+    .filter((definition) => toolbarCreateInputMap.get(definition.kind)?.input.checked)
+    .map((definition) => definition.kind);
+}
+
+function applyToolbarCreateVisibility() {
+  const visibleKinds = new Set(normalizeToolbarCreateKinds(state.settings?.toolbarCreateKinds));
+  getToolbarCardTypes().forEach((definition) => {
+    if (definition.toolbarButton) {
+      definition.toolbarButton.hidden = !visibleKinds.has(definition.kind);
+    }
+  });
+
+  document.querySelectorAll(".tool-group").forEach((group) => {
+    const hasVisibleButton = Array.from(group.querySelectorAll("button")).some((button) => !button.hidden);
+    group.hidden = !hasVisibleButton;
+  });
+}
+
+function getColorSchemeFromInputs(name = "") {
+  const colors = Object.fromEntries(
+    Object.entries(colorInputRefs).map(([kind, inputs]) => [
+      kind,
+      {
+        header: inputs.header.value || defaultSettings.colors[kind].header,
+        body: inputs.body.value || defaultSettings.colors[kind].body
+      }
+    ])
+  );
+
+  const backgroundColor = backgroundColorInput.value || defaultSettings.backgroundColor;
+  return normalizeColorScheme({
+    id: createId("scheme"),
+    name: name || t("customColorSchemeName"),
+    backgroundColor,
+    backgroundOpacity: Number(backgroundOpacityInput?.value ?? defaultSettings.backgroundOpacity),
+    connectionColor: connectionColorInput.value || getDefaultConnectionColor(backgroundColor),
+    colors
+  });
+}
+
+function applyColorSchemeToInputs(scheme) {
+  const normalizedScheme = normalizeColorScheme(scheme);
+  backgroundColorInput.value = normalizedScheme.backgroundColor;
+  if (backgroundOpacityInput) {
+    backgroundOpacityInput.value = String(normalizedScheme.backgroundOpacity);
+  }
+  if (backgroundOpacityValue) {
+    backgroundOpacityValue.textContent = `${normalizedScheme.backgroundOpacity}%`;
+  }
+  connectionColorInput.value = normalizedScheme.connectionColor;
+
+  Object.entries(colorInputRefs).forEach(([kind, inputs]) => {
+    if (!inputs?.header || !inputs?.body) {
+      return;
+    }
+    inputs.header.value = normalizedScheme.colors[kind].header;
+    inputs.body.value = normalizedScheme.colors[kind].body;
+  });
+
+  state.settings = normalizeSettings({
+    ...state.settings,
+    backgroundColor: normalizedScheme.backgroundColor,
+    backgroundOpacity: normalizedScheme.backgroundOpacity,
+    connectionColor: normalizedScheme.connectionColor,
+    colors: normalizedScheme.colors
+  });
+  applyDefaultColorsToInheritedCards();
+  applyDefaultColorsToInheritedConnections();
+  applySettings();
+  applySystemTheme(currentSystemTheme);
+  render();
+  setStatusText(settingsStatus, t("colorSchemeApplied"), "muted");
+}
+
+function getAllColorSchemes() {
+  return [
+    ...builtInColorSchemes,
+    ...normalizeColorSchemes(state.settings?.colorSchemes).map((scheme) => ({
+      ...scheme,
+      custom: true
+    }))
+  ];
+}
+
+function renderColorSchemePresets() {
+  if (!colorSchemePresetGrid) {
+    return;
+  }
+
+  colorSchemePresetGrid.replaceChildren();
+  getAllColorSchemes().forEach((scheme) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "settings-preset-button";
+    button.textContent = scheme.nameKey ? t(scheme.nameKey) : scheme.name;
+    button.addEventListener("click", () => applyColorSchemeToInputs(scheme));
+    colorSchemePresetGrid.appendChild(button);
+  });
+}
+
+async function saveCurrentColorScheme() {
+  const savedSchemes = normalizeColorSchemes(state.settings.colorSchemes);
+  const fallbackName = `${t("customColorSchemeName")} ${savedSchemes.length + 1}`;
+  const name = window.prompt(t("colorSchemeNamePrompt"), fallbackName);
+  if (name === null) {
+    return;
+  }
+
+  const scheme = getColorSchemeFromInputs(name.trim() || fallbackName);
+  state.settings = normalizeSettings({
+    ...state.settings,
+    colorSchemes: [
+      ...savedSchemes,
+      scheme
+    ]
+  });
+  renderColorSchemePresets();
+  await saveState({ skipHistory: true });
+  setStatusText(settingsStatus, t("colorSchemeSaved"), "success");
+}
+
+function exportCurrentColorScheme() {
+  const scheme = getColorSchemeFromInputs(t("exportedColorSchemeName"));
+  const payload = {
+    type: "desktop-board-color-scheme",
+    version: 1,
+    scheme
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const safeName = scheme.name.replace(/[^\wа-яё-]+/gi, "-").replace(/^-+|-+$/g, "") || "desktop-board-color-scheme";
+  link.href = url;
+  link.download = `${safeName}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setStatusText(settingsStatus, t("colorSchemeExported"), "success");
 }
 
 function normalizeState(input) {
@@ -3048,8 +3649,45 @@ function normalizeSettings(settings = {}) {
     connectionColor: isHexColor(settings.connectionColor) ? settings.connectionColor : getDefaultConnectionColor(backgroundColor),
     snapToGrid: settings.snapToGrid !== false,
     quickCreateKinds: normalizeQuickCreateKinds(settings.quickCreateKinds),
+    toolbarCreateKinds: normalizeToolbarCreateKinds(settings.toolbarCreateKinds),
+    colorSchemes: normalizeColorSchemes(settings.colorSchemes),
     colors
   };
+}
+
+function normalizeColorScheme(scheme = {}, fallbackName = "") {
+  const sourceColors = scheme.colors || {};
+  const backgroundColor = isHexColor(scheme.backgroundColor) ? scheme.backgroundColor : defaultSettings.backgroundColor;
+  const parsedBackgroundOpacity = Number(scheme.backgroundOpacity);
+  const colors = Object.fromEntries(
+    Object.entries(defaultSettings.colors).map(([kind, fallback]) => [
+      kind,
+      normalizeColorRule(Object.hasOwn(sourceColors, kind) ? sourceColors[kind] : null, fallback)
+    ])
+  );
+
+  return {
+    id: typeof scheme.id === "string" && scheme.id.trim() ? scheme.id.trim().slice(0, 80) : createId("scheme"),
+    name: typeof scheme.name === "string" && scheme.name.trim()
+      ? scheme.name.trim().slice(0, 80)
+      : fallbackName || "Custom scheme",
+    backgroundColor,
+    backgroundOpacity: Number.isFinite(parsedBackgroundOpacity)
+      ? clamp(Math.round(parsedBackgroundOpacity), 0, 100)
+      : defaultSettings.backgroundOpacity,
+    connectionColor: isHexColor(scheme.connectionColor) ? scheme.connectionColor : getDefaultConnectionColor(backgroundColor),
+    colors
+  };
+}
+
+function normalizeColorSchemes(schemes = []) {
+  if (!Array.isArray(schemes)) {
+    return [];
+  }
+
+  return schemes
+    .slice(0, 20)
+    .map((scheme, index) => normalizeColorScheme(scheme, `Custom ${index + 1}`));
 }
 
 function normalizeColorRule(rule, fallback) {
@@ -3750,9 +4388,16 @@ async function loadState() {
 
 function applyViewport() {
   const { x, y, zoom } = state.viewport;
+  const layout = getActiveDisplayLayout();
   board.style.setProperty("--pan-x", `${x}px`);
   board.style.setProperty("--pan-y", `${y}px`);
   board.style.setProperty("--zoom", zoom);
+  document.documentElement.style.setProperty("--display-origin-x", `${layout.primaryBounds.x}px`);
+  document.documentElement.style.setProperty("--display-origin-y", `${layout.primaryBounds.y}px`);
+  document.documentElement.style.setProperty("--display-primary-x", `${layout.primaryBounds.x}px`);
+  document.documentElement.style.setProperty("--display-primary-y", `${layout.primaryBounds.y}px`);
+  document.documentElement.style.setProperty("--display-primary-width", `${layout.primaryBounds.width || window.innerWidth}px`);
+  document.documentElement.style.setProperty("--display-primary-height", `${layout.primaryBounds.height || window.innerHeight}px`);
   board.style.backgroundSize = `${gridSize * zoom}px ${gridSize * zoom}px`;
   zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
   requestAnimationFrame(syncAllWebCardElements);
@@ -3791,13 +4436,18 @@ function applySettings() {
   snapToGridInput.checked = state.settings.snapToGrid;
   toggleHotkeyInput.value = state.settings.toggleHotkey;
   lockHotkeyInput.value = state.settings.lockHotkey;
+  applyToolbarCreateVisibility();
   refreshAppConfigUi();
   renderQuickCreateSettings();
+  renderToolbarCreateSettings();
+  renderColorSchemePresets();
   applyTranslations();
 }
 
 function applyTranslations() {
   document.documentElement.lang = getActiveLanguage();
+  ensureSettingsLayout();
+  updateSettingsSectionLabels();
   getToolbarCardTypes().forEach((definition) => {
     setButtonLocale(definition.toolbarButton, definition.labelKey, definition.createLabelKey);
   });
@@ -3811,6 +4461,7 @@ function applyTranslations() {
   setText("autoStartWithWindowsLabel", "autoStartWithWindows");
   setText("wallpaperModeEnabledLabel", "wallpaperModeEnabled");
   setText("wallpaperInteractionEnabledLabel", "wallpaperInteractionEnabled");
+  setText("multiMonitorEnabledLabel", "multiMonitorEnabled");
   setText("windowModeLabel", "windowModeLabel");
   setText("timeFormatLabel", "timeFormat");
   setText("backgroundColorLabel", "backgroundColor");
@@ -3832,6 +4483,10 @@ function applyTranslations() {
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
   setText("quickCreateHelp", "quickCreateHelp");
+  setText("toolbarCreateTitle", "toolbarCreateMenu");
+  setText("toolbarCreateHelp", "toolbarCreateHelp");
+  setText("colorSchemePresetsLabel", "colorSchemePresets");
+  setText("colorSchemeHelp", "colorSchemeHelp");
   setText("headerColorColumnLabel", "headerColor");
   setText("bodyColorColumnLabel", "bodyColor");
   [
@@ -3901,6 +4556,12 @@ function applyTranslations() {
   if (cleanupAssetsButton) {
     cleanupAssetsButton.textContent = t("cleanupAssets");
   }
+  if (saveColorSchemeButton) {
+    saveColorSchemeButton.textContent = t("saveColorScheme");
+  }
+  if (exportColorSchemeButton) {
+    exportColorSchemeButton.textContent = t("exportColorScheme");
+  }
   if (checkUpdatesButton) {
     checkUpdatesButton.textContent = t("checkUpdates");
   }
@@ -3915,6 +4576,8 @@ function applyTranslations() {
   }
   refreshBoardsManagerUi();
   renderQuickCreateSettings();
+  renderToolbarCreateSettings();
+  renderColorSchemePresets();
   refreshAssetManagerUi();
   refreshAppUpdateUi();
   refreshWallpaperModeUi();
@@ -4286,8 +4949,9 @@ function searchCards(query = "", options = {}) {
 function centerViewportOnCard(card) {
   const centerX = card.x + card.width / 2;
   const centerY = card.y + card.height / 2;
-  state.viewport.x = Math.round(window.innerWidth / 2 - centerX * state.viewport.zoom);
-  state.viewport.y = Math.round(window.innerHeight / 2 - centerY * state.viewport.zoom);
+  const displayCenter = getPrimaryDisplayClientCenter();
+  state.viewport.x = Math.round(displayCenter.x - centerX * state.viewport.zoom);
+  state.viewport.y = Math.round(displayCenter.y - centerY * state.viewport.zoom);
 }
 
 function focusCardById(cardId) {
@@ -4387,14 +5051,89 @@ function syncCardElementLayout(cardElement) {
 }
 
 function screenToWorld(clientX, clientY) {
+  const layout = getActiveDisplayLayout();
   return {
-    x: (clientX - state.viewport.x) / state.viewport.zoom,
-    y: (clientY - state.viewport.y) / state.viewport.zoom
+    x: (clientX - layout.primaryBounds.x - state.viewport.x) / state.viewport.zoom,
+    y: (clientY - layout.primaryBounds.y - state.viewport.y) / state.viewport.zoom
   };
 }
 
 function getVisibleWorldCenter() {
-  return screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+  const displayCenter = getPrimaryDisplayClientCenter();
+  return screenToWorld(displayCenter.x, displayCenter.y);
+}
+
+function isBrandLogoAnimationAllowed() {
+  return Boolean(
+    brandMark
+    && !isOverlayWindow
+    && !document.hidden
+    && !document.body.classList.contains("is-wallpaper-passive")
+    && !document.body.classList.contains("is-widget-mode")
+  );
+}
+
+function resetBrandLogoAnimation() {
+  if (brandLogoResetTimer) {
+    window.clearTimeout(brandLogoResetTimer);
+    brandLogoResetTimer = null;
+  }
+
+  brandLogoAnimationActive = false;
+  if (brandMark) {
+    brandMark.classList.remove("is-animating");
+    if (!brandMark.src.endsWith(brandLogoSrc)) {
+      brandMark.src = brandLogoSrc;
+    }
+  }
+}
+
+function pickBrandLogoAnimation() {
+  if (brandLogoAnimations.length <= 1) {
+    return brandLogoAnimations[0] || null;
+  }
+
+  const availableAnimations = brandLogoAnimations.filter((animation) => animation.src !== lastBrandLogoAnimationSrc);
+  return availableAnimations[Math.floor(Math.random() * availableAnimations.length)] || brandLogoAnimations[0];
+}
+
+function playBrandLogoAnimation() {
+  if (!isBrandLogoAnimationAllowed() || brandLogoAnimationActive) {
+    return;
+  }
+
+  const animation = pickBrandLogoAnimation();
+  if (!animation) {
+    return;
+  }
+
+  brandLogoAnimationActive = true;
+  lastBrandLogoAnimationSrc = animation.src;
+  brandMark.classList.add("is-animating");
+  brandMark.src = `${animation.src}?play=${Date.now()}`;
+
+  brandLogoResetTimer = window.setTimeout(() => {
+    resetBrandLogoAnimation();
+  }, (animation.loopMs * brandLogoAnimationLoops) + 120);
+}
+
+function syncBrandLogoAnimationState() {
+  if (!isBrandLogoAnimationAllowed() && brandLogoAnimationActive) {
+    resetBrandLogoAnimation();
+  }
+}
+
+function startBrandLogoAnimationTicker() {
+  if (!brandMark || isOverlayWindow || brandLogoAnimationTimer) {
+    return;
+  }
+
+  brandLogoAnimations.forEach((animation) => {
+    const image = new Image();
+    image.src = animation.src;
+  });
+
+  brandLogoAnimationTimer = window.setInterval(playBrandLogoAnimation, brandLogoAnimationIntervalMs);
 }
 
 function updateModeUi() {
@@ -4433,6 +5172,7 @@ function updateModeUi() {
   lockButton.dataset.tooltip = t(state.locked ? "edit" : "lock");
   lockButton.setAttribute("aria-label", t(state.locked ? "edit" : "lock"));
   refreshToolbarWindowModeUi();
+  syncBrandLogoAnimationState();
 }
 
 function setLocked(locked, options = {}) {
@@ -6175,8 +6915,9 @@ async function openStoredFile(card) {
   if (!contextMenu.hidden) {
     closeContextMenu();
   }
-  if (window.desktopBoard?.openFilePath && card.path) {
-    await window.desktopBoard.openFilePath(card.path);
+  const filePath = getStoredCardFilePath(card);
+  if (window.desktopBoard?.openFilePath && filePath) {
+    await window.desktopBoard.openFilePath(filePath);
     return;
   }
 
@@ -6189,9 +6930,30 @@ async function revealStoredFile(card) {
   if (!contextMenu.hidden) {
     closeContextMenu();
   }
-  if (window.desktopBoard?.revealFilePath && card.path) {
-    await window.desktopBoard.revealFilePath(card.path);
+  const filePath = getStoredCardFilePath(card);
+  if (window.desktopBoard?.revealFilePath && filePath) {
+    await window.desktopBoard.revealFilePath(filePath);
   }
+}
+
+function getStoredCardFilePath(card) {
+  if (typeof card?.path === "string" && card.path) {
+    return card.path;
+  }
+
+  if (typeof card?.src !== "string" || !card.src.toLowerCase().startsWith("file:")) {
+    return "";
+  }
+
+  try {
+    return decodeURIComponent(new URL(card.src).pathname).replace(/^\/([a-zA-Z]:\/)/, "$1").replaceAll("/", "\\");
+  } catch {
+    return "";
+  }
+}
+
+function canRevealStoredCardFile(card) {
+  return ["file", "image", "video", "audio"].includes(card?.kind) && Boolean(getStoredCardFilePath(card));
 }
 
 function renderFile(card) {
@@ -6229,13 +6991,13 @@ function renderFile(card) {
   const openButton = document.createElement("button");
   openButton.type = "button";
   openButton.textContent = t("openFile");
-  openButton.disabled = !card.path && !card.src;
+  openButton.disabled = !getStoredCardFilePath(card) && !card.src;
   openButton.addEventListener("click", () => openStoredFile(card));
 
   const revealButton = document.createElement("button");
   revealButton.type = "button";
   revealButton.textContent = t("revealFile");
-  revealButton.disabled = !card.path;
+  revealButton.disabled = !getStoredCardFilePath(card);
   revealButton.addEventListener("click", () => revealStoredFile(card));
 
   const replaceButton = document.createElement("button");
@@ -6274,8 +7036,27 @@ function renderWeb(card) {
     browser.setAttribute("partition", "persist:desktop-board-web");
     browser.setAttribute("webpreferences", "contextIsolation=yes,nodeIntegration=no");
     browser.setAttribute("allowpopups", "");
-    browser.addEventListener("dom-ready", () => syncWebCardElement(browser.closest(".card")));
-    browser.addEventListener("did-finish-load", () => syncWebCardElement(browser.closest(".card")));
+    browser.addEventListener("did-attach", () => syncWebCardElement(browser.closest(".card")));
+    browser.addEventListener("dom-ready", () => {
+      syncWebCardElement(browser.closest(".card"));
+      try {
+        Promise.resolve(browser.insertCSS?.("html, body { min-height: 100%; background: #ffffff; }")).catch(() => {});
+      } catch {
+        // Webview CSS injection is best effort.
+      }
+    });
+    browser.addEventListener("did-finish-load", () => {
+      browser.dataset.recoveryCount = "0";
+      syncWebCardElement(browser.closest(".card"));
+    });
+    browser.addEventListener("did-fail-load", (event) => {
+      if (event?.isMainFrame === false || event?.errorCode === -3) {
+        return;
+      }
+      scheduleWebViewRecovery(browser);
+    });
+    browser.addEventListener("render-process-gone", () => scheduleWebViewRecovery(browser));
+    browser.addEventListener("unresponsive", () => scheduleWebViewRecovery(browser));
   } else {
     browser.loading = "lazy";
     browser.referrerPolicy = "no-referrer-when-downgrade";
@@ -6295,6 +7076,30 @@ function renderWeb(card) {
 
   wrapper.append(browser, shield);
   return wrapper;
+}
+
+function scheduleWebViewRecovery(browser) {
+  const currentCount = Number(browser?.dataset?.recoveryCount || 0);
+  if (!browser || currentCount >= 2) {
+    return;
+  }
+
+  browser.dataset.recoveryCount = String(currentCount + 1);
+  window.setTimeout(() => {
+    if (!browser.isConnected) {
+      return;
+    }
+
+    try {
+      if (typeof browser.reloadIgnoringCache === "function") {
+        browser.reloadIgnoringCache();
+      } else if (typeof browser.reload === "function") {
+        browser.reload();
+      }
+    } catch (error) {
+      reportError("web.recover", error);
+    }
+  }, 700);
 }
 
 function setupWebCardSizeSync(cardElement) {
@@ -8043,10 +8848,11 @@ function zoomAt(event) {
   const factor = direction > 0 ? 1.1 : 0.9;
   const nextZoom = clamp(oldZoom * factor, minZoom, maxZoom);
   const worldPoint = screenToWorld(event.clientX, event.clientY);
+  const layout = getActiveDisplayLayout();
 
   state.viewport.zoom = nextZoom;
-  state.viewport.x = event.clientX - worldPoint.x * nextZoom;
-  state.viewport.y = event.clientY - worldPoint.y * nextZoom;
+  state.viewport.x = event.clientX - layout.primaryBounds.x - worldPoint.x * nextZoom;
+  state.viewport.y = event.clientY - layout.primaryBounds.y - worldPoint.y * nextZoom;
 
   applyViewport();
   scheduleSave();
@@ -9336,6 +10142,8 @@ function renderCardContextMenu(card) {
     mainActions.push(createContextButton(t("replaceFile"), () => replaceStoredFile(card)));
     mainActions.push(createContextButton(t("openFile"), () => openStoredFile(card)));
     mainActions.push(createContextButton(t("revealFile"), () => revealStoredFile(card)));
+  } else if (canRevealStoredCardFile(card)) {
+    mainActions.push(createContextButton(t("revealFile"), () => revealStoredFile(card)));
   }
 
   contextMenu.append(
@@ -9390,6 +10198,7 @@ function openContextMenu(event) {
 function openSettings() {
   closeContextMenu();
   settingsStatus.textContent = "";
+  ensureSettingsLayout();
   applySettings();
   refreshAppConfigUi({ force: true });
   settingsModal.hidden = false;
@@ -9629,6 +10438,8 @@ async function saveSettings() {
     connectionColor: connectionColorInput.value || getDefaultConnectionColor(backgroundColorInput.value || defaultSettings.backgroundColor),
     snapToGrid: snapToGridInput.checked,
     quickCreateKinds: getSelectedQuickCreateKinds(),
+    toolbarCreateKinds: getSelectedToolbarCreateKinds(),
+    colorSchemes: state.settings.colorSchemes,
     colors: nextColors,
     toggleHotkey: toggleHotkeyInput.value.trim() || defaultSettings.toggleHotkey,
     lockHotkey: lockHotkeyInput.value.trim() || defaultSettings.lockHotkey
@@ -9652,10 +10463,12 @@ async function saveSettings() {
         autoStartEnabled: autoStartWithWindowsInput?.checked === true,
         autoManageAssetsOnLaunch: autoManageAssetsOnLaunchInput?.checked === true,
         wallpaperModeEnabled,
-        wallpaperInteractionEnabled: wallpaperInteractionEnabledInput?.checked === true
+        wallpaperInteractionEnabled: wallpaperInteractionEnabledInput?.checked === true,
+        multiMonitorEnabled: multiMonitorEnabledInput?.checked === true
       });
       if (requestVersion === appRuntimeConfigRequestVersion) {
         appRuntimeConfig = nextAppConfig;
+        applyViewport();
         refreshAppConfigUi({ force: true });
       }
 
@@ -9880,6 +10693,7 @@ window.addEventListener("pointerdown", (event) => {
 });
 
 window.addEventListener("resize", closeContextMenu);
+document.addEventListener("visibilitychange", syncBrandLogoAnimationState);
 
 lockButton.addEventListener("click", () => setLocked(!state.locked));
 hideButton.addEventListener("click", () => {
@@ -9917,8 +10731,13 @@ analyzeAssetsButton?.addEventListener("click", analyzeAssetsFromSettings);
 cleanupAssetsButton?.addEventListener("click", cleanupAssetsFromSettings);
 checkUpdatesButton?.addEventListener("click", checkForUpdatesFromSettings);
 installUpdateButton?.addEventListener("click", installDownloadedUpdateFromSettings);
+saveColorSchemeButton?.addEventListener("click", () => {
+  void saveCurrentColorScheme();
+});
+exportColorSchemeButton?.addEventListener("click", exportCurrentColorScheme);
 wallpaperModeEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
 wallpaperInteractionEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
+multiMonitorEnabledInput?.addEventListener("change", () => refreshAppConfigUi());
 backgroundOpacityInput?.addEventListener("input", () => {
   if (backgroundOpacityValue) {
     const nextTransparency = Number(backgroundOpacityInput.value);
@@ -9995,6 +10814,7 @@ if (!timerTickHandle) {
     handleTimerTick({ sideEffects: !isOverlayWindow });
   }, timerTickIntervalMs);
 }
+startBrandLogoAnimationTicker();
 
 if (window.desktopBoard) {
   window.desktopBoard.onToggleLock(() => setLocked(!state.locked));
@@ -10005,6 +10825,7 @@ if (window.desktopBoard) {
   });
   window.desktopBoard.onWindowModeState?.((nextState) => {
     windowModeState = normalizeWindowModeState(nextState);
+    applyViewport();
     if (windowModeState.currentMode === "widget-mode") {
       if (state.locked) {
         setLocked(false, { persist: false });

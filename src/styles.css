@@ -23,6 +23,12 @@
   --zoom: 1;
   --pan-x: 0px;
   --pan-y: 0px;
+  --display-origin-x: 0px;
+  --display-origin-y: 0px;
+  --display-primary-x: 0px;
+  --display-primary-y: 0px;
+  --display-primary-width: 100vw;
+  --display-primary-height: 100vh;
   color-scheme: light;
 }
 
@@ -90,15 +96,15 @@ button:active {
 .toolbar {
   position: fixed;
   z-index: 40;
-  top: 16px;
-  left: 16px;
-  right: 16px;
+  top: calc(var(--display-primary-y) + 16px);
+  left: calc(var(--display-primary-x) + 16px);
+  width: calc(var(--display-primary-width) - 32px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 48px;
-  padding: 8px 10px;
+  min-height: 68px;
+  padding: 4px 10px;
   border: 1px solid var(--system-panel-border);
   border-radius: 8px;
   color: var(--system-text);
@@ -124,8 +130,9 @@ button:active {
 
 .widget-desktop-edit-button {
   position: fixed;
-  top: 16px;
-  right: 16px;
+  top: calc(var(--display-primary-y) + 16px);
+  right: auto;
+  left: calc(var(--display-primary-x) + var(--display-primary-width) - 60px);
   z-index: 45;
   width: 44px;
   height: 44px;
@@ -193,10 +200,14 @@ button:active {
 .brand-mark {
   display: block;
   flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
+  width: 80px;
+  height: 80px;
   object-fit: contain;
   filter: drop-shadow(0 2px 6px rgba(23, 25, 22, 0.14));
+}
+
+.brand-mark.is-animating {
+  will-change: contents;
 }
 
 .brand strong {
@@ -289,6 +300,11 @@ button:active {
   background: color-mix(in srgb, var(--system-panel-strong) 74%, transparent);
 }
 
+.tool-group[hidden],
+.icon-button[hidden] {
+  display: none !important;
+}
+
 .icon-button {
   position: relative;
   display: inline-grid;
@@ -370,7 +386,9 @@ button:active {
   background-image:
     linear-gradient(var(--board-grid-horizontal) 1px, transparent 1px),
     linear-gradient(90deg, var(--board-grid-vertical) 1px, transparent 1px);
-  background-position: var(--pan-x) var(--pan-y);
+  background-position:
+    calc(var(--display-origin-x) + var(--pan-x))
+    calc(var(--display-origin-y) + var(--pan-y));
   background-size: 24px 24px;
   cursor: default;
 }
@@ -395,7 +413,10 @@ button:active {
 .workspace {
   position: absolute;
   inset: 0;
-  transform: translate(var(--pan-x), var(--pan-y)) scale(var(--zoom));
+  transform: translate(
+    calc(var(--display-origin-x) + var(--pan-x)),
+    calc(var(--display-origin-y) + var(--pan-y))
+  ) scale(var(--zoom));
   transform-origin: 0 0;
 }
 
@@ -1504,7 +1525,7 @@ button:active {
 }
 
 .web-frame webview {
-  display: flex;
+  display: block;
   position: absolute;
   top: 0;
   left: 0;
@@ -1702,16 +1723,27 @@ button:active {
   display: none;
 }
 
+#settingsModal {
+  place-items: start;
+}
+
 .settings-panel {
-  width: min(620px, 100%);
-  max-height: min(820px, calc(100vh - 48px));
-  overflow: auto;
+  position: absolute;
+  top: calc(var(--display-primary-y) + (var(--display-primary-height) / 2));
+  left: calc(var(--display-primary-x) + (var(--display-primary-width) / 2));
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  width: min(920px, calc(var(--display-primary-width) - 48px));
+  height: min(820px, calc(var(--display-primary-height) - 48px));
+  max-height: min(820px, calc(var(--display-primary-height) - 48px));
+  overflow: hidden;
   border: 1px solid var(--system-panel-border);
   border-radius: 8px;
   padding: 18px;
   color: var(--system-text);
   background: var(--system-panel-strong);
   box-shadow: var(--shadow);
+  transform: translate(-50%, -50%);
 }
 
 .url-panel {
@@ -1748,6 +1780,67 @@ button:active {
 .settings-header h2 {
   margin: 0;
   font-size: 20px;
+}
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+  margin-top: 18px;
+}
+
+.settings-nav {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  padding-right: 12px;
+}
+
+.settings-nav-button {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  border: 1px solid transparent !important;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: var(--muted) !important;
+  background: transparent !important;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.settings-nav-button:hover,
+.settings-nav-button:focus-visible,
+.settings-nav-button.is-active {
+  border-color: var(--system-panel-border) !important;
+  color: var(--system-text) !important;
+  background: color-mix(in srgb, var(--system-accent) 14%, transparent) !important;
+}
+
+.settings-sections {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.settings-section-panel {
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.settings-section-panel[hidden] {
+  display: none;
+}
+
+.settings-section-panel > :first-child {
+  margin-top: 0;
 }
 
 .settings-row {
@@ -1849,6 +1942,19 @@ button:active {
   justify-content: flex-start;
 }
 
+.settings-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.settings-preset-button {
+  min-height: 38px;
+  justify-content: center;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
 .settings-path-actions {
   grid-template-columns: minmax(0, 1fr) auto auto;
 }
@@ -1861,6 +1967,11 @@ button:active {
   margin-top: 18px;
   border-top: 1px solid var(--line);
   padding-top: 14px;
+}
+
+.settings-section-panel > .settings-block:first-child {
+  border-top: 0;
+  padding-top: 0;
 }
 
 .settings-block summary {
@@ -2379,6 +2490,31 @@ button:active {
 
   .toolbar-actions {
     justify-content: flex-start;
+  }
+
+  .settings-panel {
+    width: min(620px, calc(var(--display-primary-width) - 24px));
+    height: min(820px, calc(var(--display-primary-height) - 24px));
+    max-height: min(820px, calc(var(--display-primary-height) - 24px));
+    padding: 14px;
+  }
+
+  .settings-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .settings-nav {
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 10px;
+  }
+
+  .settings-nav-button {
+    white-space: nowrap;
   }
 
   .settings-row {

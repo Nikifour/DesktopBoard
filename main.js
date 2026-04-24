@@ -12,6 +12,7 @@ const JSZip = require("jszip");
 const { pathToFileURL, fileURLToPath } = require("url");
 
 let mainWindow;
+let splashWindow = null;
 let overlayWindow = null;
 let appConfig = {
   storagePath: "",
@@ -21,6 +22,7 @@ let appConfig = {
   autoManageAssetsOnLaunch: true,
   wallpaperModeEnabled: false,
   wallpaperInteractionEnabled: false,
+  multiMonitorEnabled: false,
   windowMode: "normal"
 };
 let logWriteQueue = Promise.resolve();
@@ -43,6 +45,18 @@ let wallpaperAttachmentState = {
   error: null
 };
 let wallpaperAttachmentPromise = Promise.resolve();
+let foregroundWatchTimer = null;
+let foregroundWatchInFlight = false;
+let foregroundState = {
+  externalFullscreenActive: false,
+  pendingExternalFullscreenActive: null,
+  stableSampleCount: 0,
+  autoHidden: false,
+  manualHidden: false,
+  foregroundClassName: "",
+  foregroundProcessName: "",
+  error: null
+};
 
 const appId = "com.desktopboard.app";
 const stateSchemaVersion = 6;
@@ -57,12 +71,19 @@ const windowIconPath = path.join(__dirname, "src", "assets", "app-icon.ico");
 const trayIconPath = path.join(__dirname, "src", "assets", "tray-icon.png");
 const taskbarIconPath = path.join(__dirname, "src", "assets", "taskbar-icon.png");
 const notificationIconPath = path.join(__dirname, "src", "assets", "app-logo.png");
+const splashHtmlPath = path.join(__dirname, "src", "splash.html");
 const wallpaperHelperScriptPath = app.isPackaged
   ? path.join(process.resourcesPath, "native", "wallpaper-helper.ps1")
   : path.join(__dirname, "src", "native", "wallpaper-helper.ps1");
+const foregroundHelperScriptPath = app.isPackaged
+  ? path.join(process.resourcesPath, "native", "foreground-helper.ps1")
+  : path.join(__dirname, "src", "native", "foreground-helper.ps1");
 const sessionId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const autoUpdateInitialDelayMs = 15000;
 const autoUpdateIntervalMs = 6 * 60 * 60 * 1000;
+const foregroundWatchIntervalMs = 1500;
+const foregroundFullscreenEnterSamples = 1;
+const foregroundFullscreenExitSamples = 2;
 const activeNotifications = new Map();
 
 const defaultHotkeys = {
@@ -121,6 +142,7 @@ function normalizeAppConfig(config = {}) {
     autoManageAssetsOnLaunch: config.autoManageAssetsOnLaunch !== false,
     wallpaperModeEnabled: config.wallpaperModeEnabled === true,
     wallpaperInteractionEnabled: config.wallpaperInteractionEnabled === true,
+    multiMonitorEnabled: config.multiMonitorEnabled === true,
     windowMode: normalizeWindowMode(config.windowMode)
   };
 }
@@ -132,6 +154,80 @@ function isWallpaperModeSupported() {
 function normalizeWindowMode(value) {
   const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
   return supportedWindowModes.has(normalized) ? normalized : "normal";
+}
+
+function getRectUnion(rects = []) {
+  const validRects = rects.filter((rect) => (
+    rect
+    && Number.isFinite(rect.x)
+    && Number.isFinite(rect.y)
+    && Number.isFinite(rect.width)
+    && Number.isFinite(rect.height)
+    && rect.width > 0
+    && rect.height > 0
+  ));
+
+  if (!validRects.length) {
+    return { x: 0, y: 0, width: 1280, height: 720 };
+  }
+
+  const left = Math.min(...validRects.map((rect) => rect.x));
+  const top = Math.min(...validRects.map((rect) => rect.y));
+  const right = Math.max(...validRects.map((rect) => rect.x + rect.width));
+  const bottom = Math.max(...validRects.map((rect) => rect.y + rect.height));
+
+  return {
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top
+  };
+}
+
+function isMultiMonitorBoardEnabled(config = appConfig) {
+  return config?.multiMonitorEnabled === true && screen.getAllDisplays().length > 1;
+}
+
+function getBoardWindowBounds(config = appConfig) {
+  const displays = screen.getAllDisplays();
+  const primaryDisplay = screen.getPrimaryDisplay();
+
+  if (!isMultiMonitorBoardEnabled(config)) {
+    return { ...primaryDisplay.workArea };
+  }
+
+  return getRectUnion(displays.map((display) => display.workArea || display.bounds));
+}
+
+function getDisplayLayoutInfo(config = appConfig) {
+  const displays = screen.getAllDisplays();
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const boardBounds = getBoardWindowBounds(config);
+  const primaryBounds = primaryDisplay.workArea || primaryDisplay.bounds;
+
+  return {
+    multiMonitorEnabled: isMultiMonitorBoardEnabled(config),
+    displayCount: displays.length,
+    bounds: { ...boardBounds },
+    primaryBounds: {
+      x: primaryBounds.x - boardBounds.x,
+      y: primaryBounds.y - boardBounds.y,
+      width: primaryBounds.width,
+      height: primaryBounds.height
+    },
+    displays: displays.map((display) => {
+      const displayBounds = display.workArea || display.bounds;
+      return {
+        id: display.id,
+        primary: display.id === primaryDisplay.id,
+        scaleFactor: display.scaleFactor,
+        x: displayBounds.x - boardBounds.x,
+        y: displayBounds.y - boardBounds.y,
+        width: displayBounds.width,
+        height: displayBounds.height
+      };
+    })
+  };
 }
 
 function getEffectiveWindowMode(config = appConfig, requestedMode = null) {
@@ -251,7 +347,8 @@ function getAppConfigForRenderer() {
     appVersion: app.getVersion(),
     storageInfo: getStorageInfo(),
     autoStart: getAutoStartStatus(),
-    windowModeSupported: isWallpaperModeSupported()
+    windowModeSupported: isWallpaperModeSupported(),
+    displayLayout: getDisplayLayoutInfo()
   };
 }
 
@@ -267,7 +364,8 @@ function getWindowModeState() {
     wallpaperParentClass: wallpaperAttachmentState.parentClass || "",
     wallpaperError: wallpaperAttachmentState.error || null,
     overlayVisible: Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()),
-    widgetInteractive: currentWindowMode === "widget-mode" && widgetOverlayInteractive === true
+    widgetInteractive: currentWindowMode === "widget-mode" && widgetOverlayInteractive === true,
+    displayLayout: getDisplayLayoutInfo()
   };
 }
 
@@ -945,6 +1043,230 @@ async function runWallpaperHelper(action, windowRef = mainWindow) {
   });
 }
 
+async function runForegroundHelper() {
+  if (!isWallpaperModeSupported()) {
+    return {
+      ok: false,
+      error: "Foreground watcher is supported only on Windows."
+    };
+  }
+
+  return new Promise((resolve, reject) => {
+    const child = spawn("powershell.exe", [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      foregroundHelperScriptPath
+    ], {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+
+    child.on("error", reject);
+    child.on("close", (code) => {
+      const output = stdout.trim();
+      if (!output) {
+        if (code === 0) {
+          resolve({
+            ok: false,
+            error: "Foreground helper did not return a result."
+          });
+          return;
+        }
+        reject(new Error(stderr.trim() || `Foreground helper exited with code ${code}.`));
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(output));
+      } catch (error) {
+        reject(new Error(`Foreground helper returned invalid JSON. ${stderr.trim() || output}`.trim()));
+      }
+    });
+  });
+}
+
+function isWallpaperManagedMode(mode = currentWindowMode) {
+  const nextMode = normalizeWindowMode(mode);
+  return appConfig.wallpaperModeEnabled === true && (nextMode === "wallpaper-view" || nextMode === "widget-mode");
+}
+
+function isAnyBoardWindowVisible() {
+  const isVisible = (windowRef) => Boolean(windowRef && !windowRef.isDestroyed() && windowRef.isVisible());
+  return isVisible(mainWindow) || isVisible(overlayWindow) || isVisible(wallpaperControlWindow);
+}
+
+function getKnownDesktopBoardHandles() {
+  return new Set(
+    [mainWindow, overlayWindow, wallpaperControlWindow]
+      .map((windowRef) => getMainWindowHandleValue(windowRef))
+      .filter(Boolean)
+  );
+}
+
+function clearForegroundAutomationFlags() {
+  foregroundState.externalFullscreenActive = false;
+  foregroundState.pendingExternalFullscreenActive = null;
+  foregroundState.stableSampleCount = 0;
+  foregroundState.autoHidden = false;
+  foregroundState.manualHidden = false;
+  foregroundState.error = null;
+}
+
+function hideBoardWindows(options = {}) {
+  const manual = options.manual === true;
+  ensureTray();
+
+  if (currentWindowMode === "widget-mode") {
+    widgetOverlayInteractive = false;
+    widgetOverlayCaptured = false;
+  }
+
+  if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
+    overlayWindow.hide();
+  }
+
+  hideWallpaperControlWindow();
+
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+    mainWindow.hide();
+  }
+
+  foregroundState.manualHidden = manual;
+  foregroundState.autoHidden = manual !== true;
+  updateTrayMenu();
+  sendWindowModeState();
+  return true;
+}
+
+function restoreBoardWindowsAfterAutoHide() {
+  if (!isWallpaperManagedMode(currentWindowMode)) {
+    clearForegroundAutomationFlags();
+    return false;
+  }
+
+  foregroundState.autoHidden = false;
+  if (foregroundState.manualHidden) {
+    return false;
+  }
+
+  showWindowForMode(currentWindowMode);
+  return true;
+}
+
+function updateForegroundWatcher() {
+  const shouldWatch = isWallpaperManagedMode(currentWindowMode);
+
+  if (!shouldWatch) {
+    if (foregroundWatchTimer) {
+      clearInterval(foregroundWatchTimer);
+      foregroundWatchTimer = null;
+    }
+    foregroundWatchInFlight = false;
+    clearForegroundAutomationFlags();
+    return false;
+  }
+
+  if (!foregroundWatchTimer) {
+    foregroundWatchTimer = setInterval(() => {
+      void pollForegroundWindowState();
+    }, foregroundWatchIntervalMs);
+  }
+
+  return true;
+}
+
+function getConfirmedExternalFullscreenState(observedValue) {
+  const observed = observedValue === true;
+
+  if (observed === foregroundState.externalFullscreenActive) {
+    foregroundState.pendingExternalFullscreenActive = null;
+    foregroundState.stableSampleCount = 0;
+    return foregroundState.externalFullscreenActive;
+  }
+
+  if (foregroundState.pendingExternalFullscreenActive !== observed) {
+    foregroundState.pendingExternalFullscreenActive = observed;
+    foregroundState.stableSampleCount = 1;
+  } else {
+    foregroundState.stableSampleCount += 1;
+  }
+
+  const requiredSamples = observed ? foregroundFullscreenEnterSamples : foregroundFullscreenExitSamples;
+  if (foregroundState.stableSampleCount < requiredSamples) {
+    return foregroundState.externalFullscreenActive;
+  }
+
+  foregroundState.externalFullscreenActive = observed;
+  foregroundState.pendingExternalFullscreenActive = null;
+  foregroundState.stableSampleCount = 0;
+  return foregroundState.externalFullscreenActive;
+}
+
+async function pollForegroundWindowState() {
+  if (foregroundWatchInFlight || !isWallpaperManagedMode(currentWindowMode) || isQuitting) {
+    return false;
+  }
+
+  foregroundWatchInFlight = true;
+
+  try {
+    const result = await runForegroundHelper();
+    if (result?.ok !== true) {
+      const message = String(result?.error || "Foreground helper failed.");
+      if (foregroundState.error !== message) {
+        foregroundState.error = message;
+        await logError("foreground.watch", new Error(message), {
+          mode: currentWindowMode
+        });
+      }
+      return false;
+    }
+
+    foregroundState.error = null;
+    foregroundState.foregroundClassName = String(result.className || "");
+    foregroundState.foregroundProcessName = String(result.processName || "");
+
+    const foregroundHandle = String(result.windowHandle || "");
+    const isOwnWindow = foregroundHandle && getKnownDesktopBoardHandles().has(foregroundHandle);
+    const observedExternalFullscreenActive = result.isFullscreen === true && result.isPrimaryMonitor === true && !isOwnWindow;
+    const previousExternalFullscreenActive = foregroundState.externalFullscreenActive;
+    const externalFullscreenActive = getConfirmedExternalFullscreenState(observedExternalFullscreenActive);
+
+    if (externalFullscreenActive === previousExternalFullscreenActive) {
+      return externalFullscreenActive;
+    }
+
+    await syncOverlayWindowVisibility();
+    syncWallpaperControlWindowVisibility();
+    return externalFullscreenActive;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (foregroundState.error !== message) {
+      foregroundState.error = message;
+      await logError("foreground.watch", error instanceof Error ? error : new Error(message), {
+        mode: currentWindowMode
+      });
+    }
+    return false;
+  } finally {
+    foregroundWatchInFlight = false;
+  }
+}
+
 async function syncWallpaperAttachment(mode = currentWindowMode) {
   const nextMode = normalizeWindowMode(mode);
   if (!isWallpaperModeSupported()) {
@@ -1007,7 +1329,7 @@ function queueWallpaperAttachmentSync(mode = currentWindowMode) {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.setIgnoreMouseEvents(false);
           mainWindow.setFocusable(true);
-          mainWindow.setSkipTaskbar(true);
+          mainWindow.setSkipTaskbar(false);
           updateTrayMenu();
         }
       }
@@ -1538,6 +1860,7 @@ async function updateAppConfig(partial = {}) {
     autoManageAssetsOnLaunch: nextConfig.autoManageAssetsOnLaunch === true,
     wallpaperModeEnabled: nextConfig.wallpaperModeEnabled === true,
     wallpaperInteractionEnabled: nextConfig.wallpaperInteractionEnabled === true,
+    multiMonitorEnabled: nextConfig.multiMonitorEnabled === true,
     windowMode: normalizeWindowMode(nextConfig.windowMode)
   });
   return nextConfig;
@@ -2989,30 +3312,15 @@ function applyWindowModeToWindow(mode = currentWindowMode) {
   }
 
   const nextMode = normalizeWindowMode(mode);
-  const { workArea } = screen.getPrimaryDisplay();
-
-  try {
-    mainWindow.setBounds({
-      x: workArea.x,
-      y: workArea.y,
-      width: workArea.width,
-      height: workArea.height
-    });
-  } catch {
-    // Ignore transient bounds failures and continue with maximize below.
-  }
+  syncWindowBounds(mainWindow);
 
   mainWindow.setIgnoreMouseEvents(false);
   mainWindow.setFocusable(true);
-  mainWindow.setSkipTaskbar(nextMode !== "normal");
+  mainWindow.setSkipTaskbar(nextMode === "wallpaper-view");
 
   if (nextMode === "wallpaper-view" || nextMode === "widget-mode") {
     mainWindow.setIgnoreMouseEvents(true);
     mainWindow.setFocusable(false);
-  }
-
-  if (!mainWindow.isMaximized()) {
-    mainWindow.maximize();
   }
 
   updateTrayMenu();
@@ -3032,6 +3340,8 @@ function syncCurrentWindowModeFromConfig() {
   applyWindowModeToWindow(currentWindowMode);
   void syncOverlayWindowVisibility();
   void syncWallpaperControlWindowVisibility();
+  updateForegroundWatcher();
+  void pollForegroundWindowState();
   return getWindowModeState();
 }
 
@@ -3067,6 +3377,8 @@ async function setWindowMode(nextMode, options = {}) {
     focus: options.focusOverlay === true && currentWindowMode === "wallpaper-view"
   });
   syncWallpaperControlWindowVisibility();
+  updateForegroundWatcher();
+  void pollForegroundWindowState();
   if (options.reveal !== false && currentWindowMode !== "wallpaper-view" && currentWindowMode !== "widget-mode") {
     showWindowForMode(currentWindowMode);
   }
@@ -3077,6 +3389,9 @@ function showWindowForMode(mode = currentWindowMode) {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
   }
+
+  foregroundState.manualHidden = false;
+  foregroundState.autoHidden = false;
 
   if (mainWindow.isMinimized()) {
     mainWindow.restore();
@@ -3091,6 +3406,8 @@ function showWindowForMode(mode = currentWindowMode) {
     void queueWallpaperAttachmentSync(mode);
     void syncOverlayWindowVisibility();
     void syncWallpaperControlWindowVisibility();
+    updateForegroundWatcher();
+    void pollForegroundWindowState();
     return true;
   }
 
@@ -3098,6 +3415,8 @@ function showWindowForMode(mode = currentWindowMode) {
   hideWallpaperControlWindow();
   mainWindow.show();
   mainWindow.focus();
+  updateForegroundWatcher();
+  void pollForegroundWindowState();
   return true;
 }
 
@@ -3108,7 +3427,7 @@ function reinforceWallpaperView(reason = "") {
 
   mainWindow.setIgnoreMouseEvents(true);
   mainWindow.setFocusable(false);
-  mainWindow.setSkipTaskbar(true);
+  mainWindow.setSkipTaskbar(currentWindowMode === "wallpaper-view");
 
   if (mainWindow.isFocused()) {
     try {
@@ -3186,11 +3505,16 @@ function canUseWidgetOverlay(mode = currentWindowMode, config = appConfig) {
 }
 
 function shouldShowWallpaperOverlay(mode = currentWindowMode, config = appConfig) {
-  return wallpaperOverlayActive && canUseWallpaperOverlay(mode, config);
+  return foregroundState.manualHidden !== true
+    && foregroundState.externalFullscreenActive !== true
+    && wallpaperOverlayActive
+    && canUseWallpaperOverlay(mode, config);
 }
 
 function shouldShowWidgetOverlay(mode = currentWindowMode, config = appConfig) {
-  return canUseWidgetOverlay(mode, config);
+  return foregroundState.manualHidden !== true
+    && foregroundState.externalFullscreenActive !== true
+    && canUseWidgetOverlay(mode, config);
 }
 
 function shouldShowAnyOverlay(mode = currentWindowMode, config = appConfig) {
@@ -3198,7 +3522,10 @@ function shouldShowAnyOverlay(mode = currentWindowMode, config = appConfig) {
 }
 
 function shouldShowWallpaperControl(mode = currentWindowMode, config = appConfig) {
-  return canUseWallpaperOverlay(mode, config) && !shouldShowWallpaperOverlay(mode, config);
+  return foregroundState.manualHidden !== true
+    && foregroundState.externalFullscreenActive !== true
+    && canUseWallpaperOverlay(mode, config)
+    && !shouldShowWallpaperOverlay(mode, config);
 }
 
 function isOverlayWindowVisible() {
@@ -3216,6 +3543,70 @@ function getWallpaperControlBounds() {
     width,
     height
   };
+}
+
+function getStartupSplashBounds() {
+  const { workArea } = screen.getPrimaryDisplay();
+  const size = 240;
+  return {
+    x: Math.round(workArea.x + ((workArea.width - size) / 2)),
+    y: Math.round(workArea.y + ((workArea.height - size) / 2)),
+    width: size,
+    height: size
+  };
+}
+
+function createStartupSplashWindow() {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    return splashWindow;
+  }
+
+  splashWindow = new BrowserWindow({
+    ...getStartupSplashBounds(),
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    focusable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false
+    }
+  });
+
+  splashWindow.loadFile(splashHtmlPath);
+  splashWindow.once("ready-to-show", () => {
+    if (!splashWindow || splashWindow.isDestroyed()) {
+      return;
+    }
+    if (typeof splashWindow.showInactive === "function") {
+      splashWindow.showInactive();
+    } else {
+      splashWindow.show();
+    }
+  });
+  splashWindow.on("closed", () => {
+    splashWindow = null;
+  });
+  setTimeout(() => {
+    closeStartupSplashWindow();
+  }, 8000);
+
+  return splashWindow;
+}
+
+function closeStartupSplashWindow(delayMs = 0) {
+  setTimeout(() => {
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+    }
+    splashWindow = null;
+  }, delayMs);
 }
 
 function getInteractiveWindowVisible() {
@@ -3257,14 +3648,21 @@ function syncWindowBounds(windowRef) {
     return false;
   }
 
-  const { workArea } = screen.getPrimaryDisplay();
+  const workArea = getBoardWindowBounds();
+  const useManualBounds = isMultiMonitorBoardEnabled();
   try {
+    if (useManualBounds && windowRef.isMaximized()) {
+      windowRef.unmaximize();
+    }
     windowRef.setBounds({
       x: workArea.x,
       y: workArea.y,
       width: workArea.width,
       height: workArea.height
     });
+    if (!useManualBounds && !windowRef.isMaximized()) {
+      windowRef.maximize();
+    }
   } catch {
     return false;
   }
@@ -3284,6 +3682,7 @@ function hideOverlayWindow() {
   wallpaperOverlayActive = false;
   widgetOverlayInteractive = false;
   widgetOverlayCaptured = false;
+  overlayWindow.setSkipTaskbar(true);
   overlayWindow.hide();
   if (currentWindowMode === "wallpaper-view" || currentWindowMode === "widget-mode") {
     void queueWallpaperAttachmentSync(currentWindowMode);
@@ -3299,7 +3698,7 @@ function ensureOverlayWindow() {
     return overlayWindow;
   }
 
-  const { workArea } = screen.getPrimaryDisplay();
+  const workArea = getBoardWindowBounds();
   ensureTray();
   const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
   overlayWindow = new BrowserWindow({
@@ -3312,7 +3711,7 @@ function ensureOverlayWindow() {
   overlayWindow.loadFile(path.join(__dirname, "src", "index.html"), {
     query: { role: "overlay" }
   });
-  overlayWindow.maximize();
+  syncWindowBounds(overlayWindow);
   overlayWindow.on("close", (event) => {
     if (isQuitting) {
       return;
@@ -3363,7 +3762,7 @@ function ensureWallpaperControlWindow() {
     skipTaskbar: true,
     show: false,
     alwaysOnTop: false,
-    focusable: true,
+    focusable: false,
     backgroundColor: "#00000000",
     icon: runtimeWindowIcon || windowIconPath,
     title: "Desktop Board Controls",
@@ -3428,6 +3827,27 @@ function applyOverlayWindowInteractivity(options = {}) {
     ? (widgetOverlayInteractive === true || widgetOverlayCaptured === true)
     : true;
 
+  if (currentWindowMode === "widget-mode") {
+    overlayWindow.setAlwaysOnTop(false);
+    overlayWindow.setSkipTaskbar(true);
+    overlayWindow.setFocusable(false);
+    if (interactive) {
+      overlayWindow.setIgnoreMouseEvents(false);
+    } else {
+      overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+    }
+    if (overlayWindow.isFocused()) {
+      try {
+        overlayWindow.blur();
+      } catch {
+        // Ignore focus reset failures.
+      }
+    }
+    return interactive;
+  }
+
+  overlayWindow.setSkipTaskbar(true);
+
   if (interactive) {
     overlayWindow.setIgnoreMouseEvents(false);
     overlayWindow.setFocusable(true);
@@ -3467,6 +3887,7 @@ function syncOverlayWindowVisibility(options = {}) {
       widgetOverlayCaptured = false;
     }
     if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.setSkipTaskbar(true);
       overlayWindow.hide();
     }
     syncWallpaperControlWindowVisibility();
@@ -3480,6 +3901,7 @@ function syncOverlayWindowVisibility(options = {}) {
     return false;
   }
 
+  windowRef.setSkipTaskbar(currentWindowMode !== "widget-mode");
   syncWindowBounds(windowRef);
   if (windowRef.isMinimized()) {
     windowRef.restore();
@@ -3499,7 +3921,7 @@ function syncOverlayWindowVisibility(options = {}) {
 }
 
 function createWindow() {
-  const { workArea } = screen.getPrimaryDisplay();
+  const workArea = getBoardWindowBounds();
   ensureTray();
   const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
 
@@ -3507,7 +3929,6 @@ function createWindow() {
 
   applyWindowModeToWindow(currentWindowMode);
   mainWindow.loadFile(path.join(__dirname, "src", "index.html"));
-  mainWindow.maximize();
   mainWindow.on("close", (event) => {
     if (isQuitting) {
       return;
@@ -3549,6 +3970,7 @@ function createWindow() {
     sendWindowModeState();
     sendThemeUpdate();
     updateTrayMenu();
+    closeStartupSplashWindow(900);
   });
 }
 
@@ -3611,6 +4033,9 @@ function revealMainWindow(options = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
   }
+
+  foregroundState.manualHidden = false;
+  foregroundState.autoHidden = false;
 
   if (options.preferEditable === true && currentWindowMode === "wallpaper-view") {
     currentWindowMode = getEffectiveWindowMode(appConfig, "desktop-edit");
@@ -3916,17 +4341,21 @@ function ensureTray() {
 }
 
 function hideWindowToTray(options = {}) {
-  if (shouldShowAnyOverlay() && isOverlayWindowVisible()) {
-    hideOverlayWindow();
-    return true;
-  }
-
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
   }
 
   ensureTray();
-  mainWindow.hide();
+  if (isWallpaperManagedMode(currentWindowMode)) {
+    hideBoardWindows({ manual: options.manual !== false });
+  } else {
+    if (shouldShowAnyOverlay() && isOverlayWindowVisible()) {
+      hideOverlayWindow();
+      return true;
+    }
+
+    mainWindow.hide();
+  }
   updateTrayMenu();
 
   if (process.platform === "win32" && options.showHint !== false && tray && !trayBalloonShown) {
@@ -3948,16 +4377,12 @@ function hideWindowToTray(options = {}) {
 
 function toggleWindow() {
   if (currentWindowMode === "wallpaper-view" || currentWindowMode === "widget-mode") {
-    if (shouldShowAnyOverlay()) {
-      if (isOverlayWindowVisible()) {
-        hideOverlayWindow();
-      } else {
-        revealMainWindow();
-      }
+    if (isAnyBoardWindowVisible()) {
+      hideWindowToTray({ showHint: false, manual: true });
       return;
     }
 
-    revealMainWindow({ preferEditable: true });
+    showWindowForMode(currentWindowMode);
     return;
   }
 
@@ -4047,6 +4472,7 @@ app.whenReady().then(async () => {
     return hideWindowToTray({ showHint: false });
   });
 
+  createStartupSplashWindow();
   createWindow();
 
   const state = await readState();
@@ -4061,6 +4487,7 @@ app.whenReady().then(async () => {
     syncWindowBounds(mainWindow);
     syncWindowBounds(overlayWindow);
     syncWallpaperControlWindowVisibility();
+    sendWindowModeState();
   };
   screen.on("display-metrics-changed", syncWindowLayout);
   screen.on("display-added", syncWindowLayout);
@@ -4085,9 +4512,17 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.destroy();
+    splashWindow = null;
+  }
   if (tray) {
     tray.destroy();
     tray = null;
+  }
+  if (foregroundWatchTimer) {
+    clearInterval(foregroundWatchTimer);
+    foregroundWatchTimer = null;
   }
   if (autoUpdateTimer) {
     clearInterval(autoUpdateTimer);
