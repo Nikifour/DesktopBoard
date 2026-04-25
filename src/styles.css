@@ -1727,6 +1727,10 @@ button:active {
   place-items: start;
 }
 
+#searchModal {
+  place-items: start;
+}
+
 .settings-panel {
   position: absolute;
   top: calc(var(--display-primary-y) + (var(--display-primary-height) / 2));
@@ -1767,6 +1771,15 @@ button:active {
   color: var(--system-text);
   background: var(--system-panel-strong);
   box-shadow: var(--shadow);
+}
+
+.search-panel {
+  position: absolute;
+  top: calc(var(--display-primary-y) + (var(--display-primary-height) / 2));
+  left: calc(var(--display-primary-x) + (var(--display-primary-width) / 2));
+  width: min(680px, calc(var(--display-primary-width) - 48px));
+  max-height: min(760px, calc(var(--display-primary-height) - 48px));
+  transform: translate(-50%, -50%);
 }
 
 .settings-header,
