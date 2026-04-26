@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, dialog, nativeTheme, systemPreferences, shell, Notification, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, WebContentsView, globalShortcut, ipcMain, screen, dialog, nativeTheme, systemPreferences, shell, Notification, Tray, Menu, nativeImage } = require("electron");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const fsSync = require("fs");
@@ -14,15 +14,22 @@ const { pathToFileURL, fileURLToPath } = require("url");
 let mainWindow;
 let splashWindow = null;
 let overlayWindow = null;
+let workspaceWindows = new Map();
+let workspaceOverlayWindows = new Map();
+let workspaceWallpaperControlWindows = new Map();
+let windowSessions = new Map();
+let nativeWebCardViews = new Map();
 let appConfig = {
   storagePath: "",
   diagnosticsEnabled: true,
   activeBoardId: "main",
   autoStartEnabled: false,
   autoManageAssetsOnLaunch: true,
-  wallpaperModeEnabled: false,
+  wallpaperModeEnabled: true,
   wallpaperInteractionEnabled: false,
   multiMonitorEnabled: false,
+  multiMonitorMode: "single",
+  multiMonitorDisplayIds: [],
   windowMode: "normal"
 };
 let logWriteQueue = Promise.resolve();
@@ -35,6 +42,7 @@ let tray = null;
 let isQuitting = false;
 let trayBalloonShown = false;
 let currentWindowMode = "normal";
+let multiWindowWorkspaceActive = false;
 let wallpaperOverlayActive = false;
 let wallpaperControlWindow = null;
 let widgetOverlayInteractive = false;
@@ -97,12 +105,15 @@ const defaultAppConfig = {
   activeBoardId: defaultBoardId,
   autoStartEnabled: false,
   autoManageAssetsOnLaunch: true,
-  wallpaperModeEnabled: false,
+  wallpaperModeEnabled: true,
   wallpaperInteractionEnabled: false,
+  multiMonitorMode: "single",
+  multiMonitorDisplayIds: [],
   windowMode: "normal"
 };
 
-const supportedWindowModes = new Set(["normal", "desktop-edit", "wallpaper-view", "widget-mode"]);
+const supportedWindowModes = new Set(["normal", "wallpaper-view", "widget-mode"]);
+const supportedMultiMonitorModes = new Set(["single", "seamless", "workspace"]);
 
 function normalizeStoragePath(value) {
   if (typeof value !== "string" || !value.trim()) {
@@ -124,6 +135,299 @@ function getActiveBoardId(boardId = null) {
   return normalizeBoardId(boardId || "") || normalizeBoardId(appConfig.activeBoardId) || defaultBoardId;
 }
 
+function getWindowSessionKey(target) {
+  const webContents = target?.webContents || target;
+  return Number.isInteger(webContents?.id) ? webContents.id : null;
+}
+
+function getWindowSession(target) {
+  const key = getWindowSessionKey(target);
+  return key === null ? null : windowSessions.get(key) || null;
+}
+
+function getWindowSessionMode(target) {
+  const session = getWindowSession(target);
+  return normalizeWindowMode(session?.mode || currentWindowMode);
+}
+
+function getRendererBoardId(target) {
+  return getActiveBoardId(getWindowSession(target)?.boardId);
+}
+
+function setRendererBoardId(target, boardId) {
+  const session = getWindowSession(target);
+  const nextBoardId = getActiveBoardId(boardId);
+  if (session) {
+    session.boardId = nextBoardId;
+  }
+  return nextBoardId;
+}
+
+function updateWindowSessionViewport(target, viewport = null) {
+  const session = getWindowSession(target);
+  if (!session || !viewport || typeof viewport !== "object") {
+    return false;
+  }
+
+  const zoom = Number(viewport.zoom);
+  session.viewport = {
+    x: Number(viewport.x) || 0,
+    y: Number(viewport.y) || 0,
+    zoom: Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+  };
+  return true;
+}
+
+function registerWindowSession(windowRef, options = {}) {
+  if (!windowRef || windowRef.isDestroyed()) {
+    return null;
+  }
+
+  const key = getWindowSessionKey(windowRef);
+  if (key === null) {
+    return null;
+  }
+
+  const bounds = windowRef.getBounds();
+  const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
+  const session = {
+    id: options.id || crypto.randomUUID(),
+    role: options.role || "window",
+    boardId: getActiveBoardId(options.boardId),
+    mode: normalizeWindowMode(options.mode || currentWindowMode),
+    displayId: String(options.displayId || display.id || ""),
+    viewport: options.viewport || null,
+    wallpaperAttached: false,
+    wallpaperParentClass: "",
+    wallpaperError: null,
+    widgetInteractive: false,
+    widgetCaptured: false,
+    overlayForSessionId: options.overlayForSessionId || ""
+  };
+  windowRef.__desktopBoardSessionId = session.id;
+  windowSessions.set(key, session);
+  return session;
+}
+
+function unregisterWindowSession(target) {
+  const key = getWindowSessionKey(target);
+  if (key !== null) {
+    removeNativeWebCardViewsForOwner(key);
+    windowSessions.delete(key);
+  }
+}
+
+function isWorkspaceWindowSession(session) {
+  return Boolean(session && (session.role === "main" || session.role === "workspace" || session.role === "workspace-overlay"));
+}
+
+function getWindowBySessionId(sessionId) {
+  if (!sessionId) {
+    return null;
+  }
+
+  const windows = [
+    mainWindow,
+    overlayWindow,
+    ...workspaceWindows.values(),
+    ...workspaceOverlayWindows.values(),
+    ...workspaceWallpaperControlWindows.values()
+  ];
+  return windows.find((windowRef) => {
+    const session = getWindowSession(windowRef);
+    return session?.id === sessionId;
+  }) || null;
+}
+
+function getBaseSessionForLocalSession(session) {
+  if (!session) {
+    return null;
+  }
+
+  if (session.role !== "workspace-overlay") {
+    return session;
+  }
+
+  const baseWindow = getWindowBySessionId(session.overlayForSessionId);
+  return getWindowSession(baseWindow) || null;
+}
+
+function getLocalWidgetOverlayWindow(session) {
+  const baseSession = getBaseSessionForLocalSession(session);
+  return baseSession ? workspaceOverlayWindows.get(baseSession.id) || null : null;
+}
+
+function getNativeWebCardViewKey(ownerId, cardId) {
+  return `${ownerId}:${cardId}`;
+}
+
+function normalizeNativeWebCardUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return "";
+    }
+    return url.href;
+  } catch {
+    return "";
+  }
+}
+
+function normalizeNativeWebCardBounds(bounds = {}) {
+  const x = Math.max(-32768, Math.round(Number(bounds.x) || 0));
+  const y = Math.max(-32768, Math.round(Number(bounds.y) || 0));
+  const width = Math.max(1, Math.round(Number(bounds.width) || 0));
+  const height = Math.max(1, Math.round(Number(bounds.height) || 0));
+  return { x, y, width, height };
+}
+
+function destroyNativeWebCardView(entry) {
+  if (!entry?.view) {
+    return;
+  }
+
+  try {
+    const ownerWindow = BrowserWindow.fromWebContents(entry.ownerWebContents);
+    ownerWindow?.contentView?.removeChildView(entry.view);
+  } catch {
+    // Ignore view detach failures during window teardown.
+  }
+
+  try {
+    if (!entry.view.webContents.isDestroyed()) {
+      entry.view.webContents.destroy();
+    }
+  } catch {
+    // Ignore web contents teardown failures.
+  }
+}
+
+function removeNativeWebCardViewsForOwner(ownerId) {
+  const ownerKey = String(ownerId);
+  Array.from(nativeWebCardViews.entries()).forEach(([key, entry]) => {
+    if (String(entry.ownerId) !== ownerKey) {
+      return;
+    }
+    destroyNativeWebCardView(entry);
+    nativeWebCardViews.delete(key);
+  });
+}
+
+function removeNativeWebCardViewsExcept(ownerId, activeKeys) {
+  const ownerKey = String(ownerId);
+  Array.from(nativeWebCardViews.entries()).forEach(([key, entry]) => {
+    if (String(entry.ownerId) !== ownerKey || activeKeys.has(key)) {
+      return;
+    }
+    destroyNativeWebCardView(entry);
+    nativeWebCardViews.delete(key);
+  });
+}
+
+function createNativeWebCardView(ownerWindow, ownerWebContents, ownerId, cardId) {
+  if (!WebContentsView || !ownerWindow?.contentView) {
+    return null;
+  }
+
+  const view = new WebContentsView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      partition: "persist:desktop-board-web"
+    }
+  });
+
+  view.setBackgroundColor("#ffffff");
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    if (normalizeNativeWebCardUrl(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+  view.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+    if (isMainFrame && errorCode !== -3) {
+      void logError("webCard.load", new Error(`${errorCode}: ${errorDescription}`), { url: validatedUrl });
+    }
+  });
+
+  ownerWindow.contentView.addChildView(view);
+  return {
+    ownerId: String(ownerId),
+    ownerWebContents,
+    cardId: String(cardId),
+    url: "",
+    view
+  };
+}
+
+function syncNativeWebCards(ownerWebContents, cards = []) {
+  const ownerWindow = BrowserWindow.fromWebContents(ownerWebContents);
+  if (!ownerWindow || ownerWindow.isDestroyed()) {
+    return false;
+  }
+
+  const ownerId = String(ownerWebContents.id);
+  const activeKeys = new Set();
+  const normalizedCards = Array.isArray(cards) ? cards : [];
+
+  normalizedCards.forEach((card) => {
+    const cardId = String(card?.cardId || "");
+    const url = normalizeNativeWebCardUrl(card?.url);
+    if (!cardId || !url) {
+      return;
+    }
+
+    const key = getNativeWebCardViewKey(ownerId, cardId);
+    let entry = nativeWebCardViews.get(key);
+    if (card?.visible === false) {
+      if (entry) {
+        activeKeys.add(key);
+        entry.view.setVisible(false);
+      }
+      return;
+    }
+
+    if (!entry) {
+      entry = createNativeWebCardView(ownerWindow, ownerWebContents, ownerId, cardId);
+      if (!entry) {
+        return;
+      }
+      nativeWebCardViews.set(key, entry);
+    }
+
+    activeKeys.add(key);
+    entry.view.setVisible(true);
+    entry.view.setBounds(normalizeNativeWebCardBounds(card.bounds));
+    try {
+      ownerWindow.contentView.addChildView(entry.view);
+    } catch (error) {
+      void logError("webCard.reorder", error, { cardId });
+    }
+    if (entry.url !== url) {
+      entry.url = url;
+      void entry.view.webContents.loadURL(url).catch((error) => {
+        void logError("webCard.loadUrl", error, { url });
+      });
+    }
+  });
+
+  removeNativeWebCardViewsExcept(ownerId, activeKeys);
+  return true;
+}
+
+function reloadNativeWebCard(ownerWebContents, cardId) {
+  const ownerId = String(ownerWebContents?.id || "");
+  const key = getNativeWebCardViewKey(ownerId, String(cardId || ""));
+  const entry = nativeWebCardViews.get(key);
+  if (!entry?.view || entry.view.webContents.isDestroyed()) {
+    return false;
+  }
+
+  entry.view.webContents.reloadIgnoringCache();
+  return true;
+}
+
 function normalizeBoardName(value, fallback = defaultBoardName) {
   if (typeof value !== "string" || !value.trim()) {
     return fallback;
@@ -131,7 +435,26 @@ function normalizeBoardName(value, fallback = defaultBoardName) {
   return value.trim().slice(0, 120);
 }
 
+function normalizeMultiMonitorMode(value, legacyEnabled = false) {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (supportedMultiMonitorModes.has(normalized)) {
+    return normalized;
+  }
+  return legacyEnabled ? "seamless" : "single";
+}
+
+function normalizeDisplayIds(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value
+    .map((id) => String(id || "").trim())
+    .filter(Boolean))];
+}
+
 function normalizeAppConfig(config = {}) {
+  const multiMonitorMode = normalizeMultiMonitorMode(config.multiMonitorMode, config.multiMonitorEnabled === true);
   return {
     ...defaultAppConfig,
     ...config,
@@ -140,9 +463,11 @@ function normalizeAppConfig(config = {}) {
     activeBoardId: normalizeBoardId(config.activeBoardId) || defaultBoardId,
     autoStartEnabled: config.autoStartEnabled === true,
     autoManageAssetsOnLaunch: config.autoManageAssetsOnLaunch !== false,
-    wallpaperModeEnabled: config.wallpaperModeEnabled === true,
-    wallpaperInteractionEnabled: config.wallpaperInteractionEnabled === true,
-    multiMonitorEnabled: config.multiMonitorEnabled === true,
+    wallpaperModeEnabled: true,
+    wallpaperInteractionEnabled: false,
+    multiMonitorEnabled: multiMonitorMode === "seamless",
+    multiMonitorMode,
+    multiMonitorDisplayIds: normalizeDisplayIds(config.multiMonitorDisplayIds),
     windowMode: normalizeWindowMode(config.windowMode)
   };
 }
@@ -184,30 +509,120 @@ function getRectUnion(rects = []) {
   };
 }
 
+function getDisplayId(display) {
+  return String(display?.id ?? "");
+}
+
+function getSelectedBoardDisplays(config = appConfig) {
+  const displays = screen.getAllDisplays();
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const mode = normalizeMultiMonitorMode(config?.multiMonitorMode, config?.multiMonitorEnabled === true);
+  if (mode === "single") {
+    return [primaryDisplay];
+  }
+
+  const selectedIds = new Set(normalizeDisplayIds(config?.multiMonitorDisplayIds));
+  const selectedDisplays = selectedIds.size > 0
+    ? displays.filter((display) => selectedIds.has(getDisplayId(display)))
+    : displays;
+
+  return selectedDisplays.length ? selectedDisplays : [primaryDisplay];
+}
+
+function getMainBoardDisplay(config = appConfig) {
+  const selectedDisplays = getSelectedBoardDisplays(config);
+  const primaryDisplay = screen.getPrimaryDisplay();
+  return selectedDisplays.find((display) => display.id === primaryDisplay.id) || selectedDisplays[0] || primaryDisplay;
+}
+
+function isMultiWindowWorkspaceEnabled(config = appConfig) {
+  return normalizeMultiMonitorMode(config?.multiMonitorMode, config?.multiMonitorEnabled === true) === "workspace"
+    && screen.getAllDisplays().length > 1
+    && getSelectedBoardDisplays(config).length > 0;
+}
+
 function isMultiMonitorBoardEnabled(config = appConfig) {
-  return config?.multiMonitorEnabled === true && screen.getAllDisplays().length > 1;
+  return normalizeMultiMonitorMode(config?.multiMonitorMode, config?.multiMonitorEnabled === true) === "seamless"
+    && getSelectedBoardDisplays(config).length > 0;
 }
 
 function getBoardWindowBounds(config = appConfig) {
-  const displays = screen.getAllDisplays();
   const primaryDisplay = screen.getPrimaryDisplay();
+  const mode = normalizeMultiMonitorMode(config?.multiMonitorMode, config?.multiMonitorEnabled === true);
 
-  if (!isMultiMonitorBoardEnabled(config)) {
+  if (multiWindowWorkspaceActive || mode === "workspace") {
+    const mainDisplay = getMainBoardDisplay(config);
+    return { ...(mainDisplay.workArea || mainDisplay.bounds || primaryDisplay.workArea) };
+  }
+
+  if (mode !== "seamless") {
     return { ...primaryDisplay.workArea };
   }
 
-  return getRectUnion(displays.map((display) => display.workArea || display.bounds));
+  return getRectUnion(getSelectedBoardDisplays(config).map((display) => display.workArea || display.bounds));
 }
 
-function getDisplayLayoutInfo(config = appConfig) {
+function getDisplayLayoutInfo(config = appConfig, windowRef = null) {
   const displays = screen.getAllDisplays();
   const primaryDisplay = screen.getPrimaryDisplay();
+  const selectedDisplayIds = getSelectedBoardDisplays(config).map(getDisplayId);
+  const availableDisplays = displays.map((display, index) => {
+    const displayBounds = display.workArea || display.bounds;
+    const id = getDisplayId(display);
+    return {
+      id,
+      name: display.label || `Display ${index + 1}`,
+      primary: display.id === primaryDisplay.id,
+      selected: selectedDisplayIds.includes(id),
+      scaleFactor: display.scaleFactor,
+      x: displayBounds.x,
+      y: displayBounds.y,
+      width: displayBounds.width,
+      height: displayBounds.height
+    };
+  });
+  const session = getWindowSession(windowRef);
+  if (session?.role === "workspace" || session?.role === "workspace-overlay") {
+    const bounds = windowRef && !windowRef.isDestroyed() ? windowRef.getBounds() : primaryDisplay.workArea;
+    const display = displays.find((candidate) => String(candidate.id) === String(session.displayId))
+      || screen.getDisplayMatching(bounds)
+      || primaryDisplay;
+    const displayBounds = display.workArea || display.bounds;
+    const width = bounds.width || displayBounds.width;
+    const height = bounds.height || displayBounds.height;
+    return {
+      multiMonitorMode: normalizeMultiMonitorMode(config?.multiMonitorMode, config?.multiMonitorEnabled === true),
+      multiMonitorEnabled: false,
+      displayCount: displays.length,
+      selectedDisplayCount: 1,
+      selectedDisplayIds,
+      bounds: { x: 0, y: 0, width, height },
+      primaryBounds: { x: 0, y: 0, width, height },
+      availableDisplays,
+      displays: [{
+        id: getDisplayId(display),
+        name: display.label || "Display",
+        primary: display.id === primaryDisplay.id,
+        selected: true,
+        scaleFactor: display.scaleFactor,
+        x: 0,
+        y: 0,
+        width,
+        height
+      }]
+    };
+  }
+
   const boardBounds = getBoardWindowBounds(config);
   const primaryBounds = primaryDisplay.workArea || primaryDisplay.bounds;
+  const layoutDisplays = getSelectedBoardDisplays(config);
 
   return {
+    multiMonitorMode: normalizeMultiMonitorMode(config?.multiMonitorMode, config?.multiMonitorEnabled === true),
     multiMonitorEnabled: isMultiMonitorBoardEnabled(config),
     displayCount: displays.length,
+    selectedDisplayCount: layoutDisplays.length,
+    selectedDisplayIds,
     bounds: { ...boardBounds },
     primaryBounds: {
       x: primaryBounds.x - boardBounds.x,
@@ -215,11 +630,14 @@ function getDisplayLayoutInfo(config = appConfig) {
       width: primaryBounds.width,
       height: primaryBounds.height
     },
-    displays: displays.map((display) => {
+    availableDisplays,
+    displays: layoutDisplays.map((display, index) => {
       const displayBounds = display.workArea || display.bounds;
       return {
-        id: display.id,
+        id: getDisplayId(display),
+        name: display.label || `Display ${index + 1}`,
         primary: display.id === primaryDisplay.id,
+        selected: true,
         scaleFactor: display.scaleFactor,
         x: displayBounds.x - boardBounds.x,
         y: displayBounds.y - boardBounds.y,
@@ -341,31 +759,57 @@ function applyAutoStartPreference() {
   return getAutoStartStatus();
 }
 
-function getAppConfigForRenderer() {
+function getAppConfigForRenderer(target = null) {
+  const windowRef = target?.webContents ? target : target ? BrowserWindow.fromWebContents(target) || target : null;
   return {
     ...appConfig,
     appVersion: app.getVersion(),
     storageInfo: getStorageInfo(),
     autoStart: getAutoStartStatus(),
     windowModeSupported: isWallpaperModeSupported(),
-    displayLayout: getDisplayLayoutInfo()
+    displayLayout: getDisplayLayoutInfo(appConfig, windowRef)
   };
 }
 
-function getWindowModeState() {
+function getWindowModeState(target = null) {
+  const windowRef = target?.webContents ? target : target ? BrowserWindow.fromWebContents(target) || target : null;
+  const session = getWindowSession(windowRef);
+  const sessionMode = getWindowSessionMode(windowRef);
+  const useSessionWallpaperState = Boolean(multiWindowWorkspaceActive && isWorkspaceWindowSession(session));
+  const baseSession = getBaseSessionForLocalSession(session);
+  const wallpaperState = useSessionWallpaperState && baseSession
+    ? {
+        attached: baseSession.wallpaperAttached === true,
+        parentClass: baseSession.wallpaperParentClass || "",
+        error: baseSession.wallpaperError || null
+      }
+    : wallpaperAttachmentState;
+  const localWidgetOverlayWindow = useSessionWallpaperState && baseSession ? getLocalWidgetOverlayWindow(baseSession) : null;
+  const isLocalWidgetMode = useSessionWallpaperState && sessionMode === "widget-mode";
+  const localWidgetOverlayVisible = isLocalWidgetMode && (
+    session?.role === "workspace-overlay"
+    || Boolean(localWidgetOverlayWindow && !localWidgetOverlayWindow.isDestroyed() && localWidgetOverlayWindow.isVisible())
+  );
   return {
     supported: isWallpaperModeSupported(),
     enabled: appConfig.wallpaperModeEnabled === true,
     interactionEnabled: appConfig.wallpaperInteractionEnabled === true,
+    windowRole: session?.role || "window",
     configuredMode: normalizeWindowMode(appConfig.windowMode),
-    currentMode: currentWindowMode,
-    effectiveMode: currentWindowMode,
-    attachedToWallpaper: wallpaperAttachmentState.attached === true,
-    wallpaperParentClass: wallpaperAttachmentState.parentClass || "",
-    wallpaperError: wallpaperAttachmentState.error || null,
-    overlayVisible: Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()),
-    widgetInteractive: currentWindowMode === "widget-mode" && widgetOverlayInteractive === true,
-    displayLayout: getDisplayLayoutInfo()
+    currentMode: sessionMode,
+    effectiveMode: sessionMode,
+    multiMonitorMode: normalizeMultiMonitorMode(appConfig.multiMonitorMode, appConfig.multiMonitorEnabled === true),
+    multiWindowWorkspaceActive,
+    attachedToWallpaper: wallpaperState.attached === true,
+    wallpaperParentClass: wallpaperState.parentClass || "",
+    wallpaperError: wallpaperState.error || null,
+    overlayVisible: isLocalWidgetMode
+      ? localWidgetOverlayVisible
+      : Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()),
+    widgetInteractive: isLocalWidgetMode
+      ? session.widgetInteractive === true
+      : sessionMode === "widget-mode" && widgetOverlayInteractive === true,
+    displayLayout: getDisplayLayoutInfo(appConfig, windowRef)
   };
 }
 
@@ -1106,12 +1550,24 @@ function isWallpaperManagedMode(mode = currentWindowMode) {
 
 function isAnyBoardWindowVisible() {
   const isVisible = (windowRef) => Boolean(windowRef && !windowRef.isDestroyed() && windowRef.isVisible());
-  return isVisible(mainWindow) || isVisible(overlayWindow) || isVisible(wallpaperControlWindow);
+  return isVisible(mainWindow)
+    || isVisible(overlayWindow)
+    || Array.from(workspaceWindows.values()).some((windowRef) => isVisible(windowRef))
+    || Array.from(workspaceOverlayWindows.values()).some((windowRef) => isVisible(windowRef))
+    || Array.from(workspaceWallpaperControlWindows.values()).some((windowRef) => isVisible(windowRef))
+    || isVisible(wallpaperControlWindow);
 }
 
 function getKnownDesktopBoardHandles() {
   return new Set(
-    [mainWindow, overlayWindow, wallpaperControlWindow]
+    [
+      mainWindow,
+      overlayWindow,
+      ...workspaceWindows.values(),
+      ...workspaceOverlayWindows.values(),
+      ...workspaceWallpaperControlWindows.values(),
+      wallpaperControlWindow
+    ]
       .map((windowRef) => getMainWindowHandleValue(windowRef))
       .filter(Boolean)
   );
@@ -1138,6 +1594,21 @@ function hideBoardWindows(options = {}) {
   if (overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible()) {
     overlayWindow.hide();
   }
+  Array.from(workspaceWindows.values()).forEach((windowRef) => {
+    if (windowRef && !windowRef.isDestroyed() && windowRef.isVisible()) {
+      windowRef.hide();
+    }
+  });
+  Array.from(workspaceOverlayWindows.values()).forEach((windowRef) => {
+    if (windowRef && !windowRef.isDestroyed() && windowRef.isVisible()) {
+      windowRef.hide();
+    }
+  });
+  Array.from(workspaceWallpaperControlWindows.values()).forEach((windowRef) => {
+    if (windowRef && !windowRef.isDestroyed() && windowRef.isVisible()) {
+      windowRef.hide();
+    }
+  });
 
   hideWallpaperControlWindow();
 
@@ -1252,6 +1723,7 @@ async function pollForegroundWindowState() {
 
     await syncOverlayWindowVisibility();
     syncWallpaperControlWindowVisibility();
+    syncAllLocalWallpaperControlWindows();
     return externalFullscreenActive;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -1325,7 +1797,7 @@ function queueWallpaperAttachmentSync(mode = currentWindowMode) {
       });
 
       if ((nextMode === "wallpaper-view" || nextMode === "widget-mode") && currentWindowMode === nextMode) {
-        currentWindowMode = getEffectiveWindowMode(appConfig, "desktop-edit");
+        currentWindowMode = getEffectiveWindowMode(appConfig, "normal");
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.setIgnoreMouseEvents(false);
           mainWindow.setFocusable(true);
@@ -1829,6 +2301,7 @@ async function readAppConfig() {
 
 async function writeAppConfig(nextConfig) {
   appConfig = normalizeAppConfig(nextConfig);
+  multiWindowWorkspaceActive = isMultiWindowWorkspaceEnabled(appConfig);
   const filePath = getAppConfigPath();
   await ensureDirectory(path.dirname(filePath));
   await fs.writeFile(filePath, JSON.stringify(appConfig, null, 2), "utf8");
@@ -1842,16 +2315,18 @@ async function writeAppConfig(nextConfig) {
     throw error;
   }
   syncCurrentWindowModeFromConfig();
+  syncWorkspaceWindows();
   await syncOverlayWindowVisibility();
   sendWindowModeState();
   return getAppConfigForRenderer();
 }
 
-async function updateAppConfig(partial = {}) {
-  const nextConfig = await writeAppConfig({
+async function updateAppConfig(partial = {}, target = null) {
+  await writeAppConfig({
     ...appConfig,
     ...partial
   });
+  const nextConfig = getAppConfigForRenderer(target);
   await logEvent("info", "config", "Updated app config", {
     storagePath: nextConfig.storagePath || "",
     diagnosticsEnabled: nextConfig.diagnosticsEnabled,
@@ -1861,6 +2336,8 @@ async function updateAppConfig(partial = {}) {
     wallpaperModeEnabled: nextConfig.wallpaperModeEnabled === true,
     wallpaperInteractionEnabled: nextConfig.wallpaperInteractionEnabled === true,
     multiMonitorEnabled: nextConfig.multiMonitorEnabled === true,
+    multiMonitorMode: normalizeMultiMonitorMode(nextConfig.multiMonitorMode, nextConfig.multiMonitorEnabled === true),
+    multiMonitorDisplayIds: normalizeDisplayIds(nextConfig.multiMonitorDisplayIds),
     windowMode: normalizeWindowMode(nextConfig.windowMode)
   });
   return nextConfig;
@@ -2907,31 +3384,36 @@ async function setStorageDirectory(directoryPath, currentState = null) {
   };
 }
 
-async function listBoardsForRenderer(currentState = null) {
+async function listBoardsForRenderer(currentState = null, boardId = null) {
+  const activeBoardId = getActiveBoardId(boardId);
   return {
-    boards: await listBoards(null, currentState, getActiveBoardId()),
-    activeBoardId: getActiveBoardId()
+    boards: await listBoards(null, currentState, activeBoardId),
+    activeBoardId
   };
 }
 
-async function createBoard(name, currentState = null) {
+async function createBoard(name, currentState = null, options = {}) {
   const boardName = normalizeBoardName(name, "New board");
-  const currentBoardId = getActiveBoardId();
-  const templateState = currentState || lastKnownState || await readState();
+  const currentBoardId = getActiveBoardId(options.currentBoardId);
+  const templateState = currentState || lastKnownState || await readState(null, currentBoardId);
 
   if (currentState) {
-    await writeState(currentState);
+    await writeState(currentState, null, currentBoardId);
   }
 
   const nextBoardId = createBoardId();
   const nextState = buildEmptyBoardState(nextBoardId, boardName, templateState);
   await writeRawState(await prepareStateForStorage(nextState, null, nextBoardId), null, nextBoardId);
-  await writeAppConfig({
-    ...appConfig,
-    activeBoardId: nextBoardId
-  });
+  if (options.persistActive !== false) {
+    await writeAppConfig({
+      ...appConfig,
+      activeBoardId: nextBoardId
+    });
+  }
 
-  lastKnownState = nextState;
+  if (shouldSyncLastKnownState(null, nextBoardId)) {
+    lastKnownState = nextState;
+  }
   await logEvent("info", "boards.create", "Created board", {
     boardId: nextBoardId,
     boardName,
@@ -2945,10 +3427,11 @@ async function createBoard(name, currentState = null) {
   };
 }
 
-async function renameBoard(boardId, name, currentState = null) {
+async function renameBoard(boardId, name, currentState = null, options = {}) {
   const targetBoardId = getActiveBoardId(boardId);
   const boardName = normalizeBoardName(name, getFallbackBoardName(targetBoardId));
-  const isActiveBoard = targetBoardId === getActiveBoardId();
+  const currentBoardId = getActiveBoardId(options.currentBoardId);
+  const isActiveBoard = targetBoardId === currentBoardId;
 
   let nextState = null;
   if (isActiveBoard) {
@@ -2976,29 +3459,31 @@ async function renameBoard(boardId, name, currentState = null) {
   return {
     appConfig: getAppConfigForRenderer(),
     state: isActiveBoard ? nextState : null,
-    boards: await listBoards(null, isActiveBoard ? nextState : currentState, getActiveBoardId())
+    boards: await listBoards(null, isActiveBoard ? nextState : currentState, currentBoardId)
   };
 }
 
-async function switchBoard(boardId, currentState = null) {
-  const currentBoardId = getActiveBoardId();
+async function switchBoard(boardId, currentState = null, options = {}) {
+  const currentBoardId = getActiveBoardId(options.currentBoardId);
   const targetBoardId = await resolveBoardIdForStorage(null, boardId, currentState);
   if (targetBoardId === currentBoardId) {
     return {
       appConfig: getAppConfigForRenderer(),
-      state: currentState || lastKnownState || await readState(),
+      state: currentState || await readState(null, currentBoardId),
       boards: await listBoards(null, currentState || lastKnownState, currentBoardId)
     };
   }
 
   if (currentState) {
-    await writeState(currentState);
+    await writeState(currentState, null, currentBoardId);
   }
 
-  await writeAppConfig({
-    ...appConfig,
-    activeBoardId: targetBoardId
-  });
+  if (options.persistActive !== false) {
+    await writeAppConfig({
+      ...appConfig,
+      activeBoardId: targetBoardId
+    });
+  }
 
   const loadedState = await readState(null, targetBoardId);
   await logEvent("info", "boards.switch", "Switched board", {
@@ -3013,9 +3498,10 @@ async function switchBoard(boardId, currentState = null) {
   };
 }
 
-async function deleteBoard(boardId, currentState = null) {
+async function deleteBoard(boardId, currentState = null, options = {}) {
   const targetBoardId = getActiveBoardId(boardId);
-  const boards = await listBoards(null, currentState, getActiveBoardId());
+  const currentBoardId = getActiveBoardId(options.currentBoardId);
+  const boards = await listBoards(null, currentState, currentBoardId);
   const existingBoards = boards.filter((board) => board.exists || board.id === targetBoardId);
 
   if (existingBoards.length <= 1) {
@@ -3023,35 +3509,39 @@ async function deleteBoard(boardId, currentState = null) {
   }
 
   const targetBoard = boards.find((board) => board.id === targetBoardId);
-  const isActiveBoard = targetBoardId === getActiveBoardId();
+  const isActiveBoard = targetBoardId === currentBoardId;
   const nextBoardId = existingBoards.find((board) => board.id !== targetBoardId)?.id || defaultBoardId;
 
   if (!targetBoard?.exists && isActiveBoard && currentState) {
-    await writeState(currentState);
+    await writeState(currentState, null, currentBoardId);
   }
 
   await fs.rm(getBoardRoot(null, targetBoardId), { recursive: true, force: true });
 
   let nextState = null;
   if (isActiveBoard) {
-    await writeAppConfig({
-      ...appConfig,
-      activeBoardId: nextBoardId
-    });
+    if (options.persistActive !== false) {
+      await writeAppConfig({
+        ...appConfig,
+        activeBoardId: nextBoardId
+      });
+    }
     nextState = await readState(null, nextBoardId);
-    lastKnownState = nextState;
+    if (shouldSyncLastKnownState(null, nextBoardId)) {
+      lastKnownState = nextState;
+    }
   }
 
   await logEvent("info", "boards.delete", "Deleted board", {
     boardId: targetBoardId,
     boardName: targetBoard?.name || "",
-    nextBoardId: isActiveBoard ? nextBoardId : getActiveBoardId()
+    nextBoardId: isActiveBoard ? nextBoardId : currentBoardId
   });
 
   return {
     appConfig: getAppConfigForRenderer(),
     state: isActiveBoard ? nextState : null,
-    boards: await listBoards(null, isActiveBoard ? nextState : currentState, getActiveBoardId())
+    boards: await listBoards(null, isActiveBoard ? nextState : currentState, isActiveBoard ? nextBoardId : currentBoardId)
   };
 }
 
@@ -3303,7 +3793,502 @@ async function handleRendererLog(payload = {}) {
 }
 
 function sendWindowModeState() {
-  sendRendererEvent("window-mode:state", getWindowModeState());
+  getRendererWindows().forEach((windowRef) => {
+    sendWindowEvent(windowRef, "window-mode:state", getWindowModeState(windowRef));
+  });
+}
+
+function syncLocalWindowBounds(windowRef) {
+  if (!windowRef || windowRef.isDestroyed()) {
+    return false;
+  }
+
+  const session = getWindowSession(windowRef);
+  if (session?.role !== "workspace" && session?.role !== "workspace-overlay") {
+    return syncWindowBounds(windowRef);
+  }
+
+  const display = screen.getAllDisplays().find((candidate) => getDisplayId(candidate) === String(session.displayId))
+    || screen.getDisplayMatching(windowRef.getBounds())
+    || screen.getPrimaryDisplay();
+  const workArea = display.workArea || display.bounds;
+  try {
+    if (windowRef.isMaximized()) {
+      windowRef.unmaximize();
+    }
+    windowRef.setBounds({
+      x: workArea.x,
+      y: workArea.y,
+      width: workArea.width,
+      height: workArea.height
+    });
+  } catch {
+    return false;
+  }
+
+  return true;
+}
+
+function resetSessionWidgetState(session) {
+  if (!session) {
+    return;
+  }
+  session.widgetInteractive = false;
+  session.widgetCaptured = false;
+}
+
+function destroyLocalWidgetOverlay(session) {
+  const baseSession = getBaseSessionForLocalSession(session);
+  if (!baseSession) {
+    return false;
+  }
+
+  const windowRef = workspaceOverlayWindows.get(baseSession.id);
+  if (!windowRef) {
+    return false;
+  }
+
+  workspaceOverlayWindows.delete(baseSession.id);
+  if (!windowRef.isDestroyed()) {
+    windowRef.destroy();
+  }
+  return true;
+}
+
+function destroyAllLocalWidgetOverlays() {
+  Array.from(workspaceOverlayWindows.values()).forEach((windowRef) => {
+    if (windowRef && !windowRef.isDestroyed()) {
+      windowRef.destroy();
+    }
+  });
+  workspaceOverlayWindows = new Map();
+}
+
+function hideLocalWallpaperControl(session) {
+  const baseSession = getBaseSessionForLocalSession(session);
+  if (!baseSession) {
+    return false;
+  }
+
+  const windowRef = workspaceWallpaperControlWindows.get(baseSession.id);
+  if (!windowRef || windowRef.isDestroyed()) {
+    return false;
+  }
+
+  windowRef.hide();
+  return true;
+}
+
+function destroyLocalWallpaperControl(session) {
+  const baseSession = getBaseSessionForLocalSession(session);
+  if (!baseSession) {
+    return false;
+  }
+
+  const windowRef = workspaceWallpaperControlWindows.get(baseSession.id);
+  if (!windowRef) {
+    return false;
+  }
+
+  workspaceWallpaperControlWindows.delete(baseSession.id);
+  if (!windowRef.isDestroyed()) {
+    windowRef.destroy();
+  }
+  return true;
+}
+
+function destroyAllLocalWallpaperControls() {
+  Array.from(workspaceWallpaperControlWindows.values()).forEach((windowRef) => {
+    if (windowRef && !windowRef.isDestroyed()) {
+      windowRef.destroy();
+    }
+  });
+  workspaceWallpaperControlWindows = new Map();
+}
+
+function ensureLocalWidgetOverlay(baseWindow) {
+  if (!baseWindow || baseWindow.isDestroyed()) {
+    return null;
+  }
+
+  const baseSession = getWindowSession(baseWindow);
+  if (!baseSession || !isWorkspaceWindowSession(baseSession)) {
+    return null;
+  }
+
+  const existingWindow = workspaceOverlayWindows.get(baseSession.id);
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    return existingWindow;
+  }
+
+  const bounds = baseWindow.getBounds();
+  ensureTray();
+  const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
+  const windowRef = new BrowserWindow({
+    ...createWindowOptions(bounds, runtimeWindowIcon),
+    show: false,
+    skipTaskbar: false,
+    focusable: true,
+    title: "Desktop Board"
+  });
+
+  registerWindowSession(windowRef, {
+    role: "workspace-overlay",
+    displayId: baseSession.displayId,
+    boardId: baseSession.boardId,
+    mode: "widget-mode",
+    viewport: baseSession.viewport ? { ...baseSession.viewport } : null,
+    overlayForSessionId: baseSession.id
+  });
+
+  windowRef.loadFile(path.join(__dirname, "src", "index.html"), {
+    query: {
+      role: "overlay",
+      displayId: baseSession.displayId,
+      overlayFor: baseSession.id
+    }
+  });
+  syncLocalWindowBounds(windowRef);
+  windowRef.on("show", updateTrayMenu);
+  windowRef.on("hide", updateTrayMenu);
+  windowRef.on("closed", () => {
+    unregisterWindowSession(windowRef);
+    workspaceOverlayWindows.delete(baseSession.id);
+    sendWindowModeState();
+    updateTrayMenu();
+  });
+  windowRef.webContents.once("did-finish-load", () => {
+    sendAutoUpdateState();
+    sendWindowEvent(windowRef, "window-mode:state", getWindowModeState(windowRef));
+    sendThemeUpdate();
+  });
+
+  workspaceOverlayWindows.set(baseSession.id, windowRef);
+  return windowRef;
+}
+
+function getLocalWallpaperControlBounds(baseWindow) {
+  const display = baseWindow && !baseWindow.isDestroyed()
+    ? screen.getDisplayMatching(baseWindow.getBounds())
+    : screen.getPrimaryDisplay();
+  const workArea = display.workArea || display.bounds;
+  const width = 52;
+  const height = 52;
+  const margin = 16;
+  return {
+    x: workArea.x + workArea.width - width - margin,
+    y: workArea.y + margin,
+    width,
+    height
+  };
+}
+
+function ensureLocalWallpaperControl(baseWindow) {
+  if (!baseWindow || baseWindow.isDestroyed()) {
+    return null;
+  }
+
+  const baseSession = getWindowSession(baseWindow);
+  if (!baseSession || !isWorkspaceWindowSession(baseSession)) {
+    return null;
+  }
+
+  const existingWindow = workspaceWallpaperControlWindows.get(baseSession.id);
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    return existingWindow;
+  }
+
+  const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
+  const windowRef = new BrowserWindow({
+    ...getLocalWallpaperControlBounds(baseWindow),
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    show: false,
+    alwaysOnTop: false,
+    focusable: true,
+    backgroundColor: "#00000000",
+    icon: runtimeWindowIcon || windowIconPath,
+    title: "Desktop Board Controls",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false
+    }
+  });
+
+  registerWindowSession(windowRef, {
+    role: "wallpaper-control",
+    displayId: baseSession.displayId,
+    boardId: baseSession.boardId,
+    mode: "wallpaper-view",
+    overlayForSessionId: baseSession.id
+  });
+
+  windowRef.loadFile(path.join(__dirname, "src", "wallpaper-control.html"));
+  windowRef.on("close", (event) => {
+    if (isQuitting) {
+      return;
+    }
+    event.preventDefault();
+    hideLocalWallpaperControl(baseSession);
+  });
+  windowRef.on("closed", () => {
+    unregisterWindowSession(windowRef);
+    workspaceWallpaperControlWindows.delete(baseSession.id);
+    sendWindowModeState();
+    updateTrayMenu();
+  });
+
+  workspaceWallpaperControlWindows.set(baseSession.id, windowRef);
+  return windowRef;
+}
+
+function shouldShowLocalWallpaperControl(session) {
+  const baseSession = getBaseSessionForLocalSession(session);
+  return Boolean(
+    multiWindowWorkspaceActive
+    && baseSession
+    && appConfig.wallpaperModeEnabled === true
+    && baseSession.mode === "wallpaper-view"
+    && foregroundState.manualHidden !== true
+    && foregroundState.externalFullscreenActive !== true
+  );
+}
+
+function syncLocalWallpaperControlWindowVisibility(baseWindow, session = null) {
+  const baseSession = getBaseSessionForLocalSession(session || getWindowSession(baseWindow));
+  if (!baseWindow || baseWindow.isDestroyed() || !baseSession || !shouldShowLocalWallpaperControl(baseSession)) {
+    hideLocalWallpaperControl(baseSession);
+    return false;
+  }
+
+  const windowRef = ensureLocalWallpaperControl(baseWindow);
+  if (!windowRef || windowRef.isDestroyed()) {
+    return false;
+  }
+
+  try {
+    windowRef.setBounds(getLocalWallpaperControlBounds(baseWindow));
+  } catch {
+    // Ignore transient bounds failures.
+  }
+
+  if (!windowRef.isVisible()) {
+    if (typeof windowRef.showInactive === "function") {
+      windowRef.showInactive();
+    } else {
+      windowRef.show();
+    }
+  }
+
+  if (typeof windowRef.moveTop === "function") {
+    try {
+      windowRef.moveTop();
+    } catch {
+      // Ignore z-order failures.
+    }
+  }
+
+  return true;
+}
+
+function syncAllLocalWallpaperControlWindows() {
+  if (!multiWindowWorkspaceActive) {
+    destroyAllLocalWallpaperControls();
+    return false;
+  }
+
+  [mainWindow, ...workspaceWindows.values()].forEach((windowRef) => {
+    if (!windowRef || windowRef.isDestroyed()) {
+      return;
+    }
+    syncLocalWallpaperControlWindowVisibility(windowRef, getWindowSession(windowRef));
+  });
+
+  return true;
+}
+
+async function detachLocalWallpaperWindow(windowRef, session) {
+  if (!windowRef || windowRef.isDestroyed() || !session?.wallpaperAttached) {
+    if (session) {
+      session.wallpaperAttached = false;
+      session.wallpaperParentClass = "";
+      session.wallpaperError = null;
+    }
+    return true;
+  }
+
+  const result = await runWallpaperHelper("detach", windowRef);
+  if (result?.ok !== true) {
+    const message = String(result?.error || "Wallpaper helper failed during detach.");
+    session.wallpaperError = message;
+    throw new Error(message);
+  }
+
+  session.wallpaperAttached = false;
+  session.wallpaperParentClass = "";
+  session.wallpaperError = null;
+  return true;
+}
+
+async function attachLocalWallpaperWindow(windowRef, session) {
+  if (!windowRef || windowRef.isDestroyed() || !session) {
+    return false;
+  }
+
+  const result = await runWallpaperHelper("attach", windowRef);
+  if (result?.ok !== true) {
+    const message = String(result?.error || "Wallpaper helper failed during attach.");
+    session.wallpaperAttached = false;
+    session.wallpaperError = message;
+    throw new Error(message);
+  }
+
+  session.wallpaperAttached = true;
+  session.wallpaperParentClass = String(result.parentClass || "");
+  session.wallpaperError = null;
+  return true;
+}
+
+function applyLocalWidgetWindowInteractivity(windowRef, state = {}) {
+  const sourceSession = getWindowSession(windowRef);
+  const baseSession = getBaseSessionForLocalSession(sourceSession);
+  const targetWindow = sourceSession?.role === "workspace-overlay"
+    ? windowRef
+    : getLocalWidgetOverlayWindow(baseSession);
+  const targetSession = getWindowSession(targetWindow);
+  if (!targetWindow || targetWindow.isDestroyed() || !baseSession || !targetSession || baseSession.mode !== "widget-mode") {
+    return false;
+  }
+
+  baseSession.widgetInteractive = state?.interactive === true;
+  baseSession.widgetCaptured = state?.captured === true;
+  targetSession.widgetInteractive = baseSession.widgetInteractive;
+  targetSession.widgetCaptured = baseSession.widgetCaptured;
+  const interactive = targetSession.widgetInteractive === true || targetSession.widgetCaptured === true;
+  targetWindow.setFocusable(true);
+  targetWindow.setSkipTaskbar(false);
+  if (interactive) {
+    targetWindow.setIgnoreMouseEvents(false);
+    if (state?.focus === true) {
+      targetWindow.focus();
+    }
+  } else {
+    targetWindow.setIgnoreMouseEvents(true, { forward: true });
+    if (targetWindow.isFocused()) {
+      try {
+        targetWindow.blur();
+      } catch {
+        // Ignore focus reset failures.
+      }
+    }
+  }
+
+  sendWindowEvent(targetWindow, "window-mode:state", getWindowModeState(targetWindow));
+  return interactive;
+}
+
+async function applyLocalWindowMode(windowRef, mode, options = {}) {
+  if (!windowRef || windowRef.isDestroyed()) {
+    return false;
+  }
+
+  const session = getWindowSession(windowRef);
+  if (!session) {
+    return false;
+  }
+
+  const nextMode = normalizeWindowMode(mode);
+  session.mode = nextMode;
+  syncLocalWindowBounds(windowRef);
+
+  if (windowRef.isMinimized()) {
+    windowRef.restore();
+  }
+  if (!windowRef.isVisible()) {
+    if (typeof windowRef.showInactive === "function" && (nextMode === "wallpaper-view" || nextMode === "widget-mode")) {
+      windowRef.showInactive();
+    } else {
+      windowRef.show();
+    }
+  }
+
+  windowRef.setIgnoreMouseEvents(false);
+  windowRef.setFocusable(true);
+  windowRef.setSkipTaskbar(nextMode === "wallpaper-view");
+
+  try {
+    if (nextMode === "wallpaper-view") {
+      resetSessionWidgetState(session);
+      destroyLocalWidgetOverlay(session);
+      if (appConfig.wallpaperModeEnabled === true) {
+        await attachLocalWallpaperWindow(windowRef, session);
+      }
+      windowRef.setFocusable(false);
+      windowRef.setIgnoreMouseEvents(true, { forward: true });
+      if (windowRef.isFocused()) {
+        windowRef.blur();
+      }
+      syncLocalWallpaperControlWindowVisibility(windowRef, session);
+    } else if (nextMode === "widget-mode") {
+      hideLocalWallpaperControl(session);
+      if (appConfig.wallpaperModeEnabled === true) {
+        await attachLocalWallpaperWindow(windowRef, session);
+      }
+      windowRef.setSkipTaskbar(false);
+      windowRef.setFocusable(false);
+      windowRef.setIgnoreMouseEvents(true, { forward: true });
+      const overlayRef = ensureLocalWidgetOverlay(windowRef);
+      if (overlayRef && !overlayRef.isDestroyed()) {
+        syncLocalWindowBounds(overlayRef);
+        if (!overlayRef.isVisible()) {
+          if (typeof overlayRef.showInactive === "function" && options.focus !== true) {
+            overlayRef.showInactive();
+          } else {
+            overlayRef.show();
+          }
+        }
+      }
+      applyLocalWidgetWindowInteractivity(overlayRef || windowRef, {
+        interactive: session.widgetInteractive === true,
+        captured: session.widgetCaptured === true,
+        focus: options.focus === true
+      });
+    } else {
+      resetSessionWidgetState(session);
+      destroyLocalWidgetOverlay(session);
+      hideLocalWallpaperControl(session);
+      await detachLocalWallpaperWindow(windowRef, session);
+      windowRef.setSkipTaskbar(false);
+      windowRef.setFocusable(true);
+      windowRef.setIgnoreMouseEvents(false);
+      if (options.focus !== false) {
+        windowRef.focus();
+      }
+    }
+  } catch (error) {
+    session.mode = "normal";
+    hideLocalWallpaperControl(session);
+    windowRef.setIgnoreMouseEvents(false);
+    windowRef.setFocusable(true);
+    windowRef.setSkipTaskbar(false);
+    await logError("window.localMode", error, {
+      mode: nextMode,
+      role: session.role,
+      displayId: session.displayId
+    });
+  }
+
+  updateTrayMenu();
+  sendWindowEvent(windowRef, "window-mode:state", getWindowModeState(windowRef));
+  return true;
 }
 
 function applyWindowModeToWindow(mode = currentWindowMode) {
@@ -3313,6 +4298,10 @@ function applyWindowModeToWindow(mode = currentWindowMode) {
 
   const nextMode = normalizeWindowMode(mode);
   syncWindowBounds(mainWindow);
+  const session = getWindowSession(mainWindow);
+  if (session) {
+    session.mode = nextMode;
+  }
 
   mainWindow.setIgnoreMouseEvents(false);
   mainWindow.setFocusable(true);
@@ -3329,7 +4318,21 @@ function applyWindowModeToWindow(mode = currentWindowMode) {
 }
 
 function syncCurrentWindowModeFromConfig() {
-  currentWindowMode = getEffectiveWindowMode(appConfig, currentWindowMode);
+  if (multiWindowWorkspaceActive) {
+    currentWindowMode = "normal";
+    const mainSession = getWindowSession(mainWindow);
+    if (mainSession && !supportedWindowModes.has(mainSession.mode)) {
+      mainSession.mode = "normal";
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      syncLocalWindowBounds(mainWindow);
+    }
+    sendWindowModeState();
+    updateTrayMenu();
+    return getWindowModeState();
+  } else {
+    currentWindowMode = getEffectiveWindowMode(appConfig, currentWindowMode);
+  }
   if (currentWindowMode !== "wallpaper-view" || !canUseWallpaperOverlay(currentWindowMode, appConfig)) {
     wallpaperOverlayActive = false;
   }
@@ -3346,9 +4349,71 @@ function syncCurrentWindowModeFromConfig() {
 }
 
 async function setWindowMode(nextMode, options = {}) {
+  const hasExplicitSourceWindow = Boolean(options.sourceWindow);
+  const sourceWindow = options.sourceWindow || mainWindow;
+  const rawMode = typeof nextMode === "string" ? nextMode.trim().toLowerCase() : "";
+  if (rawMode === "multi-window") {
+    if (options.persist === true && normalizeMultiMonitorMode(appConfig.multiMonitorMode, appConfig.multiMonitorEnabled === true) !== "workspace") {
+      await writeAppConfig({
+        ...appConfig,
+        multiMonitorMode: "workspace",
+        multiMonitorEnabled: false
+      });
+      return getWindowModeState(sourceWindow);
+    }
+    multiWindowWorkspaceActive = true;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const mainSession = getWindowSession(mainWindow);
+      if (mainSession) {
+        mainSession.mode = "normal";
+      }
+    }
+    currentWindowMode = "normal";
+    applyWindowModeToWindow(currentWindowMode);
+    syncWorkspaceWindows({ focus: options.focus === true });
+    return getWindowModeState(sourceWindow);
+  }
+
   const persist = options.persist === true;
   const desiredMode = normalizeWindowMode(nextMode);
+  const sourceSession = getWindowSession(sourceWindow);
   const persistedMode = (desiredMode === "wallpaper-view" || desiredMode === "widget-mode") ? "normal" : desiredMode;
+
+  if (
+    multiWindowWorkspaceActive
+    && sourceSession
+    && (sourceSession.role === "workspace" || (sourceSession.role === "main" && hasExplicitSourceWindow))
+  ) {
+    await applyLocalWindowMode(sourceWindow, desiredMode, { focus: options.focus === true });
+    return getWindowModeState(sourceWindow);
+  }
+
+  if (multiWindowWorkspaceActive && sourceSession?.role === "workspace-overlay") {
+    const baseWindow = getWindowBySessionId(sourceSession.overlayForSessionId);
+    await applyLocalWindowMode(baseWindow || sourceWindow, desiredMode, { focus: options.focus === true });
+    return getWindowModeState(baseWindow || sourceWindow);
+  }
+
+  if (sourceSession?.role === "workspace") {
+    await applyLocalWindowMode(sourceWindow, desiredMode, { focus: options.focus === true });
+    sendWindowEvent(sourceWindow, "window-mode:state", getWindowModeState(sourceWindow));
+    return getWindowModeState(sourceWindow);
+  }
+
+  if (multiWindowWorkspaceActive && desiredMode !== "multi-window") {
+    if (persist && normalizeMultiMonitorMode(appConfig.multiMonitorMode, appConfig.multiMonitorEnabled === true) === "workspace") {
+      await writeAppConfig({
+        ...appConfig,
+        multiMonitorMode: "single",
+        multiMonitorEnabled: false,
+        windowMode: persistedMode
+      });
+    } else {
+      multiWindowWorkspaceActive = false;
+      hideWorkspaceWindows();
+    }
+  }
+
   const previousMode = currentWindowMode;
 
   if (persist && appConfig.windowMode !== persistedMode) {
@@ -3359,6 +4424,10 @@ async function setWindowMode(nextMode, options = {}) {
   }
 
   currentWindowMode = getEffectiveWindowMode(appConfig, desiredMode);
+  const mainSession = getWindowSession(mainWindow);
+  if (mainSession) {
+    mainSession.mode = currentWindowMode;
+  }
   if (currentWindowMode !== "wallpaper-view" || !canUseWallpaperOverlay(currentWindowMode, appConfig)) {
     wallpaperOverlayActive = false;
   } else if (options.activateOverlay === true) {
@@ -3444,7 +4513,8 @@ function reinforceWallpaperView(reason = "") {
 }
 
 function getRendererWindows() {
-  return [mainWindow, overlayWindow].filter((windowRef) => windowRef && !windowRef.isDestroyed());
+  return [mainWindow, overlayWindow, ...workspaceWindows.values(), ...workspaceOverlayWindows.values()]
+    .filter((windowRef) => windowRef && !windowRef.isDestroyed());
 }
 
 function sendWindowEvent(windowRef, channel, payload) {
@@ -3483,6 +4553,67 @@ function sendRendererEvent(channel, payload, options = {}) {
   return sent;
 }
 
+function shouldUseSessionViewport(target) {
+  const session = getWindowSession(target);
+  return Boolean(multiWindowWorkspaceActive && isWorkspaceWindowSession(session));
+}
+
+async function applySessionViewportForLoad(target, state, boardId) {
+  const session = getWindowSession(target);
+  if (!state || typeof state !== "object") {
+    return state;
+  }
+
+  if (!session) {
+    return state;
+  }
+
+  if (!session.viewport && state.viewport) {
+    updateWindowSessionViewport(target, state.viewport);
+  }
+
+  if (shouldUseSessionViewport(target) && session.viewport) {
+    return {
+      ...state,
+      boardId: getActiveBoardId(boardId || state.boardId),
+      viewport: { ...session.viewport }
+    };
+  }
+
+  return state;
+}
+
+async function prepareStateFromWindowForStorage(target, state, boardId) {
+  updateWindowSessionViewport(target, state?.viewport);
+  if (!shouldUseSessionViewport(target)) {
+    return state;
+  }
+
+  const storedState = await readState(null, boardId);
+  return {
+    ...state,
+    viewport: storedState?.viewport || state?.viewport
+  };
+}
+
+function sendStateChangedToBoard(state, boardId, options = {}) {
+  const targetBoardId = getActiveBoardId(boardId || state?.boardId);
+  const excludedWindow = options.excludedWindow || null;
+  let sent = false;
+
+  getRendererWindows().forEach((windowRef) => {
+    if (!windowRef || windowRef === excludedWindow || windowRef.isDestroyed()) {
+      return;
+    }
+    if (getRendererBoardId(windowRef) !== targetBoardId) {
+      return;
+    }
+    sent = sendWindowEvent(windowRef, "state:changed", state) || sent;
+  });
+
+  return sent;
+}
+
 function sendThemeUpdate() {
   return sendRendererEvent("theme:updated", getSystemTheme());
 }
@@ -3492,6 +4623,14 @@ function canUseWallpaperOverlay(mode = currentWindowMode, config = appConfig) {
     isWallpaperModeSupported()
     && config?.wallpaperModeEnabled === true
     && config?.wallpaperInteractionEnabled === true
+    && normalizeWindowMode(mode) === "wallpaper-view"
+  );
+}
+
+function canUseWallpaperControl(mode = currentWindowMode, config = appConfig) {
+  return (
+    isWallpaperModeSupported()
+    && config?.wallpaperModeEnabled === true
     && normalizeWindowMode(mode) === "wallpaper-view"
   );
 }
@@ -3524,7 +4663,7 @@ function shouldShowAnyOverlay(mode = currentWindowMode, config = appConfig) {
 function shouldShowWallpaperControl(mode = currentWindowMode, config = appConfig) {
   return foregroundState.manualHidden !== true
     && foregroundState.externalFullscreenActive !== true
-    && canUseWallpaperOverlay(mode, config)
+    && canUseWallpaperControl(mode, config)
     && !shouldShowWallpaperOverlay(mode, config);
 }
 
@@ -3614,7 +4753,13 @@ function getInteractiveWindowVisible() {
     return isOverlayWindowVisible();
   }
 
-  return Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible());
+  return Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible())
+    || Array.from(workspaceWindows.values()).some((windowRef) => (
+      windowRef && !windowRef.isDestroyed() && windowRef.isVisible()
+    ))
+    || Array.from(workspaceOverlayWindows.values()).some((windowRef) => (
+      windowRef && !windowRef.isDestroyed() && windowRef.isVisible()
+    ));
 }
 
 function createWindowOptions(workArea, runtimeWindowIcon) {
@@ -3649,7 +4794,8 @@ function syncWindowBounds(windowRef) {
   }
 
   const workArea = getBoardWindowBounds();
-  const useManualBounds = isMultiMonitorBoardEnabled();
+  const useManualBounds = isMultiMonitorBoardEnabled()
+    || normalizeMultiMonitorMode(appConfig.multiMonitorMode, appConfig.multiMonitorEnabled === true) === "workspace";
   try {
     if (useManualBounds && windowRef.isMaximized()) {
       windowRef.unmaximize();
@@ -3762,7 +4908,7 @@ function ensureWallpaperControlWindow() {
     skipTaskbar: true,
     show: false,
     alwaysOnTop: false,
-    focusable: false,
+    focusable: true,
     backgroundColor: "#00000000",
     icon: runtimeWindowIcon || windowIconPath,
     title: "Desktop Board Controls",
@@ -3812,6 +4958,14 @@ function syncWallpaperControlWindowVisibility() {
       windowRef.showInactive();
     } else {
       windowRef.show();
+    }
+  }
+
+  if (typeof windowRef.moveTop === "function") {
+    try {
+      windowRef.moveTop();
+    } catch {
+      // Ignore z-order failures.
     }
   }
 
@@ -3920,12 +5074,170 @@ function syncOverlayWindowVisibility(options = {}) {
   return true;
 }
 
+function hideWorkspaceWindows() {
+  destroyAllLocalWidgetOverlays();
+  destroyAllLocalWallpaperControls();
+  Array.from(workspaceWindows.values()).forEach((windowRef) => {
+    if (windowRef && !windowRef.isDestroyed()) {
+      windowRef.destroy();
+    }
+  });
+  workspaceWindows = new Map();
+}
+
+function ensureWorkspaceWindow(display) {
+  const displayId = String(display?.id || "");
+  if (!displayId) {
+    return null;
+  }
+
+  const existingWindow = workspaceWindows.get(displayId);
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    return existingWindow;
+  }
+
+  ensureTray();
+  const workArea = display.workArea || display.bounds;
+  const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
+  const windowRef = new BrowserWindow({
+    ...createWindowOptions(workArea, runtimeWindowIcon),
+    show: false,
+    skipTaskbar: false,
+    focusable: true,
+    title: "Desktop Board"
+  });
+
+  registerWindowSession(windowRef, {
+    role: "workspace",
+    displayId,
+    boardId: getActiveBoardId(),
+    mode: "normal"
+  });
+
+  windowRef.loadFile(path.join(__dirname, "src", "index.html"), {
+    query: {
+      role: "workspace",
+      displayId
+    }
+  });
+  windowRef.setBounds({
+    x: workArea.x,
+    y: workArea.y,
+    width: workArea.width,
+    height: workArea.height
+  });
+  if (!windowRef.isMaximized()) {
+    windowRef.maximize();
+  }
+  windowRef.on("show", updateTrayMenu);
+  windowRef.on("hide", updateTrayMenu);
+  windowRef.on("closed", () => {
+    unregisterWindowSession(windowRef);
+    workspaceWindows.delete(displayId);
+    sendWindowModeState();
+    updateTrayMenu();
+  });
+  windowRef.webContents.once("did-finish-load", () => {
+    sendAutoUpdateState();
+    sendWindowEvent(windowRef, "window-mode:state", getWindowModeState(windowRef));
+    sendThemeUpdate();
+  });
+
+  workspaceWindows.set(displayId, windowRef);
+  return windowRef;
+}
+
+function syncWorkspaceWindows(options = {}) {
+  multiWindowWorkspaceActive = isMultiWindowWorkspaceEnabled(appConfig);
+  if (!multiWindowWorkspaceActive) {
+    hideWorkspaceWindows();
+    sendWindowModeState();
+    return false;
+  }
+
+  const selectedDisplays = getSelectedBoardDisplays(appConfig);
+  const mainDisplay = getMainBoardDisplay(appConfig);
+  const mainDisplayId = getDisplayId(mainDisplay);
+  const activeDisplayIds = new Set(selectedDisplays.map(getDisplayId));
+
+  Array.from(workspaceWindows.entries()).forEach(([displayId, windowRef]) => {
+    if (!activeDisplayIds.has(displayId) || displayId === mainDisplayId) {
+      destroyLocalWidgetOverlay(getWindowSession(windowRef));
+      destroyLocalWallpaperControl(getWindowSession(windowRef));
+      if (windowRef && !windowRef.isDestroyed()) {
+        windowRef.destroy();
+      }
+      workspaceWindows.delete(displayId);
+    }
+  });
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const mainSession = getWindowSession(mainWindow);
+    if (mainSession) {
+      mainSession.displayId = mainDisplayId;
+      mainSession.mode = "normal";
+    }
+    syncWindowBounds(mainWindow);
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+  }
+
+  selectedDisplays.forEach((display) => {
+    if (getDisplayId(display) === mainDisplayId) {
+      return;
+    }
+
+    const windowRef = ensureWorkspaceWindow(display);
+    if (!windowRef || windowRef.isDestroyed()) {
+      return;
+    }
+
+    const workArea = display.workArea || display.bounds;
+    windowRef.setBounds({
+      x: workArea.x,
+      y: workArea.y,
+      width: workArea.width,
+      height: workArea.height
+    });
+    if (!windowRef.isMaximized()) {
+      windowRef.maximize();
+    }
+    if (!windowRef.isVisible()) {
+      if (typeof windowRef.showInactive === "function" && options.focus !== true) {
+        windowRef.showInactive();
+      } else {
+        windowRef.show();
+      }
+    }
+    const session = getWindowSession(windowRef);
+    if (session?.mode === "widget-mode") {
+      void applyLocalWindowMode(windowRef, "widget-mode", { focus: false });
+    } else if (session?.mode === "wallpaper-view") {
+      void applyLocalWindowMode(windowRef, "wallpaper-view", { focus: false });
+    } else if (session) {
+      destroyLocalWidgetOverlay(session);
+      destroyLocalWallpaperControl(session);
+    }
+  });
+
+  sendWindowModeState();
+  updateTrayMenu();
+  return workspaceWindows.size > 0;
+}
+
 function createWindow() {
   const workArea = getBoardWindowBounds();
   ensureTray();
   const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
 
   mainWindow = new BrowserWindow(createWindowOptions(workArea, runtimeWindowIcon));
+  registerWindowSession(mainWindow, {
+    role: "main",
+    displayId: String(screen.getPrimaryDisplay().id),
+    boardId: getActiveBoardId(),
+    mode: currentWindowMode
+  });
 
   applyWindowModeToWindow(currentWindowMode);
   mainWindow.loadFile(path.join(__dirname, "src", "index.html"));
@@ -3951,6 +5263,7 @@ function createWindow() {
     reinforceWallpaperView("maximize");
   });
   mainWindow.on("closed", () => {
+    unregisterWindowSession(mainWindow);
     if (mainWindow && mainWindow.isDestroyed()) {
       mainWindow = null;
     }
@@ -3958,6 +5271,7 @@ function createWindow() {
       overlayWindow.destroy();
       overlayWindow = null;
     }
+    hideWorkspaceWindows();
     wallpaperAttachmentState = {
       attached: false,
       parentClass: "",
@@ -4001,7 +5315,12 @@ async function sendToggleLockEvent() {
   return false;
 }
 
-async function updateWidgetOverlayInteractivity(state = {}) {
+async function updateWidgetOverlayInteractivity(state = {}, sourceWindow = null) {
+  const sourceSession = getWindowSession(sourceWindow);
+  if (multiWindowWorkspaceActive && sourceWindow && isWorkspaceWindowSession(sourceSession)) {
+    return applyLocalWidgetWindowInteractivity(sourceWindow, state);
+  }
+
   widgetOverlayInteractive = state?.interactive === true;
   widgetOverlayCaptured = state?.captured === true;
 
@@ -4016,7 +5335,18 @@ async function updateWidgetOverlayInteractivity(state = {}) {
   return false;
 }
 
-async function activateWallpaperInteraction() {
+async function activateWallpaperInteraction(sourceWindow = null) {
+  const sourceSession = getWindowSession(sourceWindow);
+  if (sourceSession?.role === "wallpaper-control") {
+    const baseWindow = getWindowBySessionId(sourceSession.overlayForSessionId);
+    const baseSession = getWindowSession(baseWindow);
+    if (baseWindow && !baseWindow.isDestroyed() && baseSession) {
+      hideLocalWallpaperControl(baseSession);
+      await applyLocalWindowMode(baseWindow, "normal", { focus: true });
+      return true;
+    }
+  }
+
   if (currentWindowMode === "wallpaper-view" && canUseWallpaperOverlay()) {
     wallpaperOverlayActive = true;
     return syncOverlayWindowVisibility({ activate: true, focus: true });
@@ -4038,7 +5368,7 @@ function revealMainWindow(options = {}) {
   foregroundState.autoHidden = false;
 
   if (options.preferEditable === true && currentWindowMode === "wallpaper-view") {
-    currentWindowMode = getEffectiveWindowMode(appConfig, "desktop-edit");
+    currentWindowMode = getEffectiveWindowMode(appConfig, "normal");
     wallpaperOverlayActive = false;
     applyWindowModeToWindow(currentWindowMode);
     void queueWallpaperAttachmentSync(currentWindowMode);
@@ -4054,7 +5384,11 @@ function revealMainWindow(options = {}) {
     return syncOverlayWindowVisibility({ focus: true });
   }
 
-  return showWindowForMode(currentWindowMode);
+  const shown = showWindowForMode(currentWindowMode);
+  if (multiWindowWorkspaceActive) {
+    syncWorkspaceWindows();
+  }
+  return shown;
 }
 
 function dismissNotificationsForCard(cardId) {
@@ -4224,9 +5558,8 @@ function getTrayLabels() {
     backgroundHintBody: isRussian
       ? "Приложение продолжает работать в фоне. Откройте его через иконку в системном трее."
       : "The app is still running in the background. Reopen it from the system tray.",
-    windowModeSection: isRussian ? "\u0420\u0435\u0436\u0438\u043c \u043e\u043a\u043d\u0430" : "Window mode",
+    windowModeSection: isRussian ? "Режим работы" : "Work mode",
     windowModeNormal: isRussian ? "\u041e\u0431\u044b\u0447\u043d\u044b\u0439 \u0440\u0435\u0436\u0438\u043c" : "Normal",
-    windowModeDesktopEdit: isRussian ? "\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043d\u0430 \u0440\u0430\u0431\u043e\u0447\u0435\u043c \u0441\u0442\u043e\u043b\u0435" : "Desktop edit",
     windowModeWallpaperView: isRussian ? "Wallpaper view" : "Wallpaper view",
     windowModeWidgetMode: isRussian ? "Widget mode" : "Widget mode"
   };
@@ -4239,6 +5572,15 @@ function updateTrayMenu() {
 
   const labels = getTrayLabels();
   const windowVisible = getInteractiveWindowVisible();
+  const trayWindowMode = multiWindowWorkspaceActive ? getWindowSessionMode(mainWindow) : currentWindowMode;
+  const switchTrayWindowMode = (mode) => {
+    const nextMode = normalizeWindowMode(mode);
+    if (multiWindowWorkspaceActive && mainWindow && !mainWindow.isDestroyed()) {
+      void applyLocalWindowMode(mainWindow, nextMode, { focus: true });
+      return;
+    }
+    void setWindowMode(nextMode, { persist: true }).then(() => showWindowForMode(nextMode));
+  };
   const trayMenuItems = [
     {
       label: windowVisible ? labels.hide : labels.show,
@@ -4259,45 +5601,34 @@ function updateTrayMenu() {
       {
         label: labels.windowModeNormal,
         type: "radio",
-        checked: currentWindowMode === "normal",
+        checked: trayWindowMode === "normal",
         click: () => {
-          if (currentWindowMode === "normal") {
+          if (trayWindowMode === "normal") {
             return;
           }
-          void setWindowMode("normal", { persist: true }).then(() => showWindowForMode("normal"));
-        }
-      },
-      {
-        label: labels.windowModeDesktopEdit,
-        type: "radio",
-        checked: currentWindowMode === "desktop-edit",
-        click: () => {
-          if (currentWindowMode === "desktop-edit") {
-            return;
-          }
-          void setWindowMode("desktop-edit", { persist: true }).then(() => showWindowForMode("desktop-edit"));
+          switchTrayWindowMode("normal");
         }
       },
       {
         label: labels.windowModeWallpaperView,
         type: "radio",
-        checked: currentWindowMode === "wallpaper-view",
+        checked: trayWindowMode === "wallpaper-view",
         click: () => {
-          if (currentWindowMode === "wallpaper-view" && wallpaperAttachmentState.attached === true) {
+          if (trayWindowMode === "wallpaper-view") {
             return;
           }
-          void setWindowMode("wallpaper-view", { persist: true }).then(() => showWindowForMode("wallpaper-view"));
+          switchTrayWindowMode("wallpaper-view");
         }
       },
       {
         label: labels.windowModeWidgetMode,
         type: "radio",
-        checked: currentWindowMode === "widget-mode",
+        checked: trayWindowMode === "widget-mode",
         click: () => {
-          if (currentWindowMode === "widget-mode" && isOverlayWindowVisible()) {
+          if (trayWindowMode === "widget-mode") {
             return;
           }
-          void setWindowMode("widget-mode", { persist: true }).then(() => showWindowForMode("widget-mode"));
+          switchTrayWindowMode("widget-mode");
         }
       }
     );
@@ -4355,6 +5686,21 @@ function hideWindowToTray(options = {}) {
     }
 
     mainWindow.hide();
+    Array.from(workspaceWindows.values()).forEach((windowRef) => {
+      if (windowRef && !windowRef.isDestroyed()) {
+        windowRef.hide();
+      }
+    });
+    Array.from(workspaceOverlayWindows.values()).forEach((windowRef) => {
+      if (windowRef && !windowRef.isDestroyed()) {
+        windowRef.hide();
+      }
+    });
+    Array.from(workspaceWallpaperControlWindows.values()).forEach((windowRef) => {
+      if (windowRef && !windowRef.isDestroyed()) {
+        windowRef.hide();
+      }
+    });
   }
   updateTrayMenu();
 
@@ -4414,6 +5760,7 @@ app.whenReady().then(async () => {
   }
   nativeTheme.themeSource = "system";
   await readAppConfig();
+  multiWindowWorkspaceActive = isMultiWindowWorkspaceEnabled(appConfig);
   currentWindowMode = getEffectiveWindowMode(appConfig);
   try {
     applyAutoStartPreference();
@@ -4424,20 +5771,82 @@ app.whenReady().then(async () => {
     });
   }
 
-  ipcMain.handle("state:load", () => readState());
+  ipcMain.handle("state:load", async (event) => {
+    const boardId = getRendererBoardId(event.sender);
+    const state = await readState(null, boardId);
+    return applySessionViewportForLoad(event.sender, state, boardId);
+  });
   ipcMain.handle("state:save", async (event, state) => {
-    await writeState(state);
     const sourceWindow = BrowserWindow.fromWebContents(event.sender);
-    sendRendererEvent("state:changed", state, { excludedWindow: sourceWindow });
+    const boardId = setRendererBoardId(event.sender, state?.boardId || getRendererBoardId(event.sender));
+    const stateToWrite = await prepareStateFromWindowForStorage(event.sender, state, boardId);
+    await writeState(stateToWrite, null, boardId);
+    sendStateChangedToBoard(stateToWrite, boardId, { excludedWindow: sourceWindow });
     return true;
   });
-  ipcMain.handle("app-config:get", () => getAppConfigForRenderer());
-  ipcMain.handle("app-config:update", (_event, partial) => updateAppConfig(partial || {}));
-  ipcMain.handle("boards:list", (_event, currentState) => listBoardsForRenderer(currentState || null));
-  ipcMain.handle("boards:create", (_event, name, currentState) => createBoard(String(name || ""), currentState || null));
-  ipcMain.handle("boards:rename", (_event, boardId, name, currentState) => renameBoard(String(boardId || ""), String(name || ""), currentState || null));
-  ipcMain.handle("boards:switch", (_event, boardId, currentState) => switchBoard(String(boardId || ""), currentState || null));
-  ipcMain.handle("boards:delete", (_event, boardId, currentState) => deleteBoard(String(boardId || ""), currentState || null));
+  ipcMain.handle("app-config:get", (event) => getAppConfigForRenderer(event.sender));
+  ipcMain.handle("app-config:update", (event, partial) => updateAppConfig(partial || {}, event.sender));
+  ipcMain.handle("boards:list", (event, currentState) => listBoardsForRenderer(currentState || null, getRendererBoardId(event.sender)));
+  ipcMain.handle("boards:create", async (event, name, currentState) => {
+    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+    const currentBoardId = getRendererBoardId(event.sender);
+    const stateForOperation = currentState
+      ? await prepareStateFromWindowForStorage(event.sender, currentState, currentBoardId)
+      : null;
+    const result = await createBoard(String(name || ""), stateForOperation, {
+      currentBoardId,
+      persistActive: sourceWindow === mainWindow
+    });
+    if (result?.state?.boardId) {
+      setRendererBoardId(event.sender, result.state.boardId);
+    }
+    return result;
+  });
+  ipcMain.handle("boards:rename", async (event, boardId, name, currentState) => {
+    const currentBoardId = getRendererBoardId(event.sender);
+    const stateForOperation = currentState
+      ? await prepareStateFromWindowForStorage(event.sender, currentState, currentBoardId)
+      : null;
+    return renameBoard(
+      String(boardId || ""),
+      String(name || ""),
+      stateForOperation,
+      { currentBoardId }
+    );
+  });
+  ipcMain.handle("boards:switch", async (event, boardId, currentState) => {
+    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+    const currentBoardId = getRendererBoardId(event.sender);
+    const stateForOperation = currentState
+      ? await prepareStateFromWindowForStorage(event.sender, currentState, currentBoardId)
+      : null;
+    const targetBoardId = await resolveBoardIdForStorage(null, String(boardId || ""), stateForOperation);
+    const result = await switchBoard(String(boardId || ""), stateForOperation, {
+      currentBoardId,
+      persistActive: sourceWindow === mainWindow
+    });
+    setRendererBoardId(event.sender, targetBoardId);
+    if (result?.state) {
+      result.state = await applySessionViewportForLoad(event.sender, result.state, targetBoardId);
+    }
+    return result;
+  });
+  ipcMain.handle("boards:delete", async (event, boardId, currentState) => {
+    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+    const currentBoardId = getRendererBoardId(event.sender);
+    const stateForOperation = currentState
+      ? await prepareStateFromWindowForStorage(event.sender, currentState, currentBoardId)
+      : null;
+    const result = await deleteBoard(String(boardId || ""), stateForOperation, {
+      currentBoardId,
+      persistActive: sourceWindow === mainWindow
+    });
+    if (result?.state?.boardId) {
+      setRendererBoardId(event.sender, result.state.boardId);
+      result.state = await applySessionViewportForLoad(event.sender, result.state, result.state.boardId);
+    }
+    return result;
+  });
   ipcMain.handle("storage:pick-directory", () => pickStorageDirectory());
   ipcMain.handle("storage:set-directory", (_event, directoryPath, state) => setStorageDirectory(String(directoryPath || ""), state || null));
   ipcMain.handle("storage:open-directory", () => openCurrentStorageDirectory());
@@ -4464,16 +5873,27 @@ app.whenReady().then(async () => {
   ipcMain.handle("updates:get-state", () => getAutoUpdateStateForRenderer());
   ipcMain.handle("updates:check", () => checkForAppUpdates("manual"));
   ipcMain.handle("updates:install", () => installDownloadedUpdate());
-  ipcMain.handle("window-mode:get-state", () => getWindowModeState());
-  ipcMain.handle("window-mode:set", (_event, mode) => setWindowMode(String(mode || ""), { persist: true }));
-  ipcMain.handle("window-mode:activate-overlay", () => activateWallpaperInteraction());
-  ipcMain.handle("widget-mode:set-interactivity", (_event, state) => updateWidgetOverlayInteractivity(state || {}));
+  ipcMain.handle("window-mode:get-state", (event) => getWindowModeState(event.sender));
+  ipcMain.handle("window-mode:set", (event, mode) => setWindowMode(String(mode || ""), {
+    persist: true,
+    sourceWindow: BrowserWindow.fromWebContents(event.sender)
+  }));
+  ipcMain.handle("window-mode:activate-overlay", (event) => activateWallpaperInteraction(
+    BrowserWindow.fromWebContents(event.sender)
+  ));
+  ipcMain.handle("widget-mode:set-interactivity", (event, state) => updateWidgetOverlayInteractivity(
+    state || {},
+    BrowserWindow.fromWebContents(event.sender)
+  ));
+  ipcMain.handle("web-card:sync", (event, cards) => syncNativeWebCards(event.sender, cards || []));
+  ipcMain.handle("web-card:reload", (event, cardId) => reloadNativeWebCard(event.sender, cardId));
   ipcMain.handle("window:hide", () => {
     return hideWindowToTray({ showHint: false });
   });
 
   createStartupSplashWindow();
   createWindow();
+  syncWorkspaceWindows();
 
   const state = await readState();
   registerHotkeys(state?.settings);
@@ -4486,7 +5906,9 @@ app.whenReady().then(async () => {
   const syncWindowLayout = () => {
     syncWindowBounds(mainWindow);
     syncWindowBounds(overlayWindow);
+    syncWorkspaceWindows();
     syncWallpaperControlWindowVisibility();
+    syncAllLocalWallpaperControlWindows();
     sendWindowModeState();
   };
   screen.on("display-metrics-changed", syncWindowLayout);

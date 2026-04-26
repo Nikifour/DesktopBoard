@@ -30,7 +30,7 @@ const settingsButton = document.getElementById("settingsButton");
 const zoomLabel = document.getElementById("zoomLabel");
 const contextMenu = document.getElementById("contextMenu");
 const selectionBox = document.getElementById("selectionBox");
-const widgetDesktopEditButton = document.getElementById("widgetDesktopEditButton");
+const modeEditButton = document.getElementById("modeEditButton");
 const settingsModal = document.getElementById("settingsModal");
 const closeSettingsButton = document.getElementById("closeSettingsButton");
 const saveSettingsButton = document.getElementById("saveSettingsButton");
@@ -156,12 +156,10 @@ const renameBoardButton = document.getElementById("renameBoardButton");
 const deleteBoardButton = document.getElementById("deleteBoardButton");
 const autoStartWithWindowsInput = document.getElementById("autoStartWithWindowsInput");
 const autoStartHelp = document.getElementById("autoStartHelp");
-const wallpaperModeEnabledInput = document.getElementById("wallpaperModeEnabledInput");
-const wallpaperInteractionEnabledInput = document.getElementById("wallpaperInteractionEnabledInput");
-const multiMonitorEnabledInput = document.getElementById("multiMonitorEnabledInput");
+const multiMonitorModeInput = document.getElementById("multiMonitorModeInput");
+const multiMonitorDisplays = document.getElementById("multiMonitorDisplays");
 const windowModeInput = document.getElementById("windowModeInput");
 const wallpaperModeHelp = document.getElementById("wallpaperModeHelp");
-const wallpaperInteractionHelp = document.getElementById("wallpaperInteractionHelp");
 const multiMonitorHelp = document.getElementById("multiMonitorHelp");
 const diagnosticsEnabledInput = document.getElementById("diagnosticsEnabledInput");
 const openLogsButton = document.getElementById("openLogsButton");
@@ -614,6 +612,8 @@ let widgetInteractionState = {
   interactive: false,
   captured: false
 };
+let liveWebContentModeKey = "";
+let nativeWebCardSyncFrame = 0;
 let saveTimer = null;
 let selectedIds = new Set();
 let selectedConnectionId = null;
@@ -656,9 +656,11 @@ let appRuntimeConfig = {
   activeBoardId: defaultBoardId,
   autoStartEnabled: false,
   autoManageAssetsOnLaunch: true,
-  wallpaperModeEnabled: false,
+  wallpaperModeEnabled: true,
   wallpaperInteractionEnabled: false,
   multiMonitorEnabled: false,
+  multiMonitorMode: "single",
+  multiMonitorDisplayIds: [],
   windowMode: "normal",
   windowModeSupported: false,
   displayLayout: null,
@@ -674,9 +676,12 @@ let windowModeState = {
   supported: false,
   enabled: false,
   interactionEnabled: false,
+  windowRole: "window",
   configuredMode: "normal",
   currentMode: "normal",
   effectiveMode: "normal",
+  multiMonitorMode: "single",
+  multiWindowWorkspaceActive: false,
   attachedToWallpaper: false,
   wallpaperParentClass: "",
   wallpaperError: null,
@@ -722,6 +727,7 @@ const textPreviewExtensions = new Set([
   "ps1", "cmd", "bat", "py", "java", "c", "cpp", "h", "hpp", "rs", "go", "sql", "sh"
 ]);
 const filePreviewCache = new Map();
+const nativeWebResizeReserve = 14;
 const webResizeObserver = typeof ResizeObserver === "function"
   ? new ResizeObserver((entries) => {
     entries.forEach((entry) => syncWebCardElement(entry.target.closest(".card")));
@@ -767,13 +773,12 @@ const settingsSectionDefinitions = [
     selectors: [
       "#autoStartWithWindowsLabel",
       "#autoStartHelp",
-      "#wallpaperModeEnabledLabel",
       "#windowModeLabel",
       "#wallpaperModeHelp",
-      "#multiMonitorEnabledLabel",
-      "#multiMonitorHelp",
-      "#wallpaperInteractionEnabledLabel",
-      "#wallpaperInteractionHelp"
+      "#multiMonitorModeLabel",
+      "#multiMonitorDisplaysLabel",
+      "#multiMonitorDisplaysRow",
+      "#multiMonitorHelp"
     ]
   },
   {
@@ -929,6 +934,7 @@ const translations = {
     webShield: "Двойной щелчок: взаимодействовать с сайтом. Хедер останется доступен для перемещения.",
     urlTitle: "URL / сайт",
     editUrlTitle: "Изменить URL",
+    reloadWebPage: "Обновить страницу",
     invalidUrl: "Введите корректный http/https URL.",
     settingsSaved: "Настройки сохранены.",
     settingsSavedPreview: "Настройки сохранены для preview.",
@@ -1042,6 +1048,7 @@ const translations = {
     webShield: "Double-click to interact with the site. The header stays available for moving.",
     urlTitle: "URL / site",
     editUrlTitle: "Edit URL",
+    reloadWebPage: "Reload page",
     invalidUrl: "Enter a valid http/https URL.",
     settingsSaved: "Settings saved.",
     settingsSavedPreview: "Settings saved for preview.",
@@ -1058,12 +1065,11 @@ Object.assign(translations.ru, {
   autoStartHelpUnpacked: "\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0432 \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u043e\u0439 \u0438\u043b\u0438 portable-\u0441\u0431\u043e\u0440\u043a\u0435 \u043d\u0430 Windows. Dev-\u0440\u0435\u0436\u0438\u043c \u0432 \u0430\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u043d\u0435 \u0434\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442\u0441\u044f.",
   autoStartHelpUnsupported: "\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 Windows.",
   appConfigSaveError: "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f.",
-  wallpaperModeEnabled: "\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c wallpaper mode",
-  wallpaperModeHelp: "Wallpaper view \u0434\u0435\u043b\u0430\u0435\u0442 \u043e\u043a\u043d\u043e click-through. \u0414\u043b\u044f \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u0432\u0435\u0440\u043d\u0438\u0442\u0435\u0441\u044c \u0432 \u0440\u0435\u0436\u0438\u043c рабочего \u0441\u0442\u043e\u043b\u0430 \u0447\u0435\u0440\u0435\u0437 \u0442\u0440\u0435\u0439 \u0438\u043b\u0438 \u0445\u043e\u0442\u043a\u0435\u0439.",
+  wallpaperModeHelp: "Wallpaper view \u0434\u0435\u043b\u0430\u0435\u0442 \u043e\u043a\u043d\u043e click-through. \u0414\u043b\u044f \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u0432\u0435\u0440\u043d\u0438\u0442\u0435\u0441\u044c \u0432 \u043e\u0431\u044b\u0447\u043d\u044b\u0439 \u0440\u0435\u0436\u0438\u043c \u0447\u0435\u0440\u0435\u0437 \u0442\u0440\u0435\u0439 \u0438\u043b\u0438 \u0445\u043e\u0442\u043a\u0435\u0439.",
   wallpaperModeUnsupported: "Wallpaper mode \u043f\u043e\u043a\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0442\u043e\u043b\u044c\u043a\u043e \u043d\u0430 Windows.",
   windowModeLabel: "\u0420\u0435\u0436\u0438\u043c \u043e\u043a\u043d\u0430",
   windowModeNormal: "\u041e\u0431\u044b\u0447\u043d\u044b\u0439 \u0440\u0435\u0436\u0438\u043c",
-  windowModeDesktopEdit: "\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043d\u0430 \u0440\u0430\u0431\u043e\u0447\u0435\u043c \u0441\u0442\u043e\u043b\u0435",
+  windowModeMultiWindow: "\u041e\u043a\u043d\u043e \u043d\u0430 \u043a\u0430\u0436\u0434\u043e\u043c \u044d\u043a\u0440\u0430\u043d\u0435",
   windowModeWallpaperView: "Wallpaper view",
   windowModeWidgetMode: "Widget mode",
   wallpaperModeAttachedStatus: "\u041f\u0440\u0438\u0432\u044f\u0437\u0430\u043d\u043e \u043a \u0441\u043b\u043e\u044e рабочего \u0441\u0442\u043e\u043b\u0430: {parent}.",
@@ -1079,12 +1085,11 @@ Object.assign(translations.en, {
   autoStartHelpUnpacked: "Available in installed or portable Windows builds. Dev mode is not added to startup.",
   autoStartHelpUnsupported: "Auto-start is available only on Windows.",
   appConfigSaveError: "Could not save app settings.",
-  wallpaperModeEnabled: "Enable wallpaper mode",
-  wallpaperModeHelp: "Wallpaper view makes the window click-through. Return to Desktop edit through the tray menu or hotkey when you need to edit the board.",
+  wallpaperModeHelp: "Wallpaper view makes the window click-through. Return to Normal mode through the tray menu or hotkey when you need to edit the board.",
   wallpaperModeUnsupported: "Wallpaper mode is currently available only on Windows.",
   windowModeLabel: "Window mode",
   windowModeNormal: "Normal",
-  windowModeDesktopEdit: "Desktop edit",
+  windowModeMultiWindow: "Window on each screen",
   windowModeWallpaperView: "Wallpaper view",
   windowModeWidgetMode: "Widget mode",
   wallpaperModeAttachedStatus: "Attached to desktop layer: {parent}.",
@@ -1093,21 +1098,26 @@ Object.assign(translations.en, {
 });
 
 Object.assign(translations.ru, {
-  wallpaperInteractionEnabled: "Взаимодействие в Wallpaper view",
-  wallpaperInteractionHelp: "Поверх wallpaper-слоя открывается отдельное overlay-окно. Доска остается в режиме просмотра, но по ней можно кликать и перемещаться.",
   backgroundOpacity: "Прозрачность доски"
 });
 
 Object.assign(translations.en, {
-  wallpaperInteractionEnabled: "Interact in Wallpaper view",
-  wallpaperInteractionHelp: "Shows a separate overlay window above the wallpaper layer. The board stays in view mode, but you can click it and navigate without breaking desktop z-order.",
   backgroundOpacity: "Board transparency"
 });
 
 Object.assign(translations.ru, {
   multiMonitorEnabled: "Бесшовная доска на всех экранах",
-  multiMonitorHelp: "Используются все подключенные экраны: {count}.",
-  multiMonitorSingleDisplayHelp: "Сейчас подключен один экран. При подключении второго доска сможет занять общую область.",
+  multiMonitorMode: "Режим нескольких экранов",
+  multiMonitorModeSingle: "Одно окно",
+  multiMonitorModeSeamless: "Бесшовная доска",
+  multiMonitorModeWorkspace: "Окно на каждом экране",
+  multiMonitorDisplays: "Экраны",
+  multiMonitorDisplayPrimary: "основной",
+  multiMonitorDisplaySize: "{width} x {height}",
+  multiMonitorHelp: "Выбрано экранов: {selected} из {count}.",
+  multiMonitorSingleHelp: "Используется одно обычное окно на основном экране.",
+  multiMonitorSingleDisplayHelp: "Сейчас подключен один экран. Дополнительные режимы станут полезны после подключения второго.",
+  multiMonitorNoDisplays: "Экраны не найдены.",
   settingsSections: "Разделы настроек",
   settingsSectionGeneral: "Основное",
   settingsSectionAppearance: "Внешний вид",
@@ -1136,8 +1146,17 @@ Object.assign(translations.ru, {
 
 Object.assign(translations.en, {
   multiMonitorEnabled: "Seamless board across all screens",
-  multiMonitorHelp: "Using all connected screens: {count}.",
-  multiMonitorSingleDisplayHelp: "One screen is connected now. When another screen is connected, the board can use the combined area.",
+  multiMonitorMode: "Multi-screen mode",
+  multiMonitorModeSingle: "Single window",
+  multiMonitorModeSeamless: "Seamless board",
+  multiMonitorModeWorkspace: "Window on each screen",
+  multiMonitorDisplays: "Screens",
+  multiMonitorDisplayPrimary: "primary",
+  multiMonitorDisplaySize: "{width} x {height}",
+  multiMonitorHelp: "Selected screens: {selected} of {count}.",
+  multiMonitorSingleHelp: "Using one regular window on the primary screen.",
+  multiMonitorSingleDisplayHelp: "One screen is connected now. Additional modes become useful after connecting another screen.",
+  multiMonitorNoDisplays: "No screens found.",
   settingsSections: "Settings sections",
   settingsSectionGeneral: "General",
   settingsSectionAppearance: "Appearance",
@@ -1282,6 +1301,8 @@ Object.assign(translations.ru, {
   tagInputHelp: "Enter - \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0442\u0435\u0433",
   noTags: "\u0422\u0435\u0433\u043e\u0432 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.",
   editLinks: "\u0421\u0441\u044b\u043b\u043a\u0438...",
+  bringForward: "\u041f\u043e\u0434\u043d\u044f\u0442\u044c \u0432\u044b\u0448\u0435",
+  sendBackward: "\u041e\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u043d\u0438\u0436\u0435",
   removeTagLabel: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0442\u0435\u0433 {tag}"
 });
 
@@ -1291,6 +1312,8 @@ Object.assign(translations.en, {
   tagInputHelp: "Press Enter to add a tag",
   noTags: "No tags yet.",
   editLinks: "Links...",
+  bringForward: "Bring forward",
+  sendBackward: "Send backward",
   removeTagLabel: "Remove tag {tag}"
 });
 
@@ -2298,12 +2321,54 @@ function normalizeRectLike(rect = {}) {
   };
 }
 
+function normalizeMultiMonitorMode(value, legacyEnabled = false) {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (normalized === "single" || normalized === "seamless" || normalized === "workspace") {
+    return normalized;
+  }
+  return legacyEnabled ? "seamless" : "single";
+}
+
+function normalizeDisplayIds(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return [...new Set(value.map((id) => String(id || "").trim()).filter(Boolean))];
+}
+
+function normalizeDisplayInfo(display = {}, index = 0) {
+  return {
+    id: String(display.id ?? ""),
+    name: typeof display.name === "string" && display.name.trim() ? display.name.trim() : `Display ${index + 1}`,
+    primary: display.primary === true,
+    selected: display.selected === true,
+    scaleFactor: Number(display.scaleFactor) || 1,
+    x: Number(display.x) || 0,
+    y: Number(display.y) || 0,
+    width: Math.max(0, Number(display.width) || 0),
+    height: Math.max(0, Number(display.height) || 0)
+  };
+}
+
 function normalizeDisplayLayout(layout = {}) {
   const bounds = normalizeRectLike(layout.bounds);
   const primaryBounds = normalizeRectLike(layout.primaryBounds);
+  const multiMonitorMode = normalizeMultiMonitorMode(layout.multiMonitorMode, layout.multiMonitorEnabled === true);
+  const selectedDisplayIds = normalizeDisplayIds(layout.selectedDisplayIds);
+  const displays = Array.isArray(layout.displays)
+    ? layout.displays.map(normalizeDisplayInfo).filter((display) => display.id)
+    : [];
+  const availableDisplays = Array.isArray(layout.availableDisplays)
+    ? layout.availableDisplays.map(normalizeDisplayInfo).filter((display) => display.id)
+    : displays;
   return {
+    multiMonitorMode,
     multiMonitorEnabled: layout.multiMonitorEnabled === true,
     displayCount: Math.max(1, Number(layout.displayCount) || 1),
+    selectedDisplayCount: Math.max(0, Number(layout.selectedDisplayCount) || selectedDisplayIds.length || displays.length),
+    selectedDisplayIds,
+    displays,
+    availableDisplays,
     bounds,
     primaryBounds: {
       x: primaryBounds.x,
@@ -2335,9 +2400,12 @@ function normalizeWindowModeState(nextState = {}) {
     supported,
     enabled,
     interactionEnabled: nextState.interactionEnabled === true,
+    windowRole: typeof nextState.windowRole === "string" ? nextState.windowRole : "window",
     configuredMode,
     currentMode,
     effectiveMode: typeof nextState.effectiveMode === "string" ? nextState.effectiveMode : currentMode,
+    multiMonitorMode: normalizeMultiMonitorMode(nextState.multiMonitorMode),
+    multiWindowWorkspaceActive: nextState.multiWindowWorkspaceActive === true,
     attachedToWallpaper: nextState.attachedToWallpaper === true,
     wallpaperParentClass: typeof nextState.wallpaperParentClass === "string" ? nextState.wallpaperParentClass : "",
     wallpaperError: typeof nextState.wallpaperError === "string" && nextState.wallpaperError ? nextState.wallpaperError : null,
@@ -2349,8 +2417,6 @@ function normalizeWindowModeState(nextState = {}) {
 
 function getCurrentWindowModeLabelKey() {
   switch (windowModeState.currentMode) {
-    case "desktop-edit":
-      return "windowModeDesktopEdit";
     case "wallpaper-view":
       return "windowModeWallpaperView";
     case "widget-mode":
@@ -2361,7 +2427,7 @@ function getCurrentWindowModeLabelKey() {
 }
 
 function canUseWallpaperModesFromUi() {
-  return appRuntimeConfig.windowModeSupported === true && appRuntimeConfig.wallpaperModeEnabled === true;
+  return appRuntimeConfig.windowModeSupported === true;
 }
 
 function refreshToolbarWindowModeUi() {
@@ -2385,34 +2451,13 @@ function refreshToolbarWindowModeUi() {
 function refreshWallpaperModeUi(options = {}) {
   const preserveOpenFormInputs = options.force !== true && isSettingsModalOpen();
   const supported = appRuntimeConfig.windowModeSupported === true;
-  const liveEnabledValue = preserveOpenFormInputs && wallpaperModeEnabledInput
-    ? wallpaperModeEnabledInput.checked
-    : appRuntimeConfig.wallpaperModeEnabled === true;
-  const enabled = supported && liveEnabledValue;
-  const liveInteractionValue = preserveOpenFormInputs && wallpaperInteractionEnabledInput
-    ? wallpaperInteractionEnabledInput.checked
-    : appRuntimeConfig.wallpaperInteractionEnabled === true;
-  const interactionEnabled = enabled && liveInteractionValue;
-
-  if (wallpaperModeEnabledInput) {
-    if (!preserveOpenFormInputs) {
-      wallpaperModeEnabledInput.checked = enabled;
-    }
-    wallpaperModeEnabledInput.disabled = !supported;
-  }
+  const enabled = supported;
 
   if (windowModeInput) {
     if (!preserveOpenFormInputs) {
       windowModeInput.value = windowModeState.currentMode || appRuntimeConfig.windowMode || "normal";
     }
     windowModeInput.disabled = !supported || !enabled;
-  }
-
-  if (wallpaperInteractionEnabledInput) {
-    if (!preserveOpenFormInputs) {
-      wallpaperInteractionEnabledInput.checked = liveInteractionValue;
-    }
-    wallpaperInteractionEnabledInput.disabled = !supported || !enabled;
   }
 
   if (wallpaperModeHelp) {
@@ -2437,23 +2482,106 @@ function refreshWallpaperModeUi(options = {}) {
     wallpaperModeHelp.textContent = helpText;
   }
 
-  if (wallpaperInteractionHelp) {
-    let helpText = t("wallpaperInteractionHelp");
-    if (!supported) {
-      helpText = t("wallpaperModeUnsupported");
-    } else if (!enabled) {
-      helpText = `${t("wallpaperInteractionHelp")} ${t("wallpaperModeHelp")}`;
-    } else if (windowModeState.currentMode === "wallpaper-view" && windowModeState.overlayVisible !== interactionEnabled) {
-      helpText += ` ${t("wallpaperModePendingStatus")}`;
-    }
-    wallpaperInteractionHelp.textContent = helpText;
-  }
-
   refreshToolbarWindowModeUi();
 }
 
 function isSettingsModalOpen() {
   return Boolean(settingsModal && settingsModal.hidden === false);
+}
+
+function getAppMultiMonitorMode() {
+  return normalizeMultiMonitorMode(appRuntimeConfig.multiMonitorMode, appRuntimeConfig.multiMonitorEnabled === true);
+}
+
+function getMultiMonitorModeFromUi() {
+  return normalizeMultiMonitorMode(multiMonitorModeInput?.value || getAppMultiMonitorMode());
+}
+
+function getAvailableDisplaysForSettings() {
+  const layout = getActiveDisplayLayout();
+  const displays = layout.availableDisplays?.length ? layout.availableDisplays : layout.displays;
+  return displays.length ? displays : [];
+}
+
+function getSelectedMultiMonitorDisplayIdsFromUi(options = {}) {
+  const checkedIds = multiMonitorDisplays
+    ? [...multiMonitorDisplays.querySelectorAll('input[type="checkbox"]:checked')]
+      .map((input) => input.value)
+      .filter(Boolean)
+    : [];
+  if (checkedIds.length || options.fallback === false) {
+    return checkedIds;
+  }
+
+  const displays = getAvailableDisplaysForSettings();
+  const primaryDisplay = displays.find((display) => display.primary) || displays[0];
+  return primaryDisplay?.id ? [primaryDisplay.id] : [];
+}
+
+function renderMultiMonitorDisplayPicker(options = {}) {
+  if (!multiMonitorDisplays) {
+    return;
+  }
+
+  const preserveOpenFormInputs = options.preserveOpenFormInputs === true;
+  const mode = getMultiMonitorModeFromUi();
+  const displays = getAvailableDisplaysForSettings();
+  const existingSelection = preserveOpenFormInputs
+    ? getSelectedMultiMonitorDisplayIdsFromUi({ fallback: false })
+    : [];
+  const configuredSelection = normalizeDisplayIds(appRuntimeConfig.multiMonitorDisplayIds);
+  const selectedFromLayout = normalizeDisplayIds(getActiveDisplayLayout().selectedDisplayIds);
+  const selectedIds = new Set(
+    existingSelection.length ? existingSelection
+      : configuredSelection.length ? configuredSelection
+        : selectedFromLayout.length ? selectedFromLayout
+          : displays.map((display) => display.id)
+  );
+  const pickerDisabled = mode === "single";
+
+  multiMonitorDisplays.innerHTML = "";
+  if (!displays.length) {
+    const empty = document.createElement("p");
+    empty.className = "settings-help";
+    empty.textContent = t("multiMonitorNoDisplays");
+    multiMonitorDisplays.append(empty);
+    return;
+  }
+
+  displays.forEach((display, index) => {
+    const id = display.id || `display-${index}`;
+    const label = document.createElement("label");
+    label.className = "settings-display-item";
+    label.classList.toggle("is-disabled", pickerDisabled);
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = id;
+    input.checked = pickerDisabled ? false : selectedIds.has(id);
+    input.disabled = pickerDisabled;
+    input.addEventListener("change", () => {
+      if (getMultiMonitorModeFromUi() !== "single" && !getSelectedMultiMonitorDisplayIdsFromUi({ fallback: false }).length) {
+        input.checked = true;
+      }
+      refreshAppConfigUi();
+    });
+
+    const textWrap = document.createElement("span");
+    const title = document.createElement("span");
+    title.textContent = display.primary
+      ? `${display.name} (${t("multiMonitorDisplayPrimary")})`
+      : display.name;
+    const meta = document.createElement("span");
+    meta.className = "settings-display-meta";
+    meta.textContent = t("multiMonitorDisplaySize", {
+      width: Math.round(display.width || 0),
+      height: Math.round(display.height || 0)
+    });
+
+    textWrap.append(title, meta);
+    label.append(input, textWrap);
+    multiMonitorDisplays.append(label);
+  });
 }
 
 function refreshAppConfigUi(options = {}) {
@@ -2478,16 +2606,20 @@ function refreshAppConfigUi(options = {}) {
   if (autoStartHelp) {
     autoStartHelp.textContent = t(getAutoStartHelpKey());
   }
-  if (wallpaperInteractionEnabledInput && !preserveOpenFormInputs) {
-    wallpaperInteractionEnabledInput.checked = appRuntimeConfig.wallpaperInteractionEnabled === true;
+  if (multiMonitorModeInput && !preserveOpenFormInputs) {
+    multiMonitorModeInput.value = getAppMultiMonitorMode();
   }
-  if (multiMonitorEnabledInput && !preserveOpenFormInputs) {
-    multiMonitorEnabledInput.checked = appRuntimeConfig.multiMonitorEnabled === true;
-  }
+  renderMultiMonitorDisplayPicker({ preserveOpenFormInputs });
   if (multiMonitorHelp) {
-    const displayCount = Number((windowModeState.displayLayout || appRuntimeConfig.displayLayout || {}).displayCount || 1);
+    const layout = getActiveDisplayLayout();
+    const displayCount = Number(layout.displayCount || 1);
+    const selectedCount = getMultiMonitorModeFromUi() === "single"
+      ? 1
+      : getSelectedMultiMonitorDisplayIdsFromUi().length || Number(layout.selectedDisplayCount || 1);
     multiMonitorHelp.textContent = displayCount > 1
-      ? t("multiMonitorHelp", { count: displayCount })
+      ? (getMultiMonitorModeFromUi() === "single"
+        ? t("multiMonitorSingleHelp")
+        : t("multiMonitorHelp", { selected: selectedCount, count: displayCount }))
       : t("multiMonitorSingleDisplayHelp");
   }
   refreshWallpaperModeUi(options);
@@ -2882,7 +3014,15 @@ function applyLoadedBoardState(nextState, options = {}) {
     saveTimer = null;
   }
 
+  const preservedViewport = options.preserveViewport === true ? clone(state.viewport) : null;
+  const preservedLocked = options.preserveLocked === true ? state.locked : null;
   state = normalizeState(nextState);
+  if (preservedViewport) {
+    state.viewport = preservedViewport;
+  }
+  if (preservedLocked !== null) {
+    state.locked = preservedLocked;
+  }
   resetHistoryTracking(state);
   boardManagerState.selectedBoardId = getCurrentBoardId();
   syncBoardNameInput();
@@ -3084,6 +3224,7 @@ async function loadWindowModeState() {
   }
   refreshWallpaperModeUi({ force: true });
   updateModeUi();
+  refreshWebContentRenderForWindowMode();
 }
 
 async function switchWindowMode(mode) {
@@ -3095,6 +3236,7 @@ async function switchWindowMode(mode) {
     windowModeState = normalizeWindowModeState(await window.desktopBoard.setWindowMode(mode));
     refreshWallpaperModeUi({ force: true });
     updateModeUi();
+    refreshWebContentRenderForWindowMode();
     return true;
   } catch (error) {
     reportError("windowMode.switch", error);
@@ -3581,7 +3723,7 @@ function normalizeState(input) {
       ...(source.viewport || {})
     },
     settings,
-    cards: source.cards.map((card) => normalizeCard(card, settings)),
+    cards: normalizeCardStackOrders(source.cards.map((card) => normalizeCard(card, settings))),
     connections: []
   };
 
@@ -3769,6 +3911,7 @@ function normalizeCard(card, settings) {
     bodyColor: card.bodyColor || (kind === "group" && legacyColor ? legacyColor : defaultColors.body),
     customHeaderColor: Boolean(card.customHeaderColor ?? card.customColor),
     customBodyColor: Boolean(card.customBodyColor),
+    stackOrder: Number.isFinite(Number(card.stackOrder)) ? Number(card.stackOrder) : null,
     tags: normalizeTagList(card.tags),
     references: normalizeReferenceIds(card.references, card.id || "")
   };
@@ -4459,9 +4602,8 @@ function applyTranslations() {
   setText("themeModeLabel", "themeMode");
   setText("languageModeLabel", "languageMode");
   setText("autoStartWithWindowsLabel", "autoStartWithWindows");
-  setText("wallpaperModeEnabledLabel", "wallpaperModeEnabled");
-  setText("wallpaperInteractionEnabledLabel", "wallpaperInteractionEnabled");
-  setText("multiMonitorEnabledLabel", "multiMonitorEnabled");
+  setText("multiMonitorModeLabel", "multiMonitorMode");
+  setText("multiMonitorDisplaysLabel", "multiMonitorDisplays");
   setText("windowModeLabel", "windowModeLabel");
   setText("timeFormatLabel", "timeFormat");
   setText("backgroundColorLabel", "backgroundColor");
@@ -4478,7 +4620,6 @@ function applyTranslations() {
   setText("autoManageAssetsOnLaunchLabel", "autoManageAssetsOnLaunch");
   setText("autoManageAssetsOnLaunchHelp", "autoManageAssetsOnLaunchHelp");
   setText("wallpaperModeHelp", appRuntimeConfig.windowModeSupported ? "wallpaperModeHelp" : "wallpaperModeUnsupported");
-  setText("wallpaperInteractionHelp", "wallpaperInteractionHelp");
   setText("updatesLabel", "updatesLabel");
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
@@ -4523,17 +4664,19 @@ function applyTranslations() {
   setSelectOptionText(timeFormatInput, "24h", "timeFormat24");
   setSelectOptionText(timeFormatInput, "12h", "timeFormat12");
   setSelectOptionText(windowModeInput, "normal", "windowModeNormal");
-  setSelectOptionText(windowModeInput, "desktop-edit", "windowModeDesktopEdit");
   setSelectOptionText(windowModeInput, "wallpaper-view", "windowModeWallpaperView");
   setSelectOptionText(windowModeInput, "widget-mode", "windowModeWidgetMode");
+  setSelectOptionText(multiMonitorModeInput, "single", "multiMonitorModeSingle");
+  setSelectOptionText(multiMonitorModeInput, "seamless", "multiMonitorModeSeamless");
+  setSelectOptionText(multiMonitorModeInput, "workspace", "multiMonitorModeWorkspace");
   setSelectOptionText(toolbarWindowModeSelect, "normal", "windowModeNormal");
-  setSelectOptionText(toolbarWindowModeSelect, "desktop-edit", "windowModeDesktopEdit");
   setSelectOptionText(toolbarWindowModeSelect, "wallpaper-view", "windowModeWallpaperView");
   setSelectOptionText(toolbarWindowModeSelect, "widget-mode", "windowModeWidgetMode");
-  if (widgetDesktopEditButton) {
-    widgetDesktopEditButton.dataset.tooltip = t("windowModeDesktopEdit");
-    widgetDesktopEditButton.setAttribute("aria-label", t("windowModeDesktopEdit"));
-    widgetDesktopEditButton.title = t("windowModeDesktopEdit");
+  renderMultiMonitorDisplayPicker({ preserveOpenFormInputs: isSettingsModalOpen() });
+  if (modeEditButton) {
+    modeEditButton.dataset.tooltip = t("windowModeNormal");
+    modeEditButton.setAttribute("aria-label", t("windowModeNormal"));
+    modeEditButton.title = t("windowModeNormal");
   }
   if (pickStoragePathButton) {
     pickStoragePathButton.textContent = t("storagePick");
@@ -5149,6 +5292,10 @@ function updateModeUi() {
   document.body.classList.toggle("is-wallpaper-passive", windowModeState.currentMode === "wallpaper-view" && !canEditInWallpaperView());
   document.body.classList.toggle("is-widget-mode", windowModeState.currentMode === "widget-mode");
   document.body.classList.toggle("is-widget-mode-overlay", isOverlayWindow && windowModeState.currentMode === "widget-mode");
+  const isLocalWorkspaceSurface = windowModeState.windowRole === "workspace"
+    || windowModeState.windowRole === "workspace-overlay"
+    || (windowModeState.windowRole === "main" && windowModeState.multiWindowWorkspaceActive);
+  document.body.classList.toggle("is-workspace-window", isLocalWorkspaceSurface);
   document.body.classList.toggle(
     "is-overlay-surface-transparent",
     isOverlayWindow && (
@@ -5163,7 +5310,6 @@ function updateModeUi() {
       || (windowModeState.currentMode === "wallpaper-view" && windowModeState.overlayVisible)
     )
   );
-  document.body.classList.toggle("is-desktop-edit", windowModeState.currentMode === "desktop-edit");
   board.classList.toggle("is-connecting", connectionMode);
   addConnectionButton.classList.toggle("is-active", connectionMode);
   addConnectionButton.dataset.tooltip = t(connectionMode ? "cancelConnection" : "connection");
@@ -5227,12 +5373,48 @@ function isWidgetModeActive() {
     && windowModeState.overlayVisible === true;
 }
 
+function shouldRenderLiveWebContent() {
+  if (!window.desktopBoard || isOverlayWindow) {
+    return true;
+  }
+
+  return !(
+    windowModeState.currentMode === "widget-mode"
+    || (windowModeState.currentMode === "wallpaper-view" && windowModeState.overlayVisible === true)
+  );
+}
+
+function shouldUseNativeWebCards() {
+  return Boolean(window.desktopBoard?.syncWebCards);
+}
+
+function getLiveWebContentModeKey() {
+  return shouldRenderLiveWebContent() ? "live" : "paused";
+}
+
+function refreshWebContentRenderForWindowMode() {
+  const nextKey = getLiveWebContentModeKey();
+  if (!liveWebContentModeKey) {
+    liveWebContentModeKey = nextKey;
+    return;
+  }
+
+  if (nextKey !== liveWebContentModeKey && state.cards.some((card) => card.kind === "web")) {
+    liveWebContentModeKey = nextKey;
+    render();
+    return;
+  }
+
+  liveWebContentModeKey = nextKey;
+  requestAnimationFrame(syncAllWebCardElements);
+}
+
 function isWidgetInteractiveTarget(target) {
   if (!(target instanceof Element)) {
     return false;
   }
 
-  return Boolean(target.closest(".card, .context-menu, .widget-desktop-edit-button"));
+  return Boolean(target.closest(".card, .context-menu, .mode-edit-button"));
 }
 
 function shouldWidgetOverlayCapturePointer() {
@@ -5310,21 +5492,320 @@ function render() {
   applyViewport();
   applySettings();
   rebuildCardIndexes();
+  enforceGroupStackHierarchy();
   renderConnections();
 
   state.cards
     .slice()
-    .sort((a, b) => getCardLayer(a) - getCardLayer(b))
+    .sort(compareCardsForRender)
     .forEach((card) => {
       workspace.appendChild(renderCard(card));
     });
 
   refreshVisibleTimerCards();
   refreshVisibleReminderCards();
+  liveWebContentModeKey = getLiveWebContentModeKey();
+  requestAnimationFrame(syncAllWebCardElements);
+}
+
+function getCardLayerBase(card) {
+  return card?.kind === "group" ? 0 : 10000;
+}
+
+function getCardLayerKey(card) {
+  return card?.kind === "group" ? "group" : "card";
+}
+
+function getCardStackOrder(card) {
+  const stackOrder = Number(card?.stackOrder);
+  return Number.isFinite(stackOrder) ? stackOrder : 0;
 }
 
 function getCardLayer(card) {
-  return card.kind === "group" ? 0 : 10;
+  return getCardLayerBase(card) + getCardStackOrder(card);
+}
+
+function compareCardsForRender(a, b) {
+  const layerDelta = getCardLayer(a) - getCardLayer(b);
+  if (layerDelta !== 0) {
+    return layerDelta;
+  }
+
+  return state.cards.indexOf(a) - state.cards.indexOf(b);
+}
+
+function compareStackBundleCards(a, b) {
+  if (a?.kind === "group" && b?.kind === "group") {
+    if (isCardInsideGroup(b, a)) {
+      return -1;
+    }
+    if (isCardInsideGroup(a, b)) {
+      return 1;
+    }
+  }
+
+  return compareCardsForRender(a, b);
+}
+
+function enforceGroupStackHierarchy(cards = state.cards) {
+  const groups = cards.filter((card) => card.kind === "group");
+  if (groups.length < 2) {
+    return false;
+  }
+
+  let changed = false;
+  for (let pass = 0; pass < groups.length; pass += 1) {
+    let passChanged = false;
+    groups.forEach((parent) => {
+      groups.forEach((child) => {
+        if (parent.id === child.id || !isCardInsideGroup(child, parent)) {
+          return;
+        }
+
+        const parentOrder = getCardStackOrder(parent);
+        if (getCardStackOrder(child) > parentOrder) {
+          return;
+        }
+
+        child.stackOrder = parentOrder + 1;
+        changed = true;
+        passChanged = true;
+      });
+    });
+
+    if (!passChanged) {
+      break;
+    }
+  }
+
+  return changed;
+}
+
+function normalizeCardStackOrders(cards = []) {
+  const nextOrders = new Map();
+  cards.forEach((card) => {
+    const stackOrder = Number(card?.stackOrder);
+    if (!Number.isFinite(stackOrder)) {
+      return;
+    }
+
+    const key = getCardLayerKey(card);
+    nextOrders.set(key, Math.max(nextOrders.get(key) ?? 0, stackOrder + 1));
+  });
+
+  const normalizedCards = cards.map((card) => {
+    const stackOrder = Number(card?.stackOrder);
+    if (Number.isFinite(stackOrder)) {
+      return {
+        ...card,
+        stackOrder
+      };
+    }
+
+    const key = getCardLayerKey(card);
+    const nextOrder = nextOrders.get(key) ?? 0;
+    nextOrders.set(key, nextOrder + 1);
+    return {
+      ...card,
+      stackOrder: nextOrder
+    };
+  });
+
+  enforceGroupStackHierarchy(normalizedCards);
+  return normalizedCards;
+}
+
+function getNextStackOrderForLayer(layerKey) {
+  return state.cards
+    .filter((card) => getCardLayerKey(card) === layerKey)
+    .reduce((maxOrder, card) => Math.max(maxOrder, getCardStackOrder(card)), -1) + 1;
+}
+
+function assignTopStackOrder(card) {
+  if (!card) {
+    return card;
+  }
+
+  card.stackOrder = getNextStackOrderForLayer(getCardLayerKey(card));
+  return card;
+}
+
+function refreshCardStackStyles() {
+  enforceGroupStackHierarchy();
+  workspace.querySelectorAll(".card").forEach((element) => {
+    const card = cardIndex.get(element.dataset.id || "");
+    if (card) {
+      element.style.zIndex = String(getCardLayer(card));
+    }
+  });
+  syncAllWebCardElements();
+}
+
+function getStackBundleCards(cards = []) {
+  const bundledCards = new Map();
+  cards
+    .filter(Boolean)
+    .sort(compareStackBundleCards)
+    .forEach((card) => {
+      if (!bundledCards.has(card.id)) {
+        bundledCards.set(card.id, card);
+      }
+
+      if (card.kind !== "group") {
+        return;
+      }
+
+      getContainedCards(card, {
+        includeGroups: true,
+        recursive: true
+      })
+        .filter((containedCard) => containedCard.kind === "group")
+        .sort(compareStackBundleCards)
+        .forEach((containedCard) => {
+          if (!bundledCards.has(containedCard.id)) {
+            bundledCards.set(containedCard.id, containedCard);
+          }
+        });
+    });
+
+  return [...bundledCards.values()];
+}
+
+function bringCardsToFront(cards, options = {}) {
+  const targetCards = getStackBundleCards(cards);
+  if (targetCards.length === 0) {
+    return false;
+  }
+
+  let changed = false;
+  const layerGroups = new Map();
+  targetCards.forEach((card) => {
+    const key = getCardLayerKey(card);
+    if (!layerGroups.has(key)) {
+      layerGroups.set(key, []);
+    }
+    layerGroups.get(key).push(card);
+  });
+
+  layerGroups.forEach((layerCards, key) => {
+    const targetIds = new Set(layerCards.map((card) => card.id));
+    const orderedLayerCards = state.cards
+      .filter((card) => getCardLayerKey(card) === key)
+      .sort(compareCardsForRender);
+    const orderedTargetIds = layerCards
+      .slice()
+      .sort(compareStackBundleCards)
+      .map((card) => card.id);
+    const topIds = orderedLayerCards
+      .slice(-orderedTargetIds.length)
+      .map((card) => card.id);
+    const alreadyTop = topIds.length === orderedTargetIds.length
+      && topIds.every((id, index) => id === orderedTargetIds[index])
+      && orderedTargetIds.every((id) => targetIds.has(id));
+    if (alreadyTop) {
+      return;
+    }
+
+    let nextOrder = orderedLayerCards.reduce((maxOrder, card) => Math.max(maxOrder, getCardStackOrder(card)), -1) + 1;
+    layerCards
+      .slice()
+      .sort(compareStackBundleCards)
+      .forEach((card) => {
+        if (getCardStackOrder(card) !== nextOrder) {
+          changed = true;
+        }
+        card.stackOrder = nextOrder;
+        nextOrder += 1;
+      });
+  });
+
+  if (enforceGroupStackHierarchy()) {
+    changed = true;
+  }
+
+  if (!changed) {
+    return false;
+  }
+
+  if (options.render) {
+    render();
+  } else {
+    refreshCardStackStyles();
+  }
+
+  if (options.save !== false) {
+    scheduleSave();
+  }
+
+  return true;
+}
+
+function bringCardToFront(card, options = {}) {
+  return bringCardsToFront([card], options);
+}
+
+function moveCardStack(card, direction) {
+  if (!card || direction === 0) {
+    closeContextMenu();
+    return;
+  }
+
+  ensureEditMode();
+  const bundleCards = getStackBundleCards([card]).filter((item) => getCardLayerKey(item) === getCardLayerKey(card));
+  const bundleIds = new Set(bundleCards.map((item) => item.id));
+  const layerCards = state.cards
+    .filter((item) => getCardLayerKey(item) === getCardLayerKey(card))
+    .sort(compareCardsForRender);
+  const bundleIndexes = bundleCards
+    .map((item) => layerCards.findIndex((layerCard) => layerCard.id === item.id))
+    .filter((index) => index !== -1);
+  if (bundleIndexes.length === 0) {
+    closeContextMenu();
+    return;
+  }
+
+  const firstBundleIndex = Math.min(...bundleIndexes);
+  const lastBundleIndex = Math.max(...bundleIndexes);
+  const remainingCards = layerCards.filter((item) => !bundleIds.has(item.id));
+  const indexLookup = new Map(layerCards.map((item, index) => [item.id, index]));
+  let insertionIndex = remainingCards.filter((item) => indexLookup.get(item.id) < firstBundleIndex).length;
+
+  if (direction > 0) {
+    const nextCard = remainingCards.find((item) => indexLookup.get(item.id) > lastBundleIndex);
+    if (!nextCard) {
+      closeContextMenu();
+      return;
+    }
+    insertionIndex = remainingCards.indexOf(nextCard) + 1;
+  } else {
+    const previousCards = remainingCards.filter((item) => indexLookup.get(item.id) < firstBundleIndex);
+    if (previousCards.length === 0) {
+      closeContextMenu();
+      return;
+    }
+    insertionIndex = previousCards.length - 1;
+  }
+
+  const orderedBundleCards = bundleCards.slice().sort(compareStackBundleCards);
+  const nextLayerCards = [
+    ...remainingCards.slice(0, insertionIndex),
+    ...orderedBundleCards,
+    ...remainingCards.slice(insertionIndex)
+  ];
+  const changed = nextLayerCards.some((item, index) => getCardStackOrder(item) !== index);
+  if (!changed) {
+    closeContextMenu();
+    return;
+  }
+
+  nextLayerCards.forEach((item, index) => {
+    item.stackOrder = index;
+  });
+  enforceGroupStackHierarchy();
+
+  render();
+  scheduleSave();
+  closeContextMenu();
 }
 
 function getCardKindLabel(kind) {
@@ -5339,6 +5820,116 @@ function getResizeDirections(card) {
   return card.kind === "group"
     ? ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
     : ["se"];
+}
+
+function stopHeaderControlPointer(event) {
+  event.stopPropagation();
+}
+
+function applyWebAddressValue(card, input) {
+  if (!card || card.kind !== "web" || state.locked) {
+    return false;
+  }
+
+  const previousUrl = normalizeUrl(card.url || card.src);
+  const nextUrl = normalizeUrl(input.value);
+  if (!nextUrl) {
+    input.value = previousUrl || "";
+    input.classList.add("is-invalid");
+    window.setTimeout(() => input.classList.remove("is-invalid"), 900);
+    return false;
+  }
+
+  input.value = nextUrl;
+  if (nextUrl === previousUrl) {
+    return true;
+  }
+
+  const oldTitle = getUrlTitle(previousUrl);
+  card.url = nextUrl;
+  card.src = nextUrl;
+  if (!card.title || card.title === oldTitle || card.title === "URL") {
+    card.title = getUrlTitle(nextUrl);
+  }
+
+  render();
+  scheduleSave();
+  return true;
+}
+
+function reloadWebCard(card) {
+  if (shouldUseNativeWebCards()) {
+    syncAllWebCardElements();
+    void window.desktopBoard.reloadWebCard(card.id);
+    return;
+  }
+
+  const cardElement = getCardElement(card);
+  const browser = cardElement?.querySelector(".web-view");
+  if (!browser) {
+    render();
+    return;
+  }
+
+  try {
+    if (typeof browser.reloadIgnoringCache === "function") {
+      browser.reloadIgnoringCache();
+    } else if (typeof browser.reload === "function") {
+      browser.reload();
+    } else {
+      const url = normalizeUrl(card.url || card.src);
+      if (url) {
+        browser.src = url;
+      }
+    }
+  } catch (error) {
+    reportError("web.reload", error);
+  }
+}
+
+function createWebHeaderControls(card) {
+  const input = document.createElement("input");
+  input.className = "web-address-input";
+  input.type = "text";
+  input.value = normalizeUrl(card.url || card.src) || card.url || card.src || "";
+  input.readOnly = state.locked;
+  input.spellcheck = false;
+  input.setAttribute("aria-label", t("address"));
+  input.addEventListener("pointerdown", stopHeaderControlPointer);
+  input.addEventListener("click", stopHeaderControlPointer);
+  input.addEventListener("dblclick", stopHeaderControlPointer);
+  input.addEventListener("contextmenu", stopHeaderControlPointer);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (applyWebAddressValue(card, input)) {
+        input.blur();
+      }
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      input.value = normalizeUrl(card.url || card.src) || "";
+      input.blur();
+    }
+  });
+  input.addEventListener("blur", () => applyWebAddressValue(card, input));
+
+  const reloadButton = document.createElement("button");
+  reloadButton.type = "button";
+  reloadButton.className = "web-refresh-button";
+  reloadButton.title = t("reloadWebPage");
+  reloadButton.setAttribute("aria-label", t("reloadWebPage"));
+  reloadButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 1-2.05-4.95L20 10"/></svg>';
+  reloadButton.addEventListener("pointerdown", stopHeaderControlPointer);
+  reloadButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (applyWebAddressValue(card, input)) {
+      reloadWebCard(card);
+    }
+  });
+
+  return { input, reloadButton };
 }
 
 function renderCard(card) {
@@ -5382,7 +5973,10 @@ function renderCard(card) {
   kindIcon.setAttribute("aria-hidden", "true");
   kindIcon.innerHTML = getCardKindIcon(card.kind);
 
-  if (card.kind === "file") {
+  if (card.kind === "web") {
+    const { input, reloadButton } = createWebHeaderControls(card);
+    header.append(grip, input, reloadButton, kindIcon);
+  } else if (card.kind === "file") {
     const previewToggle = document.createElement("label");
     previewToggle.className = "card-header-toggle";
     previewToggle.title = canPreviewFile(card) ? t("showPreview") : t("previewUnavailableHint");
@@ -7028,22 +7622,39 @@ function renderWeb(card) {
     return wrapper;
   }
 
+  if (!shouldRenderLiveWebContent()) {
+    wrapper.classList.add("is-web-paused");
+    const placeholder = document.createElement("div");
+    placeholder.className = "web-frame-paused";
+    placeholder.textContent = getUrlTitle(url);
+    wrapper.appendChild(placeholder);
+    return wrapper;
+  }
+
+  if (shouldUseNativeWebCards()) {
+    const slot = document.createElement("div");
+    slot.className = "web-native-slot";
+    slot.textContent = getUrlTitle(url);
+    wrapper.appendChild(slot);
+    return wrapper;
+  }
+
   const useWebview = Boolean(window.desktopBoard);
   const browser = document.createElement(useWebview ? "webview" : "iframe");
   browser.className = "web-view";
 
   if (useWebview) {
+    browser.dataset.pendingSrc = url;
     browser.setAttribute("partition", "persist:desktop-board-web");
     browser.setAttribute("webpreferences", "contextIsolation=yes,nodeIntegration=no");
     browser.setAttribute("allowpopups", "");
-    browser.addEventListener("did-attach", () => syncWebCardElement(browser.closest(".card")));
+    browser.addEventListener("did-attach", () => {
+      const cardElement = browser.closest(".card");
+      syncWebCardElement(cardElement);
+      loadPendingWebView(cardElement);
+    });
     browser.addEventListener("dom-ready", () => {
       syncWebCardElement(browser.closest(".card"));
-      try {
-        Promise.resolve(browser.insertCSS?.("html, body { min-height: 100%; background: #ffffff; }")).catch(() => {});
-      } catch {
-        // Webview CSS injection is best effort.
-      }
     });
     browser.addEventListener("did-finish-load", () => {
       browser.dataset.recoveryCount = "0";
@@ -7061,9 +7672,8 @@ function renderWeb(card) {
     browser.loading = "lazy";
     browser.referrerPolicy = "no-referrer-when-downgrade";
     browser.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    browser.src = url;
   }
-
-  browser.src = url;
 
   const shield = document.createElement("div");
   shield.className = "web-frame-shield";
@@ -7076,6 +7686,32 @@ function renderWeb(card) {
 
   wrapper.append(browser, shield);
   return wrapper;
+}
+
+function loadPendingWebView(cardElement) {
+  if (!cardElement || cardElement.dataset.kind !== "web") {
+    return;
+  }
+
+  const browser = cardElement.querySelector(".web-view");
+  if (!browser || browser.tagName.toLowerCase() !== "webview") {
+    return;
+  }
+
+  const pendingSrc = browser.dataset.pendingSrc;
+  if (!pendingSrc || browser.dataset.loadedSrc === pendingSrc || !browser.isConnected) {
+    return;
+  }
+
+  const width = Number(browser.getAttribute("width")) || Math.round(browser.clientWidth);
+  const height = Number(browser.getAttribute("height")) || Math.round(browser.clientHeight);
+  if (width <= 1 || height <= 1) {
+    return;
+  }
+
+  browser.dataset.loadedSrc = pendingSrc;
+  browser.setAttribute("src", pendingSrc);
+  browser.src = pendingSrc;
 }
 
 function scheduleWebViewRecovery(browser) {
@@ -7109,11 +7745,136 @@ function setupWebCardSizeSync(cardElement) {
   }
 
   webResizeObserver?.observe(body);
-  requestAnimationFrame(() => syncWebCardElement(cardElement));
+  requestAnimationFrame(() => {
+    syncWebCardElement(cardElement);
+    requestAnimationFrame(() => syncWebCardElement(cardElement));
+  });
+}
+
+function isAnyModalOpen() {
+  return Boolean(document.querySelector(".modal:not([hidden])"));
+}
+
+function getNativeWebBodyRects() {
+  return [...workspace.querySelectorAll('.card[data-kind="web"] .card-body')]
+    .map((body) => {
+      const rect = body.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.top + Math.max(1, rect.height - nativeWebResizeReserve),
+        width: rect.width,
+        height: Math.max(1, rect.height - nativeWebResizeReserve)
+      };
+    })
+    .filter((rect) => rect.width > 1 && rect.height > 1);
+}
+
+function getRectOverlapArea(first, second) {
+  if (!first || !second) {
+    return 0;
+  }
+
+  const left = Math.max(first.left, second.left);
+  const right = Math.min(first.right, second.right);
+  const top = Math.max(first.top, second.top);
+  const bottom = Math.min(first.bottom, second.bottom);
+  return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
+
+function getTotalNativeWebOverlapArea(rect) {
+  return getNativeWebBodyRects().reduce((sum, webRect) => sum + getRectOverlapArea(rect, webRect), 0);
+}
+
+function shouldHideNativeWebCardForUi(rect) {
+  if (isAnyModalOpen()) {
+    return true;
+  }
+
+  if (!contextMenu || contextMenu.hidden || !rect) {
+    return false;
+  }
+
+  return getRectOverlapArea(rect, contextMenu.getBoundingClientRect()) > 0;
+}
+
+function getNativeWebCardPayload(cardElement, options = {}) {
+  const card = cardIndex.get(cardElement?.dataset?.id || "");
+  const body = cardElement?.querySelector(".card-body");
+  if (!card || card.kind !== "web" || !body) {
+    return null;
+  }
+
+  const url = normalizeUrl(card.url || card.src);
+  const rect = body.getBoundingClientRect();
+  const reserveBottom = shouldUseNativeWebCards() ? nativeWebResizeReserve : 0;
+  const nativeHeight = Math.max(1, rect.height - reserveBottom);
+  const nativeRect = {
+    left: rect.left,
+    top: rect.top,
+    right: rect.right,
+    bottom: rect.top + nativeHeight,
+    width: rect.width,
+    height: nativeHeight
+  };
+  const visible = options.forceHidden === true
+    ? false
+    : shouldRenderLiveWebContent()
+    && !shouldHideNativeWebCardForUi(nativeRect)
+    && Boolean(url)
+    && rect.width > 1
+    && nativeHeight > 1
+    && rect.right > 0
+    && rect.bottom > 0
+    && rect.left < window.innerWidth
+    && rect.top < window.innerHeight;
+
+  return {
+    cardId: card.id,
+    url,
+    visible,
+    bounds: {
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: nativeHeight
+    }
+  };
+}
+
+function syncNativeWebCardsNow() {
+  nativeWebCardSyncFrame = 0;
+  if (!window.desktopBoard?.syncWebCards) {
+    return;
+  }
+
+  const forceHidden = !shouldRenderLiveWebContent() || isAnyModalOpen();
+  const cards = [...workspace.querySelectorAll('.card[data-kind="web"]')]
+    .sort((first, second) => compareCardsForRender(
+      cardIndex.get(first.dataset.id || ""),
+      cardIndex.get(second.dataset.id || "")
+    ))
+    .map((cardElement) => getNativeWebCardPayload(cardElement, { forceHidden }))
+    .filter(Boolean);
+  void window.desktopBoard.syncWebCards(cards);
+}
+
+function scheduleNativeWebCardSync() {
+  if (!window.desktopBoard?.syncWebCards || nativeWebCardSyncFrame) {
+    return;
+  }
+
+  nativeWebCardSyncFrame = requestAnimationFrame(syncNativeWebCardsNow);
 }
 
 function syncWebCardElement(cardElement) {
   if (!cardElement || cardElement.dataset.kind !== "web") {
+    return;
+  }
+
+  if (shouldUseNativeWebCards()) {
+    scheduleNativeWebCardSync();
     return;
   }
 
@@ -7140,10 +7901,16 @@ function syncWebCardElement(cardElement) {
   if (browser.tagName.toLowerCase() === "webview") {
     browser.setAttribute("width", String(width));
     browser.setAttribute("height", String(height));
+    loadPendingWebView(cardElement);
   }
 }
 
 function syncAllWebCardElements() {
+  if (shouldUseNativeWebCards()) {
+    scheduleNativeWebCardSync();
+    return;
+  }
+
   workspace.querySelectorAll('.card[data-kind="web"]').forEach((cardElement) => {
     syncWebCardElement(cardElement);
   });
@@ -8493,7 +9260,15 @@ function isBoardDeleteShortcutBlocked(target) {
 }
 
 function selectCardFromPointer(event, card) {
-  if (connectionMode || event.button !== 0 || state.locked || isEditableTarget(event.target)) {
+  if (connectionMode || event.button !== 0 || state.locked) {
+    return;
+  }
+
+  if (!event.shiftKey && !event.ctrlKey && !event.metaKey) {
+    bringCardToFront(card);
+  }
+
+  if (isEditableTarget(event.target)) {
     return;
   }
 
@@ -8624,10 +9399,12 @@ function startCardMove(event, card) {
     setSelectedCards([card.id]);
   }
 
+  const selectedCards = getSelectedCards();
+  bringCardsToFront(selectedCards.length > 1 ? selectedCards : [card], { save: false });
+
   const cardElement = getCardElement(card);
   cardElement.setPointerCapture(event.pointerId);
   const startWorld = screenToWorld(event.clientX, event.clientY);
-  const selectedCards = getSelectedCards();
   const moveCards = getCardsForMove(
     selectedCards.length > 1
       ? selectedCards
@@ -8746,6 +9523,9 @@ function updateActiveAction(event) {
       if (itemElement) {
         itemElement.style.left = `${item.card.x}px`;
         itemElement.style.top = `${item.card.y}px`;
+        if (item.card.kind === "web") {
+          syncCardElementLayout(itemElement);
+        }
       }
     });
     renderConnections();
@@ -8885,7 +9665,8 @@ function addCard(kind, worldPoint = null) {
     headerColor: colors.header,
     bodyColor: colors.body,
     customHeaderColor: false,
-    customBodyColor: false
+    customBodyColor: false,
+    stackOrder: getNextStackOrderForLayer(kind === "group" ? "group" : "card")
   };
 
   if (kind === "code") {
@@ -8990,7 +9771,8 @@ function addGroup(worldPoint = null) {
     headerColor: colors.header,
     bodyColor: colors.body,
     customHeaderColor: false,
-    customBodyColor: false
+    customBodyColor: false,
+    stackOrder: getNextStackOrderForLayer("group")
   });
 
   render();
@@ -9026,6 +9808,7 @@ async function addMedia(kind, worldPoint = null) {
     bodyColor: colors.body,
     customHeaderColor: false,
     customBodyColor: false,
+    stackOrder: getNextStackOrderForLayer("card"),
     src: media.src,
     path: media.path || null,
     assetId: media.assetId || null,
@@ -9066,6 +9849,7 @@ async function addFile(worldPoint = null) {
     bodyColor: colors.body,
     customHeaderColor: false,
     customBodyColor: false,
+    stackOrder: getNextStackOrderForLayer("card"),
     src: file.src,
     path: file.path || null,
     assetId: file.assetId || null,
@@ -9082,6 +9866,7 @@ async function addFile(worldPoint = null) {
 function closeUrlModal(result = "") {
   urlModal.hidden = true;
   urlStatus.textContent = "";
+  requestAnimationFrame(syncAllWebCardElements);
 
   if (pendingUrlResolver) {
     const resolve = pendingUrlResolver;
@@ -9114,6 +9899,7 @@ function requestWebUrl(currentValue = "", submitKey = "add") {
   urlInput.value = currentValue || "https://";
   urlStatus.textContent = "";
   urlModal.hidden = false;
+  syncAllWebCardElements();
 
   window.setTimeout(() => {
     urlInput.focus();
@@ -9526,21 +10312,15 @@ function createContextTagEditor(card) {
 async function addWeb(worldPoint = null) {
   ensureEditMode();
 
-  const url = await requestWebUrl("", "add");
-  if (!url) {
-    return;
-  }
-
   const definition = getCardTypeDefinition("web");
   const width = definition.defaultSize?.width || 560;
   const height = definition.defaultSize?.height || 360;
   const position = getNewCardPosition(width, height, worldPoint);
   const colors = getDefaultCardColors("web");
-
-  state.cards.push({
+  const card = {
     id: createId("web"),
     kind: "web",
-    title: getUrlTitle(url),
+    title: t("urlTitle"),
     x: position.x,
     y: position.y,
     width,
@@ -9549,11 +10329,21 @@ async function addWeb(worldPoint = null) {
     bodyColor: colors.body,
     customHeaderColor: false,
     customBodyColor: false,
-    url,
-    src: url
-  });
+    stackOrder: getNextStackOrderForLayer("card"),
+    url: "",
+    src: ""
+  };
+
+  state.cards.push(card);
 
   render();
+  requestAnimationFrame(() => {
+    const addressInput = getCardElement(card)?.querySelector(".web-address-input");
+    if (addressInput) {
+      addressInput.focus();
+      addressInput.select();
+    }
+  });
   scheduleSave();
 }
 
@@ -9636,16 +10426,44 @@ function getAssetKindFromFile(file) {
 function closeContextMenu() {
   contextMenu.hidden = true;
   contextMenu.innerHTML = "";
+  requestAnimationFrame(syncAllWebCardElements);
 }
 
 function positionContextMenu(clientX, clientY) {
   contextMenu.hidden = false;
   const margin = 8;
   const rect = contextMenu.getBoundingClientRect();
-  const left = Math.min(clientX, window.innerWidth - rect.width - margin);
-  const top = Math.min(clientY, window.innerHeight - rect.height - margin);
-  contextMenu.style.left = `${Math.max(margin, left)}px`;
-  contextMenu.style.top = `${Math.max(margin, top)}px`;
+  const clampLeft = (value) => Math.max(margin, Math.min(value, window.innerWidth - rect.width - margin));
+  const clampTop = (value) => Math.max(margin, Math.min(value, window.innerHeight - rect.height - margin));
+  const candidates = [
+    { left: clientX, top: clientY },
+    { left: clientX - rect.width, top: clientY },
+    { left: clientX, top: clientY - rect.height },
+    { left: clientX - rect.width, top: clientY - rect.height },
+    { left: clientX + margin, top: clientY - rect.height / 2 },
+    { left: clientX - rect.width - margin, top: clientY - rect.height / 2 }
+  ].map((candidate) => {
+    const left = clampLeft(candidate.left);
+    const top = clampTop(candidate.top);
+    return {
+      left,
+      top,
+      overlap: getTotalNativeWebOverlapArea({
+        left,
+        top,
+        right: left + rect.width,
+        bottom: top + rect.height
+      })
+    };
+  });
+
+  const best = candidates.reduce((currentBest, candidate) => (
+    candidate.overlap < currentBest.overlap ? candidate : currentBest
+  ), candidates[0]);
+
+  contextMenu.style.left = `${best.left}px`;
+  contextMenu.style.top = `${best.top}px`;
+  requestAnimationFrame(syncAllWebCardElements);
 }
 
 function createContextButton(label, action, danger = false) {
@@ -9708,7 +10526,7 @@ function findCardFromEventTarget(target) {
 
 function focusCardTitle(card) {
   ensureEditMode();
-  const title = getCardElement(card)?.querySelector(".card-title");
+  const title = getCardElement(card)?.querySelector(card.kind === "web" ? ".web-address-input" : ".card-title");
   if (title) {
     title.focus();
     title.select();
@@ -9757,6 +10575,7 @@ function duplicateCard(card) {
     copy.progressValue = getProgressStats(copy).percent;
   }
 
+  assignTopStackOrder(copy);
   state.cards.push(copy);
   render();
   scheduleSave();
@@ -9818,31 +10637,12 @@ function createGroupFromSelection() {
     headerColor: colors.header,
     bodyColor: colors.body,
     customHeaderColor: false,
-    customBodyColor: false
+    customBodyColor: false,
+    stackOrder: getNextStackOrderForLayer("group")
   };
 
   state.cards.push(group);
   selectedIds = new Set([group.id]);
-  render();
-  scheduleSave();
-  closeContextMenu();
-}
-
-async function editWebUrl(card) {
-  ensureEditMode();
-
-  const oldTitle = getUrlTitle(card.url || card.src || "");
-  const url = await requestWebUrl(card.url || card.src || "", "save");
-  if (!url) {
-    return;
-  }
-
-  card.url = url;
-  card.src = url;
-  if (!card.title || card.title === oldTitle) {
-    card.title = getUrlTitle(url);
-  }
-
   render();
   scheduleSave();
   closeContextMenu();
@@ -10124,14 +10924,15 @@ function renderCardContextMenu(card) {
   title.textContent = card.title || t("genericElement");
 
   const mainActions = [
-    createContextButton(t("rename"), () => focusCardTitle(card)),
+    ...(card.kind === "web" ? [] : [createContextButton(t("rename"), () => focusCardTitle(card))]),
     createContextButton(t("duplicate"), () => duplicateCard(card)),
+    createContextButton(t("bringForward"), () => moveCardStack(card, 1)),
+    createContextButton(t("sendBackward"), () => moveCardStack(card, -1)),
     createContextButton(t("connectFromHere"), () => startConnectionFromAnchor({ type: "card", cardId: card.id })),
     createContextButton(t("editLinks"), () => openMetaEditor(card))
   ];
 
   if (card.kind === "web") {
-    mainActions.push(createContextButton(t("editUrl"), () => editWebUrl(card)));
     mainActions.push(createContextButton(
       t(card.webInteractive ? "disableWebInteraction" : "enableWebInteraction"),
       () => setWebInteraction(card, !card.webInteractive)
@@ -10202,6 +11003,7 @@ function openSettings() {
   applySettings();
   refreshAppConfigUi({ force: true });
   settingsModal.hidden = false;
+  syncAllWebCardElements();
   void loadAppRuntimeConfig();
   void loadWindowModeState();
   void loadAppUpdateState();
@@ -10210,6 +11012,7 @@ function openSettings() {
 
 function closeSettings() {
   settingsModal.hidden = true;
+  requestAnimationFrame(syncAllWebCardElements);
 }
 
 async function switchStorageDirectory() {
@@ -10457,14 +11260,17 @@ async function saveSettings() {
   if (window.desktopBoard?.updateAppConfig) {
     try {
       const requestVersion = ++appRuntimeConfigRequestVersion;
-      const wallpaperModeEnabled = wallpaperModeEnabledInput?.checked === true;
+      const wallpaperModeEnabled = appRuntimeConfig.windowModeSupported === true;
+      const multiMonitorMode = getMultiMonitorModeFromUi();
       const nextAppConfig = await window.desktopBoard.updateAppConfig({
         diagnosticsEnabled: diagnosticsEnabledInput.checked,
         autoStartEnabled: autoStartWithWindowsInput?.checked === true,
         autoManageAssetsOnLaunch: autoManageAssetsOnLaunchInput?.checked === true,
         wallpaperModeEnabled,
-        wallpaperInteractionEnabled: wallpaperInteractionEnabledInput?.checked === true,
-        multiMonitorEnabled: multiMonitorEnabledInput?.checked === true
+        wallpaperInteractionEnabled: false,
+        multiMonitorEnabled: multiMonitorMode === "seamless",
+        multiMonitorMode,
+        multiMonitorDisplayIds: multiMonitorMode === "single" ? [] : getSelectedMultiMonitorDisplayIdsFromUi()
       });
       if (requestVersion === appRuntimeConfigRequestVersion) {
         appRuntimeConfig = nextAppConfig;
@@ -10472,7 +11278,11 @@ async function saveSettings() {
         refreshAppConfigUi({ force: true });
       }
 
-      await switchWindowMode(wallpaperModeEnabled ? windowModeInput?.value || "normal" : "normal");
+      if (multiMonitorMode !== "workspace") {
+        await switchWindowMode(wallpaperModeEnabled ? windowModeInput?.value || "normal" : "normal");
+      } else {
+        await loadWindowModeState();
+      }
     } catch (error) {
       reportError("config.update", error);
       statusMessage = t("appConfigSaveError");
@@ -10501,6 +11311,7 @@ async function handleDroppedFiles(event) {
   ensureEditMode();
 
   const files = Array.from(event.dataTransfer.files || []);
+  let nextDroppedStackOrder = getNextStackOrderForLayer("card");
   const cards = await Promise.all(files.map(async (file) => {
     const kind = getAssetKindFromFile(file);
     if (!kind) {
@@ -10547,6 +11358,7 @@ async function handleDroppedFiles(event) {
       bodyColor: colors.body,
       customHeaderColor: false,
       customBodyColor: false,
+      stackOrder: nextDroppedStackOrder++,
       src: media.src,
       path: media.path || null,
       assetId: media.assetId || null,
@@ -10724,8 +11536,8 @@ toolbarBoardSelect?.addEventListener("change", () => {
 toolbarWindowModeSelect?.addEventListener("change", () => {
   void switchWindowMode(toolbarWindowModeSelect.value || "normal");
 });
-widgetDesktopEditButton?.addEventListener("click", () => {
-  void switchWindowMode("desktop-edit");
+modeEditButton?.addEventListener("click", () => {
+  void switchWindowMode("normal");
 });
 analyzeAssetsButton?.addEventListener("click", analyzeAssetsFromSettings);
 cleanupAssetsButton?.addEventListener("click", cleanupAssetsFromSettings);
@@ -10735,9 +11547,7 @@ saveColorSchemeButton?.addEventListener("click", () => {
   void saveCurrentColorScheme();
 });
 exportColorSchemeButton?.addEventListener("click", exportCurrentColorScheme);
-wallpaperModeEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
-wallpaperInteractionEnabledInput?.addEventListener("change", () => refreshWallpaperModeUi());
-multiMonitorEnabledInput?.addEventListener("change", () => refreshAppConfigUi());
+multiMonitorModeInput?.addEventListener("change", () => refreshAppConfigUi());
 backgroundOpacityInput?.addEventListener("input", () => {
   if (backgroundOpacityValue) {
     const nextTransparency = Number(backgroundOpacityInput.value);
@@ -10763,6 +11573,11 @@ window.addEventListener("focusout", () => {
   window.setTimeout(() => {
     void syncWidgetModeInteractivity(widgetHoverTarget, { force: true });
   }, 0);
+});
+window.addEventListener("beforeunload", () => {
+  if (window.desktopBoard?.syncWebCards) {
+    void window.desktopBoard.syncWebCards([]);
+  }
 });
 closeUrlButton.addEventListener("click", () => closeUrlModal(""));
 cancelUrlButton.addEventListener("click", () => closeUrlModal(""));
@@ -10844,6 +11659,7 @@ if (window.desktopBoard) {
     }
     refreshWallpaperModeUi({ force: true });
     updateModeUi();
+    refreshWebContentRenderForWindowMode();
   });
   window.desktopBoard.onNotificationEvent?.((payload) => {
     const cardId = typeof payload?.cardId === "string" ? payload.cardId : "";
@@ -10867,7 +11683,7 @@ if (window.desktopBoard) {
     }
   });
   window.desktopBoard.onStateChanged?.((nextState) => {
-    applyLoadedBoardState(nextState, { persist: false });
+    applyLoadedBoardState(nextState, { persist: false, preserveViewport: true, preserveLocked: true });
   });
 }
 
