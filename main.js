@@ -75,6 +75,15 @@ const defaultBoardId = "main";
 const defaultBoardName = "Main board";
 const mediaKinds = new Set(["image", "video", "audio"]);
 const storedAssetKinds = new Set(["image", "video", "audio", "file"]);
+const themeAssetExtensions = new Set([".svg", ".png", ".webp", ".gif"]);
+const themeAssetMimeTypes = {
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif"
+};
+const maxThemeManifestBytes = 1024 * 1024;
+const maxThemeAssetBytes = 512 * 1024;
 const windowIconPath = path.join(__dirname, "src", "assets", "app-icon.ico");
 const trayIconPath = path.join(__dirname, "src", "assets", "tray-icon.png");
 const taskbarIconPath = path.join(__dirname, "src", "assets", "taskbar-icon.png");
@@ -1233,6 +1242,200 @@ async function pathExists(targetPath) {
   } catch {
     return false;
   }
+}
+
+function normalizeThemePackageAssetReference(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const raw = value.trim().replace(/\\/g, "/");
+  if (
+    !raw
+    || raw.startsWith("/")
+    || raw.includes("..")
+    || /^[a-z][a-z0-9+.-]*:/i.test(raw)
+  ) {
+    return "";
+  }
+
+  const normalized = normalizeBoardRelativePath(raw);
+  if (!normalized || !normalized.startsWith("assets/")) {
+    return "";
+  }
+
+  const extension = path.extname(normalized).toLowerCase();
+  return themeAssetExtensions.has(extension) ? normalized : "";
+}
+
+function isThemeDataImage(value) {
+  return typeof value === "string"
+    && /^data:image\/(png|webp|gif|svg\+xml);base64,/i.test(value.trim());
+}
+
+function getThemeAssetMimeType(assetPath) {
+  return themeAssetMimeTypes[path.extname(assetPath).toLowerCase()] || "";
+}
+
+async function encodeThemePackageAsset(packageRoot, assetReference, skippedAssets) {
+  if (isThemeDataImage(assetReference)) {
+    const dataUri = assetReference.trim();
+    if (dataUri.length <= 700000) {
+      return dataUri;
+    }
+    skippedAssets.push({ path: "embedded", reason: "too-large" });
+    return "";
+  }
+
+  const normalizedReference = normalizeThemePackageAssetReference(assetReference);
+  if (!normalizedReference) {
+    if (assetReference) {
+      skippedAssets.push({ path: String(assetReference).slice(0, 240), reason: "invalid-path" });
+    }
+    return "";
+  }
+
+  const sourcePath = resolveBoardRelativePath(packageRoot, normalizedReference);
+  if (!isPathInsideDirectory(sourcePath, packageRoot)) {
+    skippedAssets.push({ path: normalizedReference, reason: "outside-package" });
+    return "";
+  }
+
+  if (!await pathExists(sourcePath)) {
+    skippedAssets.push({ path: normalizedReference, reason: "missing" });
+    return "";
+  }
+
+  const stats = await fs.stat(sourcePath);
+  if (!stats.isFile()) {
+    skippedAssets.push({ path: normalizedReference, reason: "not-file" });
+    return "";
+  }
+  if (stats.size > maxThemeAssetBytes) {
+    skippedAssets.push({ path: normalizedReference, reason: "too-large" });
+    return "";
+  }
+
+  const mimeType = getThemeAssetMimeType(sourcePath);
+  if (!mimeType) {
+    skippedAssets.push({ path: normalizedReference, reason: "unsupported-type" });
+    return "";
+  }
+
+  const buffer = await fs.readFile(sourcePath);
+  const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
+  if (dataUri.length > 700000) {
+    skippedAssets.push({ path: normalizedReference, reason: "too-large" });
+    return "";
+  }
+
+  return dataUri;
+}
+
+async function hydrateThemePackageAssetMap(sourceMap, packageRoot, skippedAssets) {
+  if (!sourceMap || typeof sourceMap !== "object" || Array.isArray(sourceMap)) {
+    return {};
+  }
+
+  const entries = await Promise.all(Object.entries(sourceMap).map(async ([key, value]) => [
+    key,
+    await encodeThemePackageAsset(packageRoot, value, skippedAssets)
+  ]));
+  return Object.fromEntries(entries.filter(([, value]) => value));
+}
+
+async function hydrateThemePackageAssetsBlock(assets, packageRoot, skippedAssets) {
+  if (!assets || typeof assets !== "object" || Array.isArray(assets)) {
+    return assets;
+  }
+
+  const nextAssets = {
+    ...assets
+  };
+  if (assets.icons && typeof assets.icons === "object" && !Array.isArray(assets.icons)) {
+    nextAssets.icons = await hydrateThemePackageAssetMap(assets.icons, packageRoot, skippedAssets);
+  }
+
+  if (assets.connection && typeof assets.connection === "object" && !Array.isArray(assets.connection)) {
+    nextAssets.connection = await hydrateThemePackageAssetMap(assets.connection, packageRoot, skippedAssets);
+  }
+
+  return nextAssets;
+}
+
+async function hydrateThemePackageAssets(payload, packageRoot) {
+  const nextPayload = JSON.parse(JSON.stringify(payload || {}));
+  const skippedAssets = [];
+  let importedAssetCount = 0;
+
+  async function hydrateVisualObject(target) {
+    if (!target || typeof target !== "object" || !target.assets) {
+      return;
+    }
+
+    const beforeSkipped = skippedAssets.length;
+    target.assets = await hydrateThemePackageAssetsBlock(target.assets, packageRoot, skippedAssets);
+    const importedInBlock = Object.values(target.assets?.icons || {}).filter(Boolean).length
+      + Object.values(target.assets?.connection || {}).filter(Boolean).length;
+    importedAssetCount += importedInBlock;
+    if (skippedAssets.length > beforeSkipped) {
+      target.assets.skipped = undefined;
+    }
+  }
+
+  const rootTheme = nextPayload.type === "desktop-board-theme" && nextPayload.theme && typeof nextPayload.theme === "object"
+    ? nextPayload.theme
+    : nextPayload.type === "desktop-board-color-scheme" && nextPayload.scheme && typeof nextPayload.scheme === "object"
+      ? nextPayload.scheme
+      : nextPayload;
+
+  await hydrateVisualObject(rootTheme);
+  await hydrateVisualObject(rootTheme.visual);
+  await hydrateVisualObject(rootTheme.visualTheme);
+  await hydrateVisualObject(rootTheme.colorScheme?.visual);
+  await hydrateVisualObject(rootTheme.colorScheme?.visualTheme);
+
+  return {
+    payload: nextPayload,
+    importedAssetCount,
+    skippedAssets
+  };
+}
+
+async function importThemePackage() {
+  const result = await dialog.showOpenDialog(mainWindow || undefined, {
+    title: "Choose Desktop Board theme folder",
+    defaultPath: app.getPath("documents"),
+    properties: ["openDirectory"]
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  const packageRoot = result.filePaths[0];
+  const manifestPath = path.join(packageRoot, "theme.json");
+  if (!await pathExists(manifestPath)) {
+    throw new Error("Theme package must contain theme.json");
+  }
+
+  const manifestStats = await fs.stat(manifestPath);
+  if (!manifestStats.isFile() || manifestStats.size > maxThemeManifestBytes) {
+    throw new Error("Theme manifest is missing or too large");
+  }
+
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+  const hydrated = await hydrateThemePackageAssets(manifest, packageRoot);
+  await logEvent("info", "theme.importPackage", "Imported theme package", {
+    packageRoot,
+    importedAssetCount: hydrated.importedAssetCount,
+    skippedAssetCount: hydrated.skippedAssets.length
+  });
+
+  return {
+    ...hydrated,
+    packageRoot
+  };
 }
 
 function serializeError(error) {
@@ -4454,6 +4657,58 @@ async function setWindowMode(nextMode, options = {}) {
   return getWindowModeState();
 }
 
+async function openCardHistoryInNormalMode(cardId, sourceWindow = null) {
+  const normalizedCardId = typeof cardId === "string" ? cardId.trim() : "";
+  if (!normalizedCardId) {
+    return { ok: false };
+  }
+
+  const sourceSession = getWindowSession(sourceWindow);
+  let targetWindow = sourceWindow && !sourceWindow.isDestroyed() ? sourceWindow : mainWindow;
+
+  if (multiWindowWorkspaceActive) {
+    if (sourceSession?.role === "workspace-overlay" || sourceSession?.role === "wallpaper-control") {
+      targetWindow = getWindowBySessionId(sourceSession.overlayForSessionId) || mainWindow;
+    } else if (sourceSession?.role !== "workspace" && sourceSession?.role !== "main") {
+      targetWindow = mainWindow;
+    }
+
+    if (targetWindow && !targetWindow.isDestroyed()) {
+      await applyLocalWindowMode(targetWindow, "normal", { focus: true });
+    }
+  } else {
+    await setWindowMode("normal", {
+      persist: true,
+      sourceWindow: sourceWindow || mainWindow,
+      reveal: true
+    });
+    targetWindow = mainWindow;
+  }
+
+  if ((!targetWindow || targetWindow.isDestroyed()) && app.isReady()) {
+    createWindow();
+    targetWindow = mainWindow;
+  }
+
+  if (!targetWindow || targetWindow.isDestroyed()) {
+    return { ok: false };
+  }
+
+  if (targetWindow.isMinimized()) {
+    targetWindow.restore();
+  }
+  if (!targetWindow.isVisible()) {
+    targetWindow.show();
+  }
+  targetWindow.focus();
+  sendWindowEvent(targetWindow, "card-history:open", { cardId: normalizedCardId });
+
+  return {
+    ok: true,
+    state: getWindowModeState(targetWindow)
+  };
+}
+
 function showWindowForMode(mode = currentWindowMode) {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return false;
@@ -5870,6 +6125,7 @@ app.whenReady().then(async () => {
   ipcMain.handle("notifications:show", (_event, payload) => showDesktopNotification(payload || {}));
   ipcMain.handle("notifications:dismiss-for-card", (_event, cardId) => dismissNotificationsForCard(String(cardId || "")));
   ipcMain.handle("theme:get", getSystemTheme);
+  ipcMain.handle("theme-package:import", () => importThemePackage());
   ipcMain.handle("updates:get-state", () => getAutoUpdateStateForRenderer());
   ipcMain.handle("updates:check", () => checkForAppUpdates("manual"));
   ipcMain.handle("updates:install", () => installDownloadedUpdate());
@@ -5883,6 +6139,10 @@ app.whenReady().then(async () => {
   ));
   ipcMain.handle("widget-mode:set-interactivity", (event, state) => updateWidgetOverlayInteractivity(
     state || {},
+    BrowserWindow.fromWebContents(event.sender)
+  ));
+  ipcMain.handle("card-history:open-in-normal-mode", (event, cardId) => openCardHistoryInNormalMode(
+    cardId,
     BrowserWindow.fromWebContents(event.sender)
   ));
   ipcMain.handle("web-card:sync", (event, cards) => syncNativeWebCards(event.sender, cards || []));

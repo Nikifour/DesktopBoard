@@ -9,6 +9,7 @@ const modeLabel = document.getElementById("modeLabel");
 const lockButton = document.getElementById("lockButton");
 const hideButton = document.getElementById("hideButton");
 const addNoteButton = document.getElementById("addNoteButton");
+const addCommentButton = document.getElementById("addCommentButton");
 const addCodeButton = document.getElementById("addCodeButton");
 const addTableButton = document.getElementById("addTableButton");
 const addCalculatorButton = document.getElementById("addCalculatorButton");
@@ -67,12 +68,20 @@ const metaBacklinksList = document.getElementById("metaBacklinksList");
 const metaLinkLabel = document.getElementById("metaLinkLabel");
 const metaLinkInput = document.getElementById("metaLinkInput");
 const copyMetaLinkButton = document.getElementById("copyMetaLinkButton");
+const commentHistoryModal = document.getElementById("commentHistoryModal");
+const commentHistoryTitle = document.getElementById("commentHistoryTitle");
+const closeCommentHistoryButton = document.getElementById("closeCommentHistoryButton");
+const closeCommentHistoryFooterButton = document.getElementById("closeCommentHistoryFooterButton");
+const commentHistoryMeta = document.getElementById("commentHistoryMeta");
+const commentHistoryList = document.getElementById("commentHistoryList");
 const themeModeInput = document.getElementById("themeModeInput");
 const backgroundColorInput = document.getElementById("backgroundColorInput");
 const backgroundOpacityInput = document.getElementById("backgroundOpacityInput");
 const backgroundOpacityValue = document.getElementById("backgroundOpacityValue");
 const noteHeaderColorInput = document.getElementById("noteHeaderColorInput");
 const noteBodyColorInput = document.getElementById("noteBodyColorInput");
+const commentHeaderColorInput = document.getElementById("commentHeaderColorInput");
+const commentBodyColorInput = document.getElementById("commentBodyColorInput");
 const codeHeaderColorInput = document.getElementById("codeHeaderColorInput");
 const codeBodyColorInput = document.getElementById("codeBodyColorInput");
 const tableHeaderColorInput = document.getElementById("tableHeaderColorInput");
@@ -105,6 +114,7 @@ const groupHeaderColorInput = document.getElementById("groupHeaderColorInput");
 const groupBodyColorInput = document.getElementById("groupBodyColorInput");
 const colorInputRefs = {
   note: { header: noteHeaderColorInput, body: noteBodyColorInput },
+  comment: { header: commentHeaderColorInput, body: commentBodyColorInput },
   code: { header: codeHeaderColorInput, body: codeBodyColorInput },
   table: { header: tableHeaderColorInput, body: tableBodyColorInput },
   calculator: { header: calculatorHeaderColorInput, body: calculatorBodyColorInput },
@@ -129,11 +139,15 @@ const toolbarCreateDetails = document.getElementById("toolbarCreateDetails");
 const toolbarCreateTitle = document.getElementById("toolbarCreateTitle");
 const toolbarCreateKindsGrid = document.getElementById("toolbarCreateKindsGrid");
 const toolbarCreateHelp = document.getElementById("toolbarCreateHelp");
+const richTextFontFamilyInput = document.getElementById("richTextFontFamilyInput");
+const richTextFontSizeInput = document.getElementById("richTextFontSizeInput");
 const colorSchemePresetGrid = document.getElementById("colorSchemePresetGrid");
 const colorSchemePresetsLabel = document.getElementById("colorSchemePresetsLabel");
 const colorSchemeHelp = document.getElementById("colorSchemeHelp");
 const saveColorSchemeButton = document.getElementById("saveColorSchemeButton");
 const exportColorSchemeButton = document.getElementById("exportColorSchemeButton");
+const importThemeButton = document.getElementById("importThemeButton");
+const importThemePackageButton = document.getElementById("importThemePackageButton");
 const snapToGridInput = document.getElementById("snapToGridInput");
 const toggleHotkeyInput = document.getElementById("toggleHotkeyInput");
 const lockHotkeyInput = document.getElementById("lockHotkeyInput");
@@ -162,6 +176,7 @@ const windowModeInput = document.getElementById("windowModeInput");
 const wallpaperModeHelp = document.getElementById("wallpaperModeHelp");
 const multiMonitorHelp = document.getElementById("multiMonitorHelp");
 const diagnosticsEnabledInput = document.getElementById("diagnosticsEnabledInput");
+const historyEnabledInput = document.getElementById("historyEnabledInput");
 const openLogsButton = document.getElementById("openLogsButton");
 const exportBoardButton = document.getElementById("exportBoardButton");
 const importBoardButton = document.getElementById("importBoardButton");
@@ -205,7 +220,12 @@ const minZoom = 0.25;
 const maxZoom = 3;
 const gridSize = 24;
 const groupHeaderHeight = 42;
-const stateSchemaVersion = 7;
+const commentAttachGap = 10;
+const commentAttachThreshold = 42;
+const commentHistoryLimit = 80;
+const cardHistoryLimit = 120;
+const groupHistoryLimit = 240;
+const stateSchemaVersion = 9;
 const defaultBoardId = "main";
 const defaultBoardName = navigator.language?.toLowerCase().startsWith("ru") ? "Основная доска" : "Main board";
 const minTimerDurationMinutes = 1;
@@ -224,6 +244,21 @@ const brandLogoAnimations = [
   { src: "./assets/logo-animations/03_float_transparent.gif", loopMs: 1920 },
   { src: "./assets/logo-animations/04_shine_transparent.gif", loopMs: 2110 }
 ];
+const richTextFontFamilies = [
+  "Segoe UI",
+  "Arial",
+  "Calibri",
+  "Verdana",
+  "Tahoma",
+  "Georgia",
+  "Times New Roman",
+  "Consolas",
+  "Cascadia Code",
+  "Courier New"
+];
+const richTextFontSizes = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48];
+const defaultRichTextFontFamily = "Segoe UI";
+const defaultRichTextFontSize = 14;
 const historyLimit = 100;
 const svgNamespace = "http://www.w3.org/2000/svg";
 const connectionCanvasOffset = 100000;
@@ -233,7 +268,6 @@ const connectionRouteLaneOffset = 12;
 const connectionRouteSearchPadding = gridSize * 8;
 const connectionRouteBoundsPadding = gridSize * 3;
 const connectionRouteTurnPenalty = gridSize * 1.5;
-
 const cardTypeRegistry = [
   {
     kind: "note",
@@ -245,6 +279,17 @@ const cardTypeRegistry = [
     defaultSize: { width: 300, height: 220 },
     toolbarButton: addNoteButton,
     icon: '<svg viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v4h4"/><path d="M9 12h6M9 16h5"/></svg>'
+  },
+  {
+    kind: "comment",
+    labelKey: "comment",
+    createLabelKey: "addComment",
+    colorKind: "comment",
+    quickCreateGroup: "text",
+    createMode: "card",
+    defaultSize: { width: 260, height: 150 },
+    toolbarButton: addCommentButton,
+    icon: '<svg viewBox="0 0 24 24"><path d="M5 6h14v10H9l-4 4z"/><path d="M8 10h8M8 13h5"/></svg>'
   },
   {
     kind: "code",
@@ -275,7 +320,7 @@ const cardTypeRegistry = [
     colorKind: "calculator",
     quickCreateGroup: "text",
     createMode: "card",
-    defaultSize: { width: 320, height: 270 },
+    defaultSize: { width: 320, height: 420 },
     toolbarButton: addCalculatorButton,
     icon: '<svg viewBox="0 0 24 24"><path d="M7 4h10v16H7z"/><path d="M9 8h6"/><path d="M9 12h2M13 12h2"/><path d="M9 16h2M13 16h2"/></svg>'
   },
@@ -428,6 +473,7 @@ const builtInColorSchemes = [
     connectionColor: "#171916",
     colors: {
       note: { header: "#f2c94c", body: "#fff8d7" },
+      comment: { header: "#8a6f2a", body: "#fff1c2" },
       code: { header: "#4c6ef5", body: "#e9efff" },
       table: { header: "#5b7bd5", body: "#eef3ff" },
       calculator: { header: "#d66f45", body: "#fde8de" },
@@ -453,6 +499,7 @@ const builtInColorSchemes = [
     connectionColor: "#f4f7f2",
     colors: {
       note: { header: "#d6b23c", body: "#f7efc9" },
+      comment: { header: "#7a6730", body: "#f3e9bf" },
       code: { header: "#6072d6", body: "#e5e9fb" },
       table: { header: "#536fb5", body: "#e7edf9" },
       calculator: { header: "#c56f4d", body: "#f7e2d7" },
@@ -478,6 +525,7 @@ const builtInColorSchemes = [
     connectionColor: "#263133",
     colors: {
       note: { header: "#e2b94b", body: "#fff4ce" },
+      comment: { header: "#8c7240", body: "#fff0c8" },
       code: { header: "#3e70b8", body: "#e3edf8" },
       table: { header: "#4f85a6", body: "#e4f0f4" },
       calculator: { header: "#b9674c", body: "#f5e1d7" },
@@ -497,6 +545,34 @@ const builtInColorSchemes = [
   }
 ];
 
+const defaultVisualTheme = {
+  version: 1,
+  name: "Default",
+  tokens: {
+    cardRadius: 8,
+    panelRadius: 8,
+    buttonRadius: 6,
+    cardBorderWidth: 1,
+    cardHeaderHeight: 28,
+    groupHeaderHeight: 42,
+    iconScale: 1,
+    shadow: "medium"
+  },
+  connections: {
+    strokeWidth: 3,
+    selectedStrokeWidth: 3.5,
+    draftStrokeWidth: 2,
+    outlineWidth: 6,
+    waypointRadius: 5,
+    markerScale: 1,
+    lineStyle: "solid"
+  },
+  assets: {
+    icons: {},
+    connection: null
+  }
+};
+
 const defaultSettings = {
   themeMode: "system",
   languageMode: "system",
@@ -504,12 +580,17 @@ const defaultSettings = {
   backgroundColor: "#f4f5f0",
   backgroundOpacity: 0,
   connectionColor: "#171916",
+  richTextFontFamily: defaultRichTextFontFamily,
+  richTextFontSize: defaultRichTextFontSize,
+  visualTheme: clone(defaultVisualTheme),
   snapToGrid: true,
+  historyEnabled: true,
   quickCreateKinds: [...defaultQuickCreateKinds],
   toolbarCreateKinds: [...defaultToolbarCreateKinds],
   colorSchemes: [],
   colors: {
     note: { header: "#f2c94c", body: "#fff8d7" },
+    comment: { header: "#8a6f2a", body: "#fff1c2" },
     code: { header: "#4c6ef5", body: "#e9efff" },
     table: { header: "#5b7bd5", body: "#eef3ff" },
     calculator: { header: "#d66f45", body: "#fde8de" },
@@ -543,6 +624,10 @@ const defaultState = {
   locked: false,
   viewport: { ...defaultViewport },
   settings: clone(defaultSettings),
+  audit: {
+    localActor: createDefaultAuditActor()
+  },
+  groupHistory: [],
   connections: [],
   cards: [
     {
@@ -620,6 +705,13 @@ let selectedConnectionId = null;
 let undoStack = [];
 let redoStack = [];
 let lastCommittedHistorySnapshot = null;
+let auditCardBaseline = new Map();
+let auditGroupBaseline = new Map();
+let richTextToolbar = null;
+let activeRichTextEditor = null;
+let activeRichTextCard = null;
+let activeRichTextTarget = null;
+let activeRichTextSelectionRange = null;
 let pendingUrlResolver = null;
 let pendingSearchResolver = null;
 let connectionMode = false;
@@ -787,6 +879,8 @@ const settingsSectionDefinitions = [
     selectors: [
       "#quickCreateDetails",
       "#toolbarCreateDetails",
+      "#richTextFontFamilyLabel",
+      "#richTextFontSizeLabel",
       "#snapToGridLabel"
     ]
   },
@@ -805,6 +899,8 @@ const settingsSectionDefinitions = [
     labelKey: "settingsSectionDiagnostics",
     selectors: [
       "#diagnosticsEnabledLabel",
+      "#historyEnabledLabel",
+      "#historyEnabledHelp",
       "#logsFolderLabel"
     ]
   },
@@ -1058,6 +1154,32 @@ const translations = {
 };
 
 Object.assign(translations.ru, {
+  formatBold: "\u0416\u0438\u0440\u043d\u044b\u0439",
+  formatItalic: "\u041a\u0443\u0440\u0441\u0438\u0432",
+  formatUnderline: "\u041f\u043e\u0434\u0447\u0435\u0440\u043a\u043d\u0443\u0442\u044b\u0439",
+  formatFontFamily: "\u0428\u0440\u0438\u0444\u0442",
+  formatFontSize: "\u0420\u0430\u0437\u043c\u0435\u0440 \u0448\u0440\u0438\u0444\u0442\u0430",
+  richTextFontFamily: "\u0428\u0440\u0438\u0444\u0442 \u0442\u0435\u043a\u0441\u0442\u0430",
+  richTextFontSize: "\u0420\u0430\u0437\u043c\u0435\u0440 \u0442\u0435\u043a\u0441\u0442\u0430",
+  formatTextColor: "\u0426\u0432\u0435\u0442 \u0442\u0435\u043a\u0441\u0442\u0430",
+  formatClear: "\u0421\u0431\u0440\u043e\u0441\u0438\u0442\u044c \u0444\u043e\u0440\u043c\u0430\u0442",
+  richTextContent: "\u0422\u0435\u043a\u0441\u0442 \u0438 \u0444\u043e\u0440\u043c\u0430\u0442"
+});
+
+Object.assign(translations.en, {
+  formatBold: "Bold",
+  formatItalic: "Italic",
+  formatUnderline: "Underline",
+  formatFontFamily: "Font",
+  formatFontSize: "Font size",
+  richTextFontFamily: "Text font",
+  richTextFontSize: "Text size",
+  formatTextColor: "Text color",
+  formatClear: "Clear formatting",
+  richTextContent: "Text and formatting"
+});
+
+Object.assign(translations.ru, {
   autoStartWithWindows: "\u0410\u0432\u0442\u043e\u0437\u0430\u043f\u0443\u0441\u043a \u0441 Windows",
   autoManageAssetsOnLaunch: "\u0410\u0432\u0442\u043e\u0430\u043d\u0430\u043b\u0438\u0437 \u0438 \u043e\u0447\u0438\u0441\u0442\u043a\u0430 \u0444\u0430\u0439\u043b\u043e\u0432 \u043f\u0440\u0438 \u0437\u0430\u043f\u0443\u0441\u043a\u0435",
   autoManageAssetsOnLaunchHelp: "\u041f\u0440\u0438 \u0441\u0442\u0430\u0440\u0442\u0435 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442 \u0444\u0430\u0439\u043b\u044b \u0434\u043e\u0441\u043a\u0438, \u043f\u043e\u043c\u0435\u0442\u0438\u0442 \u0431\u0438\u0442\u044b\u0435 \u0441\u0441\u044b\u043b\u043a\u0438 \u0438 \u0443\u0434\u0430\u043b\u0438\u0442 \u043d\u0435\u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c\u044b\u0435 \u0444\u0430\u0439\u043b\u044b.",
@@ -1131,14 +1253,19 @@ Object.assign(translations.ru, {
   toolbarCreateHelp: "Выберите типы карточек, которые будут видны в верхней панели быстрого создания.",
   colorSchemePresets: "Цветовые схемы",
   colorSchemeHelp: "Пресеты меняют фон, цвет соединений и цвета новых элементов.",
-  saveColorScheme: "Сохранить схему",
-  exportColorScheme: "Экспортировать схему",
+  saveColorScheme: "Сохранить тему",
+  exportColorScheme: "Экспортировать тему",
+  importTheme: "Импортировать тему",
+  importThemePackage: "Импорт пакета",
   colorSchemeClassic: "Классическая",
   colorSchemeGraphite: "Графит",
   colorSchemeStudio: "Студия",
   colorSchemeApplied: "Цветовая схема применена. Нажмите «Сохранить», чтобы закрепить изменения.",
-  colorSchemeSaved: "Цветовая схема сохранена.",
-  colorSchemeExported: "Цветовая схема экспортирована.",
+  colorSchemeSaved: "Тема сохранена.",
+  colorSchemeExported: "Тема экспортирована.",
+  themeImported: "Тема импортирована.",
+  themePackageImported: "Пакет темы импортирован. Ассетов: {count}.",
+  themeImportFailed: "Не удалось импортировать тему. Применена стандартная тема.",
   colorSchemeNamePrompt: "Название цветовой схемы",
   customColorSchemeName: "Моя схема",
   exportedColorSchemeName: "Экспортированная схема"
@@ -1170,14 +1297,19 @@ Object.assign(translations.en, {
   toolbarCreateHelp: "Choose which card types are visible in the top quick-create toolbar.",
   colorSchemePresets: "Color schemes",
   colorSchemeHelp: "Presets change the board background, connection color, and new element colors.",
-  saveColorScheme: "Save scheme",
-  exportColorScheme: "Export scheme",
+  saveColorScheme: "Save theme",
+  exportColorScheme: "Export theme",
+  importTheme: "Import theme",
+  importThemePackage: "Import package",
   colorSchemeClassic: "Classic",
   colorSchemeGraphite: "Graphite",
   colorSchemeStudio: "Studio",
   colorSchemeApplied: "Color scheme applied. Click Save to keep the changes.",
-  colorSchemeSaved: "Color scheme saved.",
-  colorSchemeExported: "Color scheme exported.",
+  colorSchemeSaved: "Theme saved.",
+  colorSchemeExported: "Theme exported.",
+  themeImported: "Theme imported.",
+  themePackageImported: "Theme package imported. Assets: {count}.",
+  themeImportFailed: "Could not import the theme. Default theme was applied.",
   colorSchemeNamePrompt: "Color scheme name",
   customColorSchemeName: "My scheme",
   exportedColorSchemeName: "Exported scheme"
@@ -1197,7 +1329,15 @@ Object.assign(translations.ru, {
   removeCalculatorInput: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0432\u0445\u043e\u0434",
   calculatorResult: "\u0420\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442",
   calculatorResultEmpty: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043c\u0438\u043d\u0438\u043c\u0443\u043c \u0434\u0432\u0430 \u0447\u0438\u0441\u043b\u0430",
-  calculatorDivisionByZero: "\u0414\u0435\u043b\u0435\u043d\u0438\u0435 \u043d\u0430 \u043d\u043e\u043b\u044c"
+  calculatorDivisionByZero: "\u0414\u0435\u043b\u0435\u043d\u0438\u0435 \u043d\u0430 \u043d\u043e\u043b\u044c",
+  calculatorHistory: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f",
+  calculatorHistoryEmpty: "\u0412\u044b\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.",
+  clearCalculatorHistory: "\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c",
+  calculatorClear: "\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c",
+  calculatorClearEntry: "\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c \u0432\u0432\u043e\u0434",
+  calculatorBackspace: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0441\u0438\u043c\u0432\u043e\u043b",
+  calculatorEquals: "\u0420\u0430\u0432\u043d\u043e",
+  calculatorInvalidInput: "\u041d\u0435\u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u044b\u0439 \u0432\u0432\u043e\u0434"
 });
 
 Object.assign(translations.en, {
@@ -1214,7 +1354,15 @@ Object.assign(translations.en, {
   removeCalculatorInput: "Remove input",
   calculatorResult: "Result",
   calculatorResultEmpty: "Enter at least two numbers",
-  calculatorDivisionByZero: "Division by zero"
+  calculatorDivisionByZero: "Division by zero",
+  calculatorHistory: "History",
+  calculatorHistoryEmpty: "No calculations yet.",
+  clearCalculatorHistory: "Clear",
+  calculatorClear: "Clear",
+  calculatorClearEntry: "Clear entry",
+  calculatorBackspace: "Backspace",
+  calculatorEquals: "Equals",
+  calculatorInvalidInput: "Invalid input"
 });
 
 Object.assign(translations.ru, {
@@ -1315,6 +1463,82 @@ Object.assign(translations.en, {
   bringForward: "Bring forward",
   sendBackward: "Send backward",
   removeTagLabel: "Remove tag {tag}"
+});
+
+Object.assign(translations.ru, {
+  comment: "\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439",
+  addComment: "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439",
+  newComment: "\u041d\u043e\u0432\u044b\u0439 \u043a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439",
+  commentPlaceholder: "\u0422\u0435\u043a\u0441\u0442 \u043a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u044f...",
+  attachCommentNearest: "\u041f\u0440\u0438\u043a\u0440\u0435\u043f\u0438\u0442\u044c \u043a \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0435\u043c\u0443",
+  detachComment: "\u041e\u0442\u043a\u0440\u0435\u043f\u0438\u0442\u044c",
+  commentHistory: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f",
+  commentHistoryTitle: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u043a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u044f",
+  commentCreatedAt: "\u0421\u043e\u0437\u0434\u0430\u043d",
+  commentUpdatedAt: "\u0418\u0437\u043c\u0435\u043d\u0435\u043d",
+  commentHistoryBefore: "\u0411\u044b\u043b\u043e",
+  commentHistoryAfter: "\u0421\u0442\u0430\u043b\u043e",
+  commentHistoryEmpty: "\u0418\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.",
+  commentEmptyText: "\u041f\u0443\u0441\u0442\u043e",
+  close: "\u0417\u0430\u043a\u0440\u044b\u0442\u044c",
+  closeCommentHistory: "\u0417\u0430\u043a\u0440\u044b\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e",
+  unknown: "\u041d\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e"
+});
+
+Object.assign(translations.en, {
+  comment: "Comment",
+  addComment: "Add comment",
+  newComment: "New comment",
+  commentPlaceholder: "Comment text...",
+  attachCommentNearest: "Attach to nearest",
+  detachComment: "Detach",
+  commentHistory: "History",
+  commentHistoryTitle: "Comment history",
+  commentCreatedAt: "Created",
+  commentUpdatedAt: "Updated",
+  commentHistoryBefore: "Before",
+  commentHistoryAfter: "After",
+  commentHistoryEmpty: "No edits yet.",
+  commentEmptyText: "Empty",
+  close: "Close",
+  closeCommentHistory: "Close history",
+  unknown: "Unknown"
+});
+
+Object.assign(translations.ru, {
+  historyEnabled: "\u0417\u0430\u043f\u0438\u0441\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439",
+  historyEnabledHelp: "\u0414\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442 \u0432 JSON \u0438\u0441\u0442\u043e\u0440\u0438\u044e \u043a\u0430\u0440\u0442\u043e\u0447\u0435\u043a, \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f \u0438 \u0441\u043e\u0441\u0442\u0430\u0432\u0430 \u0433\u0440\u0443\u043f\u043f. \u0415\u0441\u043b\u0438 \u0432\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u044c, \u043d\u043e\u0432\u044b\u0435 \u0437\u0430\u043f\u0438\u0441\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u043d\u0435 \u0441\u043e\u0437\u0434\u0430\u044e\u0442\u0441\u044f.",
+  cardHistory: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f",
+  cardHistoryTitle: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u044d\u043b\u0435\u043c\u0435\u043d\u0442\u0430",
+  cardCreatedAt: "\u0421\u043e\u0437\u0434\u0430\u043d",
+  cardUpdatedAt: "\u0418\u0437\u043c\u0435\u043d\u0435\u043d",
+  cardCreatedBy: "\u0421\u043e\u0437\u0434\u0430\u043b",
+  cardUpdatedBy: "\u0418\u0437\u043c\u0435\u043d\u0438\u043b",
+  historyEventCreated: "\u0421\u043e\u0437\u0434\u0430\u043d\u0438\u0435 \u044d\u043b\u0435\u043c\u0435\u043d\u0442\u0430",
+  historyEventUpdated: "\u0418\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0435 \u044d\u043b\u0435\u043c\u0435\u043d\u0442\u0430",
+  historyEventGroupAdd: "\u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d \u0432 \u0433\u0440\u0443\u043f\u043f\u0443",
+  historyEventGroupRemove: "\u0423\u0434\u0430\u043b\u0435\u043d \u0438\u0437 \u0433\u0440\u0443\u043f\u043f\u044b",
+  historyEmpty: "\u0418\u0441\u0442\u043e\u0440\u0438\u0438 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.",
+  historyField: "\u041f\u043e\u043b\u0435",
+  localUser: "\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c"
+});
+
+Object.assign(translations.en, {
+  historyEnabled: "Change history",
+  historyEnabledHelp: "Stores card, user, and group membership history in JSON. When disabled, new history entries are not created.",
+  cardHistory: "History",
+  cardHistoryTitle: "Element history",
+  cardCreatedAt: "Created",
+  cardUpdatedAt: "Updated",
+  cardCreatedBy: "Created by",
+  cardUpdatedBy: "Updated by",
+  historyEventCreated: "Element created",
+  historyEventUpdated: "Element updated",
+  historyEventGroupAdd: "Added to group",
+  historyEventGroupRemove: "Removed from group",
+  historyEmpty: "No history yet.",
+  historyField: "Field",
+  localUser: "Local user"
 });
 
 Object.assign(translations.ru, {
@@ -1689,6 +1913,66 @@ function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function getPersistentLocalActorId() {
+  const storageKey = "desktop-board-local-actor-id";
+  try {
+    const existingId = localStorage.getItem(storageKey);
+    if (existingId) {
+      return existingId;
+    }
+    const nextId = createId("actor");
+    localStorage.setItem(storageKey, nextId);
+    return nextId;
+  } catch {
+    return createId("actor");
+  }
+}
+
+function getDefaultAuditActorName() {
+  return navigator.language?.toLowerCase().startsWith("ru") ? "Локальный пользователь" : "Local user";
+}
+
+function createDefaultAuditActor() {
+  return {
+    id: getPersistentLocalActorId(),
+    name: getDefaultAuditActorName(),
+    source: "local"
+  };
+}
+
+function normalizeAuditActor(actor = null, fallback = null) {
+  const source = actor && typeof actor === "object" ? actor : {};
+  const fallbackActor = fallback && typeof fallback === "object" ? fallback : createDefaultAuditActor();
+  const id = typeof source.id === "string" && source.id.trim()
+    ? source.id.trim().slice(0, 120)
+    : fallbackActor.id;
+  const name = typeof source.name === "string" && source.name.trim()
+    ? source.name.trim().slice(0, 120)
+    : fallbackActor.name;
+
+  return {
+    id,
+    name,
+    source: typeof source.source === "string" && source.source.trim()
+      ? source.source.trim().slice(0, 60)
+      : fallbackActor.source || "local"
+  };
+}
+
+function normalizeAuditState(audit = {}) {
+  return {
+    localActor: normalizeAuditActor(audit?.localActor, createDefaultAuditActor())
+  };
+}
+
+function getCurrentAuditActor() {
+  if (!state?.audit?.localActor) {
+    return createDefaultAuditActor();
+  }
+
+  return normalizeAuditActor(state.audit.localActor);
+}
+
 function createBookmarkLink(link = {}) {
   return {
     id: typeof link.id === "string" && link.id ? link.id : createId("link"),
@@ -1704,11 +1988,16 @@ function normalizeBookmarkLinks(links) {
 
 function normalizeChecklistTasks(tasks) {
   const source = Array.isArray(tasks) ? tasks : [];
-  return source.map((task) => ({
-    id: typeof task?.id === "string" && task.id ? task.id : createId("task"),
-    text: typeof task?.text === "string" ? task.text : "",
-    done: Boolean(task?.done)
-  }));
+  return source.map((task) => {
+    const fallbackText = typeof task?.text === "string" ? task.text : "";
+    const textHtml = normalizeRichTextHtml(task?.textHtml, fallbackText);
+    return {
+      id: typeof task?.id === "string" && task.id ? task.id : createId("task"),
+      text: richTextHtmlToPlainText(textHtml),
+      textHtml,
+      done: Boolean(task?.done)
+    };
+  });
 }
 
 function getDefaultTableColumnTitle(index = 0) {
@@ -1830,6 +2119,98 @@ function computeCalculatorResult(card) {
   return { empty: false, messageOnly: false, value: result, text: formatCalculatorNumber(result) };
 }
 
+function normalizeStandardCalculatorOperation(value) {
+  switch (value) {
+    case "add":
+    case "subtract":
+    case "multiply":
+    case "divide":
+      return value;
+    default:
+      return null;
+  }
+}
+
+function getCalculatorOperatorSymbol(operation) {
+  return {
+    add: "+",
+    subtract: "-",
+    multiply: "\u00d7",
+    divide: "\u00f7"
+  }[operation] || "";
+}
+
+function normalizeCalculatorDisplay(value) {
+  const text = String(value ?? "0").trim();
+  if (!text) {
+    return "0";
+  }
+  if (text === t("calculatorDivisionByZero")) {
+    return text;
+  }
+  return text.slice(0, 32);
+}
+
+function parseCalculatorDisplay(value) {
+  const normalized = String(value ?? "0").replace(",", ".");
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizeCalculatorHistory(history = []) {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  return history
+    .map((entry) => ({
+      id: typeof entry?.id === "string" && entry.id ? entry.id : createId("calc-history"),
+      at: Number.isFinite(Number(entry?.at)) ? Number(entry.at) : Date.now(),
+      expression: typeof entry?.expression === "string" ? entry.expression.slice(0, 160) : "",
+      result: typeof entry?.result === "string" ? entry.result.slice(0, 80) : ""
+    }))
+    .filter((entry) => entry.expression || entry.result)
+    .slice(-50);
+}
+
+function normalizeCalculatorError(value) {
+  return ["divisionByZero", "invalid"].includes(value) ? value : "";
+}
+
+function getCalculatorErrorText(error) {
+  if (error === "divisionByZero") {
+    return t("calculatorDivisionByZero");
+  }
+  if (error === "invalid") {
+    return t("calculatorInvalidInput");
+  }
+  return "";
+}
+
+function applyCalculatorOperation(left, right, operation) {
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    return { error: true, text: "0", value: 0 };
+  }
+
+  if (operation === "add") {
+    return { error: false, value: left + right, text: formatCalculatorNumber(left + right) };
+  }
+  if (operation === "subtract") {
+    return { error: false, value: left - right, text: formatCalculatorNumber(left - right) };
+  }
+  if (operation === "multiply") {
+    return { error: false, value: left * right, text: formatCalculatorNumber(left * right) };
+  }
+  if (operation === "divide") {
+    if (right === 0) {
+      return { error: true, text: t("calculatorDivisionByZero"), value: null };
+    }
+    return { error: false, value: left / right, text: formatCalculatorNumber(left / right) };
+  }
+
+  return { error: false, value: right, text: formatCalculatorNumber(right) };
+}
+
 function normalizeScheduleTime(value) {
   const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})$/);
   if (!match) {
@@ -1842,14 +2223,17 @@ function normalizeScheduleTime(value) {
 }
 
 function createScheduleEntry(entry = {}) {
+  const fallbackNote = typeof entry?.note === "string"
+    ? entry.note
+    : typeof entry?.text === "string"
+      ? entry.text
+      : "";
+  const noteHtml = normalizeRichTextHtml(entry?.noteHtml, fallbackNote);
   return {
     id: typeof entry?.id === "string" && entry.id ? entry.id : createId("schedule-item"),
     time: normalizeScheduleTime(entry?.time),
-    note: typeof entry?.note === "string"
-      ? entry.note
-      : typeof entry?.text === "string"
-        ? entry.text
-        : ""
+    note: richTextHtmlToPlainText(noteHtml),
+    noteHtml
   };
 }
 
@@ -2216,6 +2600,28 @@ function setButtonLocale(button, tooltipKey, ariaKey = tooltipKey) {
   }
   button.dataset.tooltip = t(tooltipKey);
   button.setAttribute("aria-label", t(ariaKey));
+}
+
+function renderRichTextSettingsOptions() {
+  if (richTextFontFamilyInput && richTextFontFamilyInput.options.length !== richTextFontFamilies.length) {
+    richTextFontFamilyInput.replaceChildren();
+    richTextFontFamilies.forEach((font) => {
+      const option = document.createElement("option");
+      option.value = font;
+      option.textContent = font;
+      richTextFontFamilyInput.appendChild(option);
+    });
+  }
+
+  if (richTextFontSizeInput && richTextFontSizeInput.options.length !== richTextFontSizes.length) {
+    richTextFontSizeInput.replaceChildren();
+    richTextFontSizes.forEach((size) => {
+      const option = document.createElement("option");
+      option.value = String(size);
+      option.textContent = `${size}px`;
+      richTextFontSizeInput.appendChild(option);
+    });
+  }
 }
 
 function formatDateTimeDisplay(timestamp) {
@@ -3468,6 +3874,15 @@ function normalizeToolbarCreateKinds(kinds) {
   return normalizeCardKindList(kinds, getToolbarCardTypes(), defaultToolbarCreateKinds);
 }
 
+function ensureCardKindInList(kinds, kind, allowedDefinitions = cardTypeRegistry) {
+  const normalized = normalizeCardKindList(kinds, allowedDefinitions, []);
+  const allowedKinds = new Set(allowedDefinitions.map((definition) => definition.kind));
+  if (allowedKinds.has(kind) && !normalized.includes(kind)) {
+    normalized.push(kind);
+  }
+  return normalized;
+}
+
 function getVisibleQuickCreateDefinitions(kinds = state.settings?.quickCreateKinds) {
   const visibleKinds = new Set(normalizeQuickCreateKinds(kinds));
   return cardTypeRegistry.filter((definition) => visibleKinds.has(definition.kind));
@@ -3601,7 +4016,8 @@ function getColorSchemeFromInputs(name = "") {
     backgroundColor,
     backgroundOpacity: Number(backgroundOpacityInput?.value ?? defaultSettings.backgroundOpacity),
     connectionColor: connectionColorInput.value || getDefaultConnectionColor(backgroundColor),
-    colors
+    colors,
+    visualTheme: getVisualTheme()
   });
 }
 
@@ -3629,7 +4045,8 @@ function applyColorSchemeToInputs(scheme) {
     backgroundColor: normalizedScheme.backgroundColor,
     backgroundOpacity: normalizedScheme.backgroundOpacity,
     connectionColor: normalizedScheme.connectionColor,
-    colors: normalizedScheme.colors
+    colors: normalizedScheme.colors,
+    visualTheme: normalizedScheme.visualTheme || state.settings.visualTheme
   });
   applyDefaultColorsToInheritedCards();
   applyDefaultColorsToInheritedConnections();
@@ -3689,21 +4106,112 @@ async function saveCurrentColorScheme() {
 function exportCurrentColorScheme() {
   const scheme = getColorSchemeFromInputs(t("exportedColorSchemeName"));
   const payload = {
-    type: "desktop-board-color-scheme",
+    type: "desktop-board-theme",
     version: 1,
-    scheme
+    theme: {
+      name: scheme.name,
+      colorScheme: scheme,
+      visual: getVisualTheme()
+    }
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const safeName = scheme.name.replace(/[^\wа-яё-]+/gi, "-").replace(/^-+|-+$/g, "") || "desktop-board-color-scheme";
   link.href = url;
-  link.download = `${safeName}.json`;
+  link.download = `${safeName}.dbtheme.json`;
   document.body.appendChild(link);
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   setStatusText(settingsStatus, t("colorSchemeExported"), "success");
+}
+
+async function applyImportedThemePayload(payload, statusMessage = t("themeImported")) {
+  const imported = normalizeThemePackage(payload);
+  if (!imported.colorScheme && !imported.visualTheme) {
+    throw new Error("Theme payload is empty");
+  }
+
+  const nextSettings = {
+    ...state.settings
+  };
+  if (imported.colorScheme) {
+    nextSettings.backgroundColor = imported.colorScheme.backgroundColor;
+    nextSettings.backgroundOpacity = imported.colorScheme.backgroundOpacity;
+    nextSettings.connectionColor = imported.colorScheme.connectionColor;
+    nextSettings.colors = imported.colorScheme.colors;
+  }
+  if (imported.visualTheme) {
+    nextSettings.visualTheme = imported.visualTheme;
+  }
+
+  state.settings = normalizeSettings(nextSettings);
+  applyDefaultColorsToInheritedCards();
+  applyDefaultColorsToInheritedConnections();
+  applySettings();
+  applySystemTheme(currentSystemTheme);
+  render();
+  await saveState({ skipHistory: true });
+  setStatusText(settingsStatus, statusMessage, "success");
+}
+
+async function importThemeFromFile() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,.dbtheme,application/json";
+
+  const file = await new Promise((resolve) => {
+    input.addEventListener("change", () => resolve(input.files?.[0] || null), { once: true });
+    input.click();
+  });
+
+  if (!file) {
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+    await applyImportedThemePayload(payload);
+  } catch (error) {
+    console.error("Failed to import theme:", error);
+    state.settings = normalizeSettings({
+      ...state.settings,
+      visualTheme: clone(defaultVisualTheme)
+    });
+    applySettings();
+    render();
+    setStatusText(settingsStatus, t("themeImportFailed"), "error");
+  }
+}
+
+async function importThemePackageFromDirectory() {
+  if (!window.desktopBoard?.importThemePackage) {
+    setStatusText(settingsStatus, t("themeImportFailed"), "error");
+    return;
+  }
+
+  try {
+    const result = await window.desktopBoard.importThemePackage();
+    if (!result?.payload) {
+      return;
+    }
+
+    await applyImportedThemePayload(
+      result.payload,
+      t("themePackageImported", { count: Number(result.importedAssetCount) || 0 })
+    );
+  } catch (error) {
+    console.error("Failed to import theme package:", error);
+    state.settings = normalizeSettings({
+      ...state.settings,
+      visualTheme: clone(defaultVisualTheme)
+    });
+    applySettings();
+    render();
+    setStatusText(settingsStatus, t("themeImportFailed"), "error");
+  }
 }
 
 function normalizeState(input) {
@@ -3713,6 +4221,10 @@ function normalizeState(input) {
     ? parsedSchemaVersion
     : 0;
   const settings = normalizeSettings(source.settings);
+  if (sourceSchemaVersion < 8) {
+    settings.quickCreateKinds = ensureCardKindInList(settings.quickCreateKinds, "comment", cardTypeRegistry);
+    settings.toolbarCreateKinds = ensureCardKindInList(settings.toolbarCreateKinds, "comment", getToolbarCardTypes());
+  }
   const normalized = {
     schemaVersion: stateSchemaVersion,
     boardId: typeof source.boardId === "string" && source.boardId.trim() ? source.boardId.trim() : defaultBoardId,
@@ -3723,6 +4235,8 @@ function normalizeState(input) {
       ...(source.viewport || {})
     },
     settings,
+    audit: normalizeAuditState(source.audit),
+    groupHistory: normalizeGroupHistory(source.groupHistory),
     cards: normalizeCardStackOrders(source.cards.map((card) => normalizeCard(card, settings))),
     connections: []
   };
@@ -3730,7 +4244,10 @@ function normalizeState(input) {
   const cardIds = new Set(normalized.cards.map((card) => card.id));
   normalized.cards = normalized.cards.map((card) => ({
     ...card,
-    references: normalizeReferenceIds(card.references, card.id, cardIds)
+    references: normalizeReferenceIds(card.references, card.id, cardIds),
+    commentAttachment: card.kind === "comment" && card.commentAttachment && cardIds.has(card.commentAttachment.cardId)
+      ? card.commentAttachment
+      : null
   }));
   normalized.connections = Array.isArray(source.connections)
     ? source.connections
@@ -3762,6 +4279,8 @@ function normalizeSettings(settings = {}) {
   const backgroundOpacity = Number.isFinite(parsedBackgroundOpacity)
     ? clamp(Math.round(parsedBackgroundOpacity), 0, 100)
     : defaultSettings.backgroundOpacity;
+  const richTextFontFamily = normalizeRichTextDefaultFontFamily(settings.richTextFontFamily);
+  const richTextFontSize = normalizeRichTextDefaultFontSize(settings.richTextFontSize);
   const legacyColorSources = {
     bookmark: sourceColors.bookmark || sourceColors.note,
     progress: sourceColors.progress || sourceColors.tasks,
@@ -3789,7 +4308,11 @@ function normalizeSettings(settings = {}) {
     backgroundColor,
     backgroundOpacity,
     connectionColor: isHexColor(settings.connectionColor) ? settings.connectionColor : getDefaultConnectionColor(backgroundColor),
+    richTextFontFamily,
+    richTextFontSize,
+    visualTheme: normalizeVisualTheme(settings.visualTheme),
     snapToGrid: settings.snapToGrid !== false,
+    historyEnabled: settings.historyEnabled !== false,
     quickCreateKinds: normalizeQuickCreateKinds(settings.quickCreateKinds),
     toolbarCreateKinds: normalizeToolbarCreateKinds(settings.toolbarCreateKinds),
     colorSchemes: normalizeColorSchemes(settings.colorSchemes),
@@ -3818,7 +4341,10 @@ function normalizeColorScheme(scheme = {}, fallbackName = "") {
       ? clamp(Math.round(parsedBackgroundOpacity), 0, 100)
       : defaultSettings.backgroundOpacity,
     connectionColor: isHexColor(scheme.connectionColor) ? scheme.connectionColor : getDefaultConnectionColor(backgroundColor),
-    colors
+    colors,
+    visualTheme: scheme.visualTheme || scheme.visual
+      ? normalizeVisualTheme(scheme.visualTheme || scheme.visual)
+      : null
   };
 }
 
@@ -3830,6 +4356,146 @@ function normalizeColorSchemes(schemes = []) {
   return schemes
     .slice(0, 20)
     .map((scheme, index) => normalizeColorScheme(scheme, `Custom ${index + 1}`));
+}
+
+function normalizeThemeNumber(value, fallback, min, max, decimals = 0) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  const multiplier = 10 ** decimals;
+  return Math.round(clamp(number, min, max) * multiplier) / multiplier;
+}
+
+function normalizeThemeEnum(value, allowed, fallback) {
+  return allowed.includes(value) ? value : fallback;
+}
+
+function normalizeThemeAssetPath(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const path = value.trim().replaceAll("\\", "/");
+  if (/^data:image\/(png|webp|gif|svg\+xml);base64,/i.test(path)) {
+    return path.length <= 700000 ? path : "";
+  }
+  if (!path || path.includes("..") || /^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith("/")) {
+    return "";
+  }
+
+  return path.slice(0, 240);
+}
+
+function normalizeThemeAssets(assets = {}) {
+  const sourceIcons = assets && typeof assets === "object" && assets.icons && typeof assets.icons === "object"
+    ? assets.icons
+    : {};
+  const icons = {};
+  Object.entries(sourceIcons).forEach(([kind, path]) => {
+    if (!cardTypeMap.has(kind)) {
+      return;
+    }
+    const safePath = normalizeThemeAssetPath(path);
+    if (safePath) {
+      icons[kind] = safePath;
+    }
+  });
+
+  const connection = assets && typeof assets === "object" ? assets.connection : null;
+  return {
+    icons,
+    connection: connection && typeof connection === "object"
+      ? {
+        straight: normalizeThemeAssetPath(connection.straight),
+        corner: normalizeThemeAssetPath(connection.corner),
+        start: normalizeThemeAssetPath(connection.start),
+        end: normalizeThemeAssetPath(connection.end)
+      }
+      : null
+  };
+}
+
+function normalizeVisualTheme(theme = {}) {
+  const source = theme && typeof theme === "object" ? theme : {};
+  const sourceTokens = source.tokens && typeof source.tokens === "object" ? source.tokens : {};
+  const sourceConnections = source.connections && typeof source.connections === "object" ? source.connections : {};
+  const fallbackTokens = defaultVisualTheme.tokens;
+  const fallbackConnections = defaultVisualTheme.connections;
+
+  return {
+    version: 1,
+    name: typeof source.name === "string" && source.name.trim()
+      ? source.name.trim().slice(0, 80)
+      : defaultVisualTheme.name,
+    tokens: {
+      cardRadius: normalizeThemeNumber(sourceTokens.cardRadius, fallbackTokens.cardRadius, 0, 24),
+      panelRadius: normalizeThemeNumber(sourceTokens.panelRadius, fallbackTokens.panelRadius, 0, 24),
+      buttonRadius: normalizeThemeNumber(sourceTokens.buttonRadius, fallbackTokens.buttonRadius, 0, 24),
+      cardBorderWidth: normalizeThemeNumber(sourceTokens.cardBorderWidth, fallbackTokens.cardBorderWidth, 0, 4),
+      cardHeaderHeight: normalizeThemeNumber(sourceTokens.cardHeaderHeight, fallbackTokens.cardHeaderHeight, 24, 48),
+      groupHeaderHeight: normalizeThemeNumber(sourceTokens.groupHeaderHeight, fallbackTokens.groupHeaderHeight, 32, 64),
+      iconScale: normalizeThemeNumber(sourceTokens.iconScale, fallbackTokens.iconScale, 0.7, 1.6, 2),
+      shadow: normalizeThemeEnum(sourceTokens.shadow, ["none", "light", "medium", "strong"], fallbackTokens.shadow)
+    },
+    connections: {
+      strokeWidth: normalizeThemeNumber(sourceConnections.strokeWidth, fallbackConnections.strokeWidth, 1, 10, 1),
+      selectedStrokeWidth: normalizeThemeNumber(sourceConnections.selectedStrokeWidth, fallbackConnections.selectedStrokeWidth, 1, 12, 1),
+      draftStrokeWidth: normalizeThemeNumber(sourceConnections.draftStrokeWidth, fallbackConnections.draftStrokeWidth, 1, 8, 1),
+      outlineWidth: normalizeThemeNumber(sourceConnections.outlineWidth, fallbackConnections.outlineWidth, 0, 14, 1),
+      waypointRadius: normalizeThemeNumber(sourceConnections.waypointRadius, fallbackConnections.waypointRadius, 2, 12, 1),
+      markerScale: normalizeThemeNumber(sourceConnections.markerScale, fallbackConnections.markerScale, 0.5, 2.5, 2),
+      lineStyle: normalizeThemeEnum(sourceConnections.lineStyle, ["solid", "dashed", "dotted"], fallbackConnections.lineStyle)
+    },
+    assets: normalizeThemeAssets(source.assets)
+  };
+}
+
+function normalizeThemePackage(payload = {}) {
+  const source = payload && typeof payload === "object" ? payload : {};
+  if (source.type === "desktop-board-color-scheme" && source.scheme) {
+    return {
+      colorScheme: normalizeColorScheme(source.scheme),
+      visualTheme: source.scheme.visualTheme ? normalizeVisualTheme(source.scheme.visualTheme) : null
+    };
+  }
+
+  const hasKnownThemeShape = source.type === "desktop-board-theme"
+    || source.theme
+    || source.colorScheme
+    || source.visual
+    || source.visualTheme
+    || source.tokens
+    || source.connections
+    || source.assets
+    || source.colors
+    || source.backgroundColor;
+  if (!hasKnownThemeShape) {
+    return {
+      colorScheme: null,
+      visualTheme: null
+    };
+  }
+
+  const theme = source.type === "desktop-board-theme" && source.theme && typeof source.theme === "object"
+    ? source.theme
+    : source;
+  const colorSource = theme.colorScheme || theme.colors && theme;
+  const colorScheme = colorSource ? normalizeColorScheme(colorSource) : null;
+  const visualSource = theme.visual || theme.visualTheme || theme;
+  return {
+    colorScheme,
+    visualTheme: normalizeVisualTheme(visualSource)
+  };
+}
+
+function getVisualTheme() {
+  try {
+    return normalizeVisualTheme(state.settings?.visualTheme);
+  } catch {
+    return clone(defaultVisualTheme);
+  }
 }
 
 function normalizeColorRule(rule, fallback) {
@@ -3915,6 +4581,18 @@ function normalizeCard(card, settings) {
     tags: normalizeTagList(card.tags),
     references: normalizeReferenceIds(card.references, card.id || "")
   };
+  const fallbackCreatedAt = Number.isFinite(Number(card.commentCreatedAt)) ? Number(card.commentCreatedAt) : Date.now();
+  const createdAt = Number.isFinite(Number(card.createdAt)) ? Number(card.createdAt) : fallbackCreatedAt;
+  const updatedAt = Number.isFinite(Number(card.updatedAt))
+    ? Number(card.updatedAt)
+    : Number.isFinite(Number(card.commentUpdatedAt))
+      ? Number(card.commentUpdatedAt)
+      : createdAt;
+  normalized.createdAt = createdAt;
+  normalized.updatedAt = updatedAt;
+  normalized.createdBy = normalizeAuditActor(card.createdBy, createDefaultAuditActor());
+  normalized.updatedBy = normalizeAuditActor(card.updatedBy, normalized.createdBy);
+  normalized.cardHistory = normalizeCardHistory(card.cardHistory);
 
   if (normalized.kind === "tasks" || normalized.kind === "progress") {
     normalized.tasks = normalizeChecklistTasks(normalized.tasks);
@@ -3934,9 +4612,48 @@ function normalizeCard(card, settings) {
     normalized.codeLanguage = typeof normalized.codeLanguage === "string" ? normalized.codeLanguage : "";
   }
 
+  if (normalized.kind === "note" || normalized.kind === "comment") {
+    const fallbackText = typeof normalized.text === "string" ? normalized.text : "";
+    normalized.textHtml = normalizeRichTextHtml(normalized.textHtml, fallbackText);
+    normalized.text = richTextHtmlToPlainText(normalized.textHtml);
+  }
+
+  if (normalized.kind === "comment") {
+    const createdAt = Number.isFinite(Number(normalized.commentCreatedAt))
+      ? Number(normalized.commentCreatedAt)
+      : Date.now();
+    normalized.commentAttachment = normalizeCommentAttachment(normalized.commentAttachment);
+    normalized.commentCreatedAt = createdAt;
+    normalized.commentUpdatedAt = Number.isFinite(Number(normalized.commentUpdatedAt))
+      ? Number(normalized.commentUpdatedAt)
+      : createdAt;
+    normalized.commentHistory = normalizeCommentHistory(normalized.commentHistory);
+  }
+
   if (normalized.kind === "calculator") {
-    normalized.calculatorOperation = normalizeCalculatorOperation(normalized.calculatorOperation);
-    normalized.calculatorInputs = normalizeCalculatorInputs(normalized.calculatorInputs);
+    const hasStandardDisplay = Object.hasOwn(normalized, "calculatorDisplay");
+    const legacyResult = hasStandardDisplay ? null : computeCalculatorResult(normalized);
+    normalized.calculatorDisplay = normalizeCalculatorDisplay(
+      hasStandardDisplay
+        ? normalized.calculatorDisplay
+        : legacyResult?.messageOnly
+          ? "0"
+          : legacyResult?.text || "0"
+    );
+    normalized.calculatorExpression = hasStandardDisplay && typeof normalized.calculatorExpression === "string"
+      ? normalized.calculatorExpression.slice(0, 160)
+      : "";
+    normalized.calculatorOperand = hasStandardDisplay && Number.isFinite(Number(normalized.calculatorOperand))
+      ? Number(normalized.calculatorOperand)
+      : null;
+    normalized.calculatorOperation = hasStandardDisplay
+      ? normalizeStandardCalculatorOperation(normalized.calculatorOperation)
+      : null;
+    normalized.calculatorWaitingForOperand = hasStandardDisplay
+      ? Boolean(normalized.calculatorWaitingForOperand)
+      : false;
+    normalized.calculatorHistory = normalizeCalculatorHistory(normalized.calculatorHistory);
+    normalized.calculatorError = normalizeCalculatorError(normalized.calculatorError);
   }
 
   if (normalized.kind === "table") {
@@ -3966,7 +4683,9 @@ function normalizeCard(card, settings) {
   }
 
   if (normalized.kind === "reminder") {
-    normalized.text = typeof normalized.text === "string" ? normalized.text : "";
+    const fallbackText = typeof normalized.text === "string" ? normalized.text : "";
+    normalized.textHtml = normalizeRichTextHtml(normalized.textHtml, fallbackText);
+    normalized.text = richTextHtmlToPlainText(normalized.textHtml);
     Object.assign(normalized, normalizeReminderFields(normalized));
   }
 
@@ -3989,6 +4708,443 @@ function normalizeCard(card, settings) {
   }
 
   return normalized;
+}
+
+function normalizeCommentAttachment(attachment = null) {
+  if (!attachment || typeof attachment !== "object") {
+    return null;
+  }
+
+  const cardId = typeof attachment.cardId === "string" ? attachment.cardId : "";
+  const side = ["top", "right", "bottom", "left"].includes(attachment.side) ? attachment.side : "";
+  if (!cardId || !side) {
+    return null;
+  }
+
+  return {
+    cardId,
+    side,
+    offset: Number.isFinite(Number(attachment.offset)) ? Number(attachment.offset) : 0
+  };
+}
+
+function normalizeCommentHistory(history = []) {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  return history
+    .map((entry) => ({
+      id: typeof entry?.id === "string" && entry.id ? entry.id : createId("comment-history"),
+      at: Number.isFinite(Number(entry?.at)) ? Number(entry.at) : null,
+      before: typeof entry?.before === "string" ? entry.before : "",
+      after: typeof entry?.after === "string" ? entry.after : ""
+    }))
+    .filter((entry) => Number.isFinite(entry.at) && entry.before !== entry.after)
+    .slice(-commentHistoryLimit);
+}
+
+function normalizeAuditChange(change = {}) {
+  const field = typeof change.field === "string" && change.field.trim()
+    ? change.field.trim().slice(0, 120)
+    : "value";
+
+  return {
+    field,
+    before: Object.hasOwn(change, "before") ? change.before : null,
+    after: Object.hasOwn(change, "after") ? change.after : null
+  };
+}
+
+function normalizeCardHistory(history = []) {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  return history
+    .map((entry) => {
+      const changes = Array.isArray(entry?.changes)
+        ? entry.changes.map(normalizeAuditChange).slice(0, 24)
+        : [];
+      return {
+        id: typeof entry?.id === "string" && entry.id ? entry.id : createId("card-history"),
+        at: Number.isFinite(Number(entry?.at)) ? Number(entry.at) : null,
+        actor: normalizeAuditActor(entry?.actor, createDefaultAuditActor()),
+        kind: typeof entry?.kind === "string" && entry.kind.trim() ? entry.kind.trim().slice(0, 80) : "updated",
+        changes,
+        before: typeof entry?.before === "string" ? entry.before : "",
+        after: typeof entry?.after === "string" ? entry.after : ""
+      };
+    })
+    .filter((entry) => Number.isFinite(entry.at) && (entry.changes.length > 0 || entry.before !== entry.after || entry.kind === "created"))
+    .slice(-cardHistoryLimit);
+}
+
+function normalizeGroupHistory(history = []) {
+  if (!Array.isArray(history)) {
+    return [];
+  }
+
+  return history
+    .map((entry) => ({
+      id: typeof entry?.id === "string" && entry.id ? entry.id : createId("group-history"),
+      at: Number.isFinite(Number(entry?.at)) ? Number(entry.at) : null,
+      actor: normalizeAuditActor(entry?.actor, createDefaultAuditActor()),
+      action: entry?.action === "remove" ? "remove" : "add",
+      groupId: typeof entry?.groupId === "string" ? entry.groupId : "",
+      groupTitle: typeof entry?.groupTitle === "string" ? entry.groupTitle : "",
+      cardId: typeof entry?.cardId === "string" ? entry.cardId : "",
+      cardTitle: typeof entry?.cardTitle === "string" ? entry.cardTitle : ""
+    }))
+    .filter((entry) => Number.isFinite(entry.at) && entry.groupId && entry.cardId)
+    .slice(-groupHistoryLimit);
+}
+
+function isHistoryRecordingEnabled() {
+  return state?.settings?.historyEnabled !== false;
+}
+
+function getAuditText(value) {
+  return typeof value === "string" ? value : "";
+}
+
+function getAuditNumber(value, fallback = null) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function getAuditTags(tags = []) {
+  return normalizeTagList(tags).sort((left, right) => left.localeCompare(right));
+}
+
+function getAuditReferences(references = []) {
+  return normalizeReferenceIds(references).sort();
+}
+
+function getAuditTasks(tasks = []) {
+  return normalizeChecklistTasks(tasks).map((task) => ({
+    text: task.text,
+    done: task.done
+  }));
+}
+
+function getAuditBookmarkLinks(links = []) {
+  return normalizeBookmarkLinks(links).map((link) => ({
+    title: link.title,
+    url: link.url
+  }));
+}
+
+function getAuditScheduleEntries(entries = [], legacyText = "") {
+  return normalizeScheduleEntries(entries, legacyText).map((entry) => ({
+    time: entry.time,
+    note: entry.note
+  }));
+}
+
+function getAuditCalculatorInputs(inputs = []) {
+  return normalizeCalculatorInputs(inputs).map((input) => ({
+    value: input.value
+  }));
+}
+
+function getAuditCalculatorHistory(history = []) {
+  return normalizeCalculatorHistory(history).map((entry) => ({
+    expression: entry.expression,
+    result: entry.result
+  }));
+}
+
+function getAuditTableColumns(columns = []) {
+  return normalizeTableColumns(columns, 1).map((column) => ({
+    title: column.title
+  }));
+}
+
+function getAuditTableRows(rows = [], columnCount = 1) {
+  return normalizeTableRows(rows, columnCount).map((row) => ({
+    cells: row.cells
+  }));
+}
+
+function getAuditCardBase(card = {}) {
+  return {
+    title: getAuditText(card.title),
+    tags: getAuditTags(card.tags),
+    references: getAuditReferences(card.references)
+  };
+}
+
+function getAuditComparableCard(card = {}) {
+  const base = getAuditCardBase(card);
+
+  switch (card.kind) {
+    case "tasks":
+    case "progress":
+      return {
+        ...base,
+        tasks: getAuditTasks(card.tasks)
+      };
+    case "schedule":
+      return {
+        ...base,
+        scheduleEntries: getAuditScheduleEntries(card.scheduleEntries, card.text)
+      };
+    case "bookmark":
+      return {
+        ...base,
+        links: getAuditBookmarkLinks(card.links)
+      };
+    case "code":
+      return {
+        ...base,
+        codeLanguage: getAuditText(card.codeLanguage),
+        text: getAuditText(card.text)
+      };
+    case "comment":
+      return {
+        ...base,
+        text: getAuditText(card.text),
+        textHtml: normalizeRichTextHtml(card.textHtml, card.text)
+      };
+    case "calculator":
+      return {
+        ...base,
+        calculatorDisplay: normalizeCalculatorDisplay(card.calculatorDisplay),
+        calculatorExpression: getAuditText(card.calculatorExpression),
+        calculatorError: normalizeCalculatorError(card.calculatorError),
+        calculatorHistory: getAuditCalculatorHistory(card.calculatorHistory)
+      };
+    case "table": {
+      const columns = getAuditTableColumns(card.tableColumns);
+      return {
+        ...base,
+        tableColumns: columns,
+        tableRows: getAuditTableRows(card.tableRows, columns.length)
+      };
+    }
+    case "timer":
+      return {
+        ...base,
+        timerDurationMinutes: normalizeTimerDurationMinutes(card.timerDurationMinutes),
+        timerNotifyToast: card.timerNotifyToast !== false,
+        timerPlaySound: card.timerPlaySound === true
+      };
+    case "reminder":
+      return {
+        ...base,
+        text: getAuditText(card.text),
+        reminderAt: normalizeReminderDateTime(card.reminderAt),
+        reminderShowToast: card.reminderShowToast !== false,
+        reminderPlaySound: card.reminderPlaySound === true,
+        reminderRepeatUntilAcknowledged: card.reminderRepeatUntilAcknowledged !== false,
+        reminderRepeatIntervalMinutes: normalizeReminderRepeatIntervalMinutes(card.reminderRepeatIntervalMinutes)
+      };
+    case "image":
+    case "video":
+    case "audio":
+    case "file":
+      return {
+        ...base,
+        originalName: getAuditText(card.originalName),
+        assetRelativePath: getAuditText(card.assetRelativePath),
+        sizeBytes: getAuditNumber(card.sizeBytes)
+      };
+    case "web":
+      return {
+        ...base,
+        url: normalizeUrl(card.url || card.src)
+      };
+    case "group":
+      return base;
+    case "note":
+    default:
+      return {
+        ...base,
+        text: getAuditText(card.text),
+        textHtml: normalizeRichTextHtml(card.textHtml, card.text)
+      };
+  }
+}
+
+function serializeAuditValue(value) {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function compactAuditValue(value) {
+  if (typeof value === "string") {
+    return value.length > 2000 ? `${value.slice(0, 2000)}...` : value;
+  }
+
+  const serialized = serializeAuditValue(value);
+  if (serialized.length > 4000) {
+    return `${serialized.slice(0, 4000)}...`;
+  }
+
+  return value;
+}
+
+function getAuditFieldChanges(previous = {}, next = {}) {
+  const fields = new Set([...Object.keys(previous), ...Object.keys(next)]);
+  return [...fields]
+    .sort()
+    .filter((field) => serializeAuditValue(previous[field]) !== serializeAuditValue(next[field]))
+    .slice(0, 24)
+    .map((field) => ({
+      field,
+      before: compactAuditValue(previous[field]),
+      after: compactAuditValue(next[field])
+    }));
+}
+
+function appendCardHistoryEntry(card, entry) {
+  if (!card) {
+    return;
+  }
+
+  card.cardHistory = normalizeCardHistory([
+    ...(Array.isArray(card.cardHistory) ? card.cardHistory : []),
+    {
+      id: createId("card-history"),
+      ...entry
+    }
+  ]);
+}
+
+function createGroupMembershipSnapshot() {
+  const snapshot = new Map();
+  state.cards
+    .filter((card) => card.kind === "group")
+    .forEach((group) => {
+      const memberIds = getContainedCards(group, { includeGroups: true, recursive: false })
+        .map((card) => card.id)
+        .filter((id) => id && id !== group.id)
+        .sort();
+      snapshot.set(group.id, memberIds);
+    });
+  return snapshot;
+}
+
+function resetAuditTracking(source = state) {
+  auditCardBaseline = new Map(
+    (Array.isArray(source.cards) ? source.cards : []).map((card) => [
+      card.id,
+      getAuditComparableCard(card)
+    ])
+  );
+  auditGroupBaseline = createGroupMembershipSnapshot();
+}
+
+function recordGroupMembershipAudit(actor, at) {
+  const nextSnapshot = createGroupMembershipSnapshot();
+  const entries = [];
+  const cardById = new Map(state.cards.map((card) => [card.id, card]));
+
+  nextSnapshot.forEach((memberIds, groupId) => {
+    const previousIds = new Set(auditGroupBaseline.get(groupId) || []);
+    const group = cardById.get(groupId);
+    memberIds.forEach((cardId) => {
+      if (previousIds.has(cardId)) {
+        return;
+      }
+      const card = cardById.get(cardId);
+      entries.push({
+        id: createId("group-history"),
+        at,
+        actor,
+        action: "add",
+        groupId,
+        groupTitle: group?.title || t("group"),
+        cardId,
+        cardTitle: card?.title || t("genericElement")
+      });
+    });
+  });
+
+  auditGroupBaseline.forEach((memberIds, groupId) => {
+    const nextIds = new Set(nextSnapshot.get(groupId) || []);
+    const group = cardById.get(groupId);
+    memberIds.forEach((cardId) => {
+      if (nextIds.has(cardId)) {
+        return;
+      }
+      const card = cardById.get(cardId);
+      entries.push({
+        id: createId("group-history"),
+        at,
+        actor,
+        action: "remove",
+        groupId,
+        groupTitle: group?.title || "",
+        cardId,
+        cardTitle: card?.title || ""
+      });
+    });
+  });
+
+  if (entries.length) {
+    state.groupHistory = normalizeGroupHistory([
+      ...(Array.isArray(state.groupHistory) ? state.groupHistory : []),
+      ...entries
+    ]);
+  }
+}
+
+function recordAuditChanges() {
+  if (!isHistoryRecordingEnabled()) {
+    resetAuditTracking(state);
+    return;
+  }
+
+  const actor = getCurrentAuditActor();
+  const now = Date.now();
+  state.cards.forEach((card) => {
+    if (!card) {
+      return;
+    }
+
+    card.createdAt = Number.isFinite(Number(card.createdAt)) ? Number(card.createdAt) : now;
+    card.updatedAt = Number.isFinite(Number(card.updatedAt)) ? Number(card.updatedAt) : card.createdAt;
+    card.createdBy = normalizeAuditActor(card.createdBy, actor);
+    card.updatedBy = normalizeAuditActor(card.updatedBy, card.createdBy);
+
+    const previous = auditCardBaseline.get(card.id);
+    const current = getAuditComparableCard(card);
+    if (!previous) {
+      card.createdAt = now;
+      card.updatedAt = now;
+      card.createdBy = actor;
+      card.updatedBy = actor;
+      appendCardHistoryEntry(card, {
+        at: now,
+        actor,
+        kind: "created",
+        changes: []
+      });
+      return;
+    }
+
+    const changes = getAuditFieldChanges(previous, current);
+    if (!changes.length) {
+      return;
+    }
+
+    card.updatedAt = now;
+    card.updatedBy = actor;
+    appendCardHistoryEntry(card, {
+      at: now,
+      actor,
+      kind: "updated",
+      changes
+    });
+  });
+
+  recordGroupMembershipAudit(actor, now);
+  resetAuditTracking(state);
 }
 
 function normalizeConnectionAnchor(anchor = {}) {
@@ -4326,6 +5482,249 @@ function getCardsForMove(baseCards = []) {
   return [...moveCards.values()];
 }
 
+function getAttachedComments(targetCardId) {
+  return state.cards.filter((card) => (
+    card.kind === "comment"
+    && card.commentAttachment?.cardId === targetCardId
+  ));
+}
+
+function detachCommentsFromCardIds(cardIds) {
+  const ids = new Set(cardIds);
+  state.cards.forEach((card) => {
+    if (card.kind === "comment" && card.commentAttachment && ids.has(card.commentAttachment.cardId)) {
+      card.commentAttachment = null;
+    }
+  });
+}
+
+function getRectOverlapLength(first, second, axis) {
+  if (!first || !second) {
+    return 0;
+  }
+
+  if (axis === "x") {
+    return Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left));
+  }
+
+  return Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top));
+}
+
+function getCommentAttachOffset(comment, target, side) {
+  if (side === "top" || side === "bottom") {
+    return clamp(comment.x - target.x, 0, Math.max(0, target.width - comment.width));
+  }
+
+  return clamp(comment.y - target.y, 0, Math.max(0, target.height - comment.height));
+}
+
+function syncAttachedCommentPosition(comment) {
+  const attachment = normalizeCommentAttachment(comment?.commentAttachment);
+  if (!comment || comment.kind !== "comment" || !attachment) {
+    return false;
+  }
+
+  const target = getCardById(attachment.cardId);
+  if (!target || target.id === comment.id) {
+    comment.commentAttachment = null;
+    return false;
+  }
+
+  const offset = Number.isFinite(Number(attachment.offset)) ? Number(attachment.offset) : 0;
+  const side = attachment.side;
+  if (side === "top" || side === "bottom") {
+    const nextOffset = clamp(offset, 0, Math.max(0, target.width - comment.width));
+    comment.x = target.x + nextOffset;
+    comment.y = side === "top"
+      ? target.y - comment.height - commentAttachGap
+      : target.y + target.height + commentAttachGap;
+    comment.commentAttachment = { ...attachment, offset: nextOffset };
+    return true;
+  }
+
+  const nextOffset = clamp(offset, 0, Math.max(0, target.height - comment.height));
+  comment.x = side === "left"
+    ? target.x - comment.width - commentAttachGap
+    : target.x + target.width + commentAttachGap;
+  comment.y = target.y + nextOffset;
+  comment.commentAttachment = { ...attachment, offset: nextOffset };
+  return true;
+}
+
+function syncAttachedCommentElement(comment) {
+  syncAttachedCommentPosition(comment);
+  const element = getCardElement(comment);
+  if (!element) {
+    return;
+  }
+
+  element.style.left = `${comment.x}px`;
+  element.style.top = `${comment.y}px`;
+}
+
+function syncAttachedCommentsForTargets(targetIds) {
+  const ids = new Set(targetIds);
+  if (!ids.size) {
+    return;
+  }
+
+  state.cards.forEach((card) => {
+    if (card.kind === "comment" && card.commentAttachment && ids.has(card.commentAttachment.cardId)) {
+      syncAttachedCommentElement(card);
+    }
+  });
+}
+
+function syncAllAttachedComments() {
+  state.cards.forEach((card) => {
+    if (card.kind === "comment" && card.commentAttachment) {
+      syncAttachedCommentPosition(card);
+    }
+  });
+}
+
+function getNearestCommentAttachment(comment) {
+  if (!comment || comment.kind !== "comment") {
+    return null;
+  }
+
+  const commentRect = getCardRect(comment);
+  const candidates = [];
+  state.cards.forEach((target) => {
+    if (!target || target.id === comment.id || target.kind === "comment") {
+      return;
+    }
+
+    const targetRect = getCardRect(target);
+    const horizontalOverlap = getRectOverlapLength(commentRect, targetRect, "x");
+    const verticalOverlap = getRectOverlapLength(commentRect, targetRect, "y");
+    const verticalMinimum = Math.min(comment.height, target.height) * 0.25;
+    const horizontalMinimum = Math.min(comment.width, target.width) * 0.25;
+
+    [
+      { side: "top", distance: Math.abs(commentRect.bottom - targetRect.top), overlap: horizontalOverlap, minimum: horizontalMinimum },
+      { side: "bottom", distance: Math.abs(commentRect.top - targetRect.bottom), overlap: horizontalOverlap, minimum: horizontalMinimum },
+      { side: "left", distance: Math.abs(commentRect.right - targetRect.left), overlap: verticalOverlap, minimum: verticalMinimum },
+      { side: "right", distance: Math.abs(commentRect.left - targetRect.right), overlap: verticalOverlap, minimum: verticalMinimum }
+    ].forEach((candidate) => {
+      if (candidate.distance <= commentAttachThreshold && candidate.overlap >= Math.max(12, candidate.minimum)) {
+        candidates.push({
+          cardId: target.id,
+          target,
+          side: candidate.side,
+          distance: candidate.distance,
+          overlap: candidate.overlap
+        });
+      }
+    });
+  });
+
+  candidates.sort((a, b) => a.distance - b.distance || b.overlap - a.overlap);
+  return candidates[0] || null;
+}
+
+function attachCommentToTarget(comment, target, side) {
+  if (!comment || comment.kind !== "comment" || !target || target.id === comment.id || target.kind === "comment") {
+    return false;
+  }
+
+  comment.commentAttachment = {
+    cardId: target.id,
+    side,
+    offset: getCommentAttachOffset(comment, target, side)
+  };
+  syncAttachedCommentPosition(comment);
+  return true;
+}
+
+function attachCommentToNearestTarget(comment, options = {}) {
+  ensureEditMode();
+  const candidate = getNearestCommentAttachment(comment);
+  if (!candidate) {
+    if (comment?.kind === "comment") {
+      comment.commentAttachment = null;
+    }
+    if (options.closeMenu !== false) {
+      closeContextMenu();
+    }
+    if (options.render) {
+      render();
+    }
+    scheduleSave();
+    return false;
+  }
+
+  attachCommentToTarget(comment, candidate.target, candidate.side);
+  if (options.closeMenu !== false) {
+    closeContextMenu();
+  }
+  if (options.render) {
+    render();
+  }
+  scheduleSave();
+  return true;
+}
+
+function detachComment(comment, options = {}) {
+  if (!comment || comment.kind !== "comment") {
+    return;
+  }
+
+  comment.commentAttachment = null;
+  if (options.render) {
+    render();
+  }
+  if (options.closeMenu !== false) {
+    closeContextMenu();
+  }
+  scheduleSave();
+}
+
+function recordCommentTextEdit(card, before, after) {
+  if (!card || card.kind !== "comment" || before === after || !isHistoryRecordingEnabled()) {
+    return false;
+  }
+
+  const now = Date.now();
+  card.commentHistory = normalizeCommentHistory([
+    ...(Array.isArray(card.commentHistory) ? card.commentHistory : []),
+    {
+      id: createId("comment-history"),
+      at: now,
+      before,
+      after
+    }
+  ]);
+  card.commentUpdatedAt = now;
+  return true;
+}
+
+function settleMovedCommentAttachments(items = []) {
+  let changed = false;
+  items.forEach((item) => {
+    const comment = item?.card;
+    if (!comment || comment.kind !== "comment") {
+      return;
+    }
+
+    const previousAttachment = comment.commentAttachment ? JSON.stringify(comment.commentAttachment) : "";
+    const candidate = getNearestCommentAttachment(comment);
+    if (candidate) {
+      attachCommentToTarget(comment, candidate.target, candidate.side);
+      syncAttachedCommentElement(comment);
+    } else {
+      comment.commentAttachment = null;
+    }
+
+    const nextAttachment = comment.commentAttachment ? JSON.stringify(comment.commentAttachment) : "";
+    if (previousAttachment !== nextAttachment) {
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
 function migrateGroupBoundConnectionPoints(boardState) {
   if (!Array.isArray(boardState?.connections) || !Array.isArray(boardState?.cards) || boardState.connections.length === 0) {
     return;
@@ -4373,6 +5772,7 @@ function resetHistoryTracking(source = state) {
   undoStack = [];
   redoStack = [];
   lastCommittedHistorySnapshot = snapshotHistoryState(source);
+  resetAuditTracking(source);
 }
 
 function commitHistorySnapshot() {
@@ -4425,6 +5825,9 @@ function applyHistorySnapshot(snapshot) {
   if (!metaModal.hidden) {
     closeMetaModal();
   }
+  if (commentHistoryModal && !commentHistoryModal.hidden) {
+    closeCommentHistoryModal();
+  }
 
   const preservedViewport = clone(state.viewport);
   const preservedLocked = state.locked;
@@ -4443,6 +5846,7 @@ function applyHistorySnapshot(snapshot) {
     locked: preservedLocked
   });
   lastCommittedHistorySnapshot = snapshotHistoryState(state);
+  resetAuditTracking(state);
   applySystemTheme(currentSystemTheme);
   render();
   applySettings();
@@ -4501,6 +5905,7 @@ function scheduleSave() {
 
 async function saveState(options = {}) {
   if (!options.skipHistory) {
+    recordAuditChanges();
     commitHistorySnapshot();
   }
 
@@ -4527,6 +5932,34 @@ async function loadState() {
   resetHistoryTracking(state);
   boardManagerState.selectedBoardId = getCurrentBoardId();
   syncBoardNameInput();
+}
+
+function getThemeShadowValue(shadow) {
+  if (shadow === "none") {
+    return "none";
+  }
+  if (shadow === "light") {
+    return "0 8px 20px rgba(23, 25, 22, 0.10)";
+  }
+  if (shadow === "strong") {
+    return "0 18px 46px rgba(23, 25, 22, 0.24)";
+  }
+
+  return "0 14px 34px rgba(23, 25, 22, 0.14)";
+}
+
+function applyVisualTheme() {
+  const theme = getVisualTheme();
+  const { tokens } = theme;
+  const root = document.documentElement;
+  root.style.setProperty("--theme-card-radius", `${tokens.cardRadius}px`);
+  root.style.setProperty("--theme-panel-radius", `${tokens.panelRadius}px`);
+  root.style.setProperty("--theme-button-radius", `${tokens.buttonRadius}px`);
+  root.style.setProperty("--theme-card-border-width", `${tokens.cardBorderWidth}px`);
+  root.style.setProperty("--theme-card-header-height", `${tokens.cardHeaderHeight}px`);
+  root.style.setProperty("--theme-group-header-height", `${tokens.groupHeaderHeight}px`);
+  root.style.setProperty("--theme-card-icon-scale", String(tokens.iconScale));
+  root.style.setProperty("--shadow", getThemeShadowValue(tokens.shadow));
 }
 
 function applyViewport() {
@@ -4558,6 +5991,10 @@ function applySettings() {
   document.documentElement.style.setProperty("--board-grid-horizontal", rgba(hexToRgb("#2f7d57"), 0.1 * surfaceOpacity));
   document.documentElement.style.setProperty("--board-grid-vertical", rgba(hexToRgb("#3a8f9f"), 0.1 * surfaceOpacity));
   document.documentElement.style.setProperty("--connection-outline", getReadableTextColor(state.settings.backgroundColor));
+  document.documentElement.style.setProperty("--rich-text-font-family", getRichTextFontFamilyCssValue(state.settings.richTextFontFamily));
+  document.documentElement.style.setProperty("--rich-text-font-size", `${normalizeRichTextDefaultFontSize(state.settings.richTextFontSize)}px`);
+  applyVisualTheme();
+  renderRichTextSettingsOptions();
   themeModeInput.value = state.settings.themeMode;
   languageModeInput.value = state.settings.languageMode;
   timeFormatInput.value = state.settings.timeFormat;
@@ -4569,6 +6006,22 @@ function applySettings() {
     backgroundOpacityValue.textContent = `${backgroundTransparency}%`;
   }
   connectionColorInput.value = state.settings.connectionColor;
+  if (richTextFontFamilyInput) {
+    richTextFontFamilyInput.value = normalizeRichTextDefaultFontFamily(state.settings.richTextFontFamily);
+  }
+  if (richTextFontSizeInput) {
+    richTextFontSizeInput.value = String(normalizeRichTextDefaultFontSize(state.settings.richTextFontSize));
+  }
+  if (richTextToolbar) {
+    const toolbarFontSelect = richTextToolbar.querySelector(".rich-text-toolbar-select");
+    const toolbarSizeSelect = richTextToolbar.querySelector(".rich-text-toolbar-size");
+    if (toolbarFontSelect) {
+      toolbarFontSelect.value = normalizeRichTextDefaultFontFamily(state.settings.richTextFontFamily);
+    }
+    if (toolbarSizeSelect) {
+      toolbarSizeSelect.value = String(normalizeRichTextDefaultFontSize(state.settings.richTextFontSize));
+    }
+  }
   Object.entries(colorInputRefs).forEach(([kind, inputs]) => {
     if (!inputs?.header || !inputs?.body) {
       return;
@@ -4577,6 +6030,9 @@ function applySettings() {
     inputs.body.value = state.settings.colors[kind].body;
   });
   snapToGridInput.checked = state.settings.snapToGrid;
+  if (historyEnabledInput) {
+    historyEnabledInput.checked = state.settings.historyEnabled !== false;
+  }
   toggleHotkeyInput.value = state.settings.toggleHotkey;
   lockHotkeyInput.value = state.settings.lockHotkey;
   applyToolbarCreateVisibility();
@@ -4612,6 +6068,8 @@ function applyTranslations() {
   setText("storagePathLabel", "storagePath");
   setText("storagePathHelp", "storagePathHelp");
   setText("diagnosticsEnabledLabel", "diagnosticsEnabled");
+  setText("historyEnabledLabel", "historyEnabled");
+  setText("historyEnabledHelp", "historyEnabledHelp");
   setText("logsFolderLabel", "logsFolder");
   setText("boardArchiveLabel", "boardArchive");
   setText("boardArchiveHelp", "boardArchiveHelp");
@@ -4626,12 +6084,15 @@ function applyTranslations() {
   setText("quickCreateHelp", "quickCreateHelp");
   setText("toolbarCreateTitle", "toolbarCreateMenu");
   setText("toolbarCreateHelp", "toolbarCreateHelp");
+  setText("richTextFontFamilyLabel", "richTextFontFamily");
+  setText("richTextFontSizeLabel", "richTextFontSize");
   setText("colorSchemePresetsLabel", "colorSchemePresets");
   setText("colorSchemeHelp", "colorSchemeHelp");
   setText("headerColorColumnLabel", "headerColor");
   setText("bodyColorColumnLabel", "bodyColor");
   [
     ["noteColorRuleLabel", "note"],
+    ["commentColorRuleLabel", "comment"],
     ["codeColorRuleLabel", "code"],
     ["tableColorRuleLabel", "table"],
     ["calculatorColorRuleLabel", "calculator"],
@@ -4704,6 +6165,12 @@ function applyTranslations() {
   }
   if (exportColorSchemeButton) {
     exportColorSchemeButton.textContent = t("exportColorScheme");
+  }
+  if (importThemeButton) {
+    importThemeButton.textContent = t("importTheme");
+  }
+  if (importThemePackageButton) {
+    importThemePackageButton.textContent = t("importThemePackage");
   }
   if (checkUpdatesButton) {
     checkUpdatesButton.textContent = t("checkUpdates");
@@ -4976,10 +6443,10 @@ function getCardTextParts(card) {
   }
 
   if (card.kind === "calculator") {
-    parts.push(normalizeCalculatorOperation(card.calculatorOperation));
-    if (Array.isArray(card.calculatorInputs)) {
-      parts.push(...card.calculatorInputs.map((input) => input.value || ""));
-    }
+    parts.push(card.calculatorDisplay || "", card.calculatorExpression || "");
+    normalizeCalculatorHistory(card.calculatorHistory).forEach((entry) => {
+      parts.push(entry.expression, entry.result);
+    });
   }
 
   if (card.kind === "table") {
@@ -5147,9 +6614,643 @@ function blurActiveEditor() {
   if (!(activeElement instanceof HTMLElement)) {
     return;
   }
-  if (activeElement.matches("input, textarea, select")) {
+  if (activeElement.matches("input, textarea, select, [contenteditable='true']")) {
     activeElement.blur();
   }
+  hideRichTextToolbar();
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function plainTextToRichTextHtml(value = "") {
+  const text = String(value ?? "").replace(/\r\n?/g, "\n");
+  if (!text) {
+    return "";
+  }
+  return text.split("\n").map((line) => escapeHtml(line)).join("<br>");
+}
+
+function plainTextToDefaultRichTextHtml(value = "") {
+  const text = String(value ?? "").replace(/\r\n?/g, "\n");
+  if (!text) {
+    return "";
+  }
+
+  const fontFamily = escapeHtml(getRichTextFontFamilyCssValue(state.settings.richTextFontFamily));
+  const fontSize = normalizeRichTextDefaultFontSize(state.settings.richTextFontSize);
+  const style = `font-family: ${fontFamily}; font-size: ${fontSize}px;`;
+  return text
+    .split("\n")
+    .map((line) => `<span style="${style}">${escapeHtml(line)}</span>`)
+    .join("<br>");
+}
+
+function normalizeRichTextFontFamily(value = "") {
+  const candidates = String(value || "")
+    .split(",")
+    .map((item) => item.replaceAll('"', "").replaceAll("'", "").trim().toLowerCase())
+    .filter(Boolean);
+  return richTextFontFamilies.find((font) => candidates.includes(font.toLowerCase())) || "";
+}
+
+function normalizeRichTextFontSize(value = "") {
+  const number = Number(String(value || "").replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(number)) {
+    return "";
+  }
+  const clamped = clamp(number, richTextFontSizes[0], richTextFontSizes[richTextFontSizes.length - 1]);
+  const nearest = richTextFontSizes.reduce((best, item) => (
+    Math.abs(item - clamped) < Math.abs(best - clamped) ? item : best
+  ), richTextFontSizes[0]);
+  return `${nearest}px`;
+}
+
+function normalizeRichTextDefaultFontFamily(value = "") {
+  return normalizeRichTextFontFamily(value) || defaultRichTextFontFamily;
+}
+
+function normalizeRichTextDefaultFontSize(value = "") {
+  const normalized = normalizeRichTextFontSize(value);
+  return normalized ? Number(normalized.replace("px", "")) : defaultRichTextFontSize;
+}
+
+function getRichTextFontFamilyCssValue(value = defaultRichTextFontFamily) {
+  const font = normalizeRichTextDefaultFontFamily(value).replaceAll('"', "").replaceAll("\\", "");
+  return `"${font}", sans-serif`;
+}
+
+function normalizeRichTextColor(value = "") {
+  const option = new Option();
+  option.style.color = "";
+  option.style.color = String(value || "").trim();
+  return option.style.color || "";
+}
+
+function richTextColorToHex(value = "") {
+  const color = normalizeRichTextColor(value);
+  if (!color) {
+    return "";
+  }
+
+  const match = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!match) {
+    return color.startsWith("#") && color.length === 7 ? color.toLowerCase() : "";
+  }
+
+  return `#${[match[1], match[2], match[3]]
+    .map((part) => clamp(Number(part), 0, 255).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function appendSanitizedRichTextChildren(source, target) {
+  Array.from(source.childNodes).forEach((child) => {
+    target.appendChild(sanitizeRichTextNode(child));
+  });
+}
+
+function applySanitizedRichTextStyle(source, target) {
+  const color = normalizeRichTextColor(source.getAttribute("color") || source.style.color);
+  const family = normalizeRichTextFontFamily(source.getAttribute("face") || source.style.fontFamily);
+  const sizeFromFontTag = source.getAttribute("size")
+    ? {
+        "1": "12px",
+        "2": "14px",
+        "3": "16px",
+        "4": "18px",
+        "5": "24px",
+        "6": "32px",
+        "7": "48px"
+      }[source.getAttribute("size")]
+    : "";
+  const size = normalizeRichTextFontSize(source.style.fontSize || sizeFromFontTag);
+  const fontWeight = String(source.style.fontWeight || "").toLowerCase();
+  const fontStyle = String(source.style.fontStyle || "").toLowerCase();
+  const textDecoration = String(source.style.textDecoration || source.style.textDecorationLine || "").toLowerCase();
+
+  if (color) {
+    target.style.color = color;
+  }
+  if (family) {
+    target.style.fontFamily = family;
+  }
+  if (size) {
+    target.style.fontSize = size;
+  }
+  if (fontWeight === "bold" || Number(fontWeight) >= 600) {
+    target.style.fontWeight = "700";
+  }
+  if (fontStyle === "italic") {
+    target.style.fontStyle = "italic";
+  }
+  if (textDecoration.includes("underline")) {
+    target.style.textDecoration = "underline";
+  }
+}
+
+function sanitizeRichTextNode(node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return document.createTextNode(node.textContent || "");
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return document.createDocumentFragment();
+  }
+
+  const tag = node.tagName.toUpperCase();
+  if (tag === "BR") {
+    return document.createElement("br");
+  }
+
+  if (tag === "B" || tag === "STRONG" || tag === "I" || tag === "EM" || tag === "U") {
+    const clean = document.createElement(tag.toLowerCase());
+    appendSanitizedRichTextChildren(node, clean);
+    return clean;
+  }
+
+  if (tag === "SPAN" || tag === "FONT") {
+    const clean = document.createElement("span");
+    applySanitizedRichTextStyle(node, clean);
+    appendSanitizedRichTextChildren(node, clean);
+    return clean;
+  }
+
+  if (tag === "DIV" || tag === "P") {
+    const clean = document.createElement("div");
+    appendSanitizedRichTextChildren(node, clean);
+    return clean;
+  }
+
+  const fragment = document.createDocumentFragment();
+  appendSanitizedRichTextChildren(node, fragment);
+  return fragment;
+}
+
+function normalizeRichTextHtml(html = "", fallbackText = "") {
+  const source = String(html || "").trim()
+    ? String(html || "")
+    : plainTextToRichTextHtml(fallbackText);
+  if (!source) {
+    return "";
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = source;
+  const output = document.createElement("div");
+  appendSanitizedRichTextChildren(template.content, output);
+  return output.innerHTML;
+}
+
+function richTextHtmlToPlainText(html = "") {
+  const normalized = normalizeRichTextHtml(html);
+  if (!normalized) {
+    return "";
+  }
+  const host = document.createElement("div");
+  host.innerHTML = normalized;
+  return (host.innerText || host.textContent || "").replace(/\u00a0/g, " ").trimEnd();
+}
+
+function hasRichTextMarkup(value = "") {
+  return /<\/?[a-z][\s\S]*>/i.test(String(value || ""));
+}
+
+function getSelectionRangeInsideRichTextEditor(editor = activeRichTextEditor) {
+  if (!editor) {
+    return null;
+  }
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount) {
+    return null;
+  }
+  const range = selection.getRangeAt(0);
+  const container = range.commonAncestorContainer;
+  const containerElement = container.nodeType === Node.ELEMENT_NODE ? container : container.parentElement;
+  return containerElement && editor.contains(containerElement) ? range : null;
+}
+
+function rememberRichTextSelection() {
+  const range = getSelectionRangeInsideRichTextEditor();
+  activeRichTextSelectionRange = range ? range.cloneRange() : null;
+}
+
+function restoreRichTextSelection() {
+  if (!activeRichTextEditor || !activeRichTextSelectionRange) {
+    return false;
+  }
+  activeRichTextEditor.focus();
+  const selection = window.getSelection();
+  if (!selection) {
+    return false;
+  }
+  selection.removeAllRanges();
+  selection.addRange(activeRichTextSelectionRange);
+  return true;
+}
+
+function isRichTextToolbarActive() {
+  return Boolean(richTextToolbar && document.activeElement instanceof HTMLElement && richTextToolbar.contains(document.activeElement));
+}
+
+function getRichTextToolbar() {
+  if (richTextToolbar) {
+    return richTextToolbar;
+  }
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "rich-text-toolbar";
+  toolbar.hidden = true;
+  toolbar.addEventListener("pointerdown", (event) => event.stopPropagation());
+
+  const createButton = (label, titleKey, command, value = null) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "rich-text-toolbar-button";
+    button.textContent = label;
+    button.title = t(titleKey);
+    button.setAttribute("aria-label", t(titleKey));
+    button.addEventListener("pointerdown", (event) => event.preventDefault());
+    button.addEventListener("click", () => applyRichTextCommand(command, value));
+    return button;
+  };
+
+  const fontSelect = document.createElement("select");
+  fontSelect.className = "rich-text-toolbar-select";
+  fontSelect.title = t("formatFontFamily");
+  const mixedFontOption = document.createElement("option");
+  mixedFontOption.value = "";
+  mixedFontOption.textContent = "-";
+  mixedFontOption.disabled = true;
+  fontSelect.appendChild(mixedFontOption);
+  richTextFontFamilies.forEach((font) => {
+    const option = document.createElement("option");
+    option.value = font;
+    option.textContent = font;
+    fontSelect.appendChild(option);
+  });
+  fontSelect.value = normalizeRichTextDefaultFontFamily(state.settings.richTextFontFamily);
+  fontSelect.addEventListener("change", () => applyRichTextCommand("fontName", fontSelect.value));
+
+  const sizeSelect = document.createElement("select");
+  sizeSelect.className = "rich-text-toolbar-size";
+  sizeSelect.title = t("formatFontSize");
+  const mixedSizeOption = document.createElement("option");
+  mixedSizeOption.value = "";
+  mixedSizeOption.textContent = "-";
+  mixedSizeOption.disabled = true;
+  sizeSelect.appendChild(mixedSizeOption);
+  richTextFontSizes.forEach((size) => {
+    const option = document.createElement("option");
+    option.value = String(size);
+    option.textContent = String(size);
+    sizeSelect.appendChild(option);
+  });
+  sizeSelect.value = String(normalizeRichTextDefaultFontSize(state.settings.richTextFontSize));
+  sizeSelect.addEventListener("change", () => applyRichTextFontSize(sizeSelect.value));
+
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.className = "rich-text-toolbar-color";
+  colorInput.title = t("formatTextColor");
+  colorInput.setAttribute("aria-label", t("formatTextColor"));
+  colorInput.value = "#171916";
+  colorInput.addEventListener("input", () => applyRichTextCommand("foreColor", colorInput.value));
+
+  toolbar.append(
+    createButton("B", "formatBold", "bold"),
+    createButton("I", "formatItalic", "italic"),
+    createButton("U", "formatUnderline", "underline"),
+    fontSelect,
+    sizeSelect,
+    colorInput,
+    createButton("Tx", "formatClear", "removeFormat")
+  );
+  document.body.appendChild(toolbar);
+  richTextToolbar = toolbar;
+  return toolbar;
+}
+
+function hideRichTextToolbar() {
+  if (richTextToolbar) {
+    richTextToolbar.hidden = true;
+    resetRichTextToolbarControls();
+  }
+}
+
+function resetRichTextToolbarControls() {
+  if (!richTextToolbar) {
+    return;
+  }
+
+  const buttons = richTextToolbar.querySelectorAll(".rich-text-toolbar-button");
+  buttons.forEach((button) => button.classList.remove("is-active"));
+
+  const fontSelect = richTextToolbar.querySelector(".rich-text-toolbar-select");
+  const sizeSelect = richTextToolbar.querySelector(".rich-text-toolbar-size");
+  const colorInput = richTextToolbar.querySelector(".rich-text-toolbar-color");
+  if (fontSelect) {
+    fontSelect.value = normalizeRichTextDefaultFontFamily(state.settings.richTextFontFamily);
+  }
+  if (sizeSelect) {
+    sizeSelect.value = String(normalizeRichTextDefaultFontSize(state.settings.richTextFontSize));
+  }
+  if (colorInput) {
+    colorInput.value = richTextColorToHex(getComputedStyle(document.documentElement).getPropertyValue("--system-text")) || "#171916";
+    colorInput.classList.remove("is-mixed");
+  }
+}
+
+function positionRichTextToolbar(range) {
+  if (!activeRichTextEditor || state.locked) {
+    hideRichTextToolbar();
+    return;
+  }
+
+  const toolbar = getRichTextToolbar();
+  toolbar.hidden = false;
+  const editorRect = activeRichTextEditor.getBoundingClientRect();
+  const selectionRect = range?.getBoundingClientRect?.();
+  const rect = selectionRect && (selectionRect.width || selectionRect.height) ? selectionRect : editorRect;
+  const toolbarRect = toolbar.getBoundingClientRect();
+  const left = clamp(rect.left + rect.width / 2 - toolbarRect.width / 2, 8, Math.max(8, window.innerWidth - toolbarRect.width - 8));
+  const top = rect.top - toolbarRect.height - 8 < 8 ? rect.bottom + 8 : rect.top - toolbarRect.height - 8;
+  toolbar.style.left = `${Math.round(left)}px`;
+  toolbar.style.top = `${Math.round(clamp(top, 8, Math.max(8, window.innerHeight - toolbarRect.height - 8)))}px`;
+  updateRichTextToolbarState();
+}
+
+function getRichTextStyleFromNode(node) {
+  const element = node instanceof Element
+    ? node
+    : node?.parentElement;
+  if (!element || !activeRichTextEditor?.contains(element)) {
+    return null;
+  }
+
+  const style = getComputedStyle(element);
+  const weight = String(style.fontWeight || "").toLowerCase();
+  const textDecoration = String(style.textDecorationLine || style.textDecoration || "").toLowerCase();
+  return {
+    fontFamily: normalizeRichTextFontFamily(style.fontFamily) || normalizeRichTextDefaultFontFamily(state.settings.richTextFontFamily),
+    fontSize: normalizeRichTextFontSize(style.fontSize) || `${normalizeRichTextDefaultFontSize(state.settings.richTextFontSize)}px`,
+    color: richTextColorToHex(style.color) || "#171916",
+    bold: weight === "bold" || Number(weight) >= 600,
+    italic: style.fontStyle === "italic",
+    underline: textDecoration.includes("underline")
+  };
+}
+
+function getTextNodesInRichTextRange(range) {
+  if (!range || !activeRichTextEditor) {
+    return [];
+  }
+
+  const nodes = [];
+  const walker = document.createTreeWalker(activeRichTextEditor, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (!(node.textContent || "").trim()) {
+      continue;
+    }
+    try {
+      if (range.intersectsNode(node)) {
+        nodes.push(node);
+      }
+    } catch {
+      // Ignore detached transient nodes.
+    }
+  }
+  return nodes;
+}
+
+function getUniformRichTextValue(values) {
+  const normalizedValues = values.filter((value) => value !== null && typeof value !== "undefined" && value !== "");
+  if (!normalizedValues.length) {
+    return "";
+  }
+
+  return normalizedValues.every((value) => value === normalizedValues[0]) ? normalizedValues[0] : "";
+}
+
+function getRichTextSelectionStyle(range) {
+  if (!range || !activeRichTextEditor) {
+    return null;
+  }
+
+  if (range.collapsed) {
+    return getRichTextStyleFromNode(range.startContainer);
+  }
+
+  const styles = getTextNodesInRichTextRange(range)
+    .map((node) => getRichTextStyleFromNode(node))
+    .filter(Boolean);
+  if (!styles.length) {
+    return getRichTextStyleFromNode(range.startContainer);
+  }
+
+  return {
+    fontFamily: getUniformRichTextValue(styles.map((item) => item.fontFamily)),
+    fontSize: getUniformRichTextValue(styles.map((item) => item.fontSize)),
+    color: getUniformRichTextValue(styles.map((item) => item.color)),
+    bold: getUniformRichTextValue(styles.map((item) => item.bold)),
+    italic: getUniformRichTextValue(styles.map((item) => item.italic)),
+    underline: getUniformRichTextValue(styles.map((item) => item.underline))
+  };
+}
+
+function updateRichTextToolbarState() {
+  const toolbar = getRichTextToolbar();
+  const buttons = toolbar.querySelectorAll(".rich-text-toolbar-button");
+  const style = getRichTextSelectionStyle(activeRichTextSelectionRange || getSelectionRangeInsideRichTextEditor());
+  const fontSelect = toolbar.querySelector(".rich-text-toolbar-select");
+  const sizeSelect = toolbar.querySelector(".rich-text-toolbar-size");
+  const colorInput = toolbar.querySelector(".rich-text-toolbar-color");
+
+  buttons[0]?.classList.toggle("is-active", style?.bold === true);
+  buttons[1]?.classList.toggle("is-active", style?.italic === true);
+  buttons[2]?.classList.toggle("is-active", style?.underline === true);
+
+  if (fontSelect) {
+    fontSelect.value = style?.fontFamily || "";
+  }
+  if (sizeSelect) {
+    sizeSelect.value = style?.fontSize ? String(Number(style.fontSize.replace("px", ""))) : "";
+  }
+  if (colorInput) {
+    if (style?.color) {
+      colorInput.value = style.color;
+      colorInput.classList.remove("is-mixed");
+    } else {
+      colorInput.value = richTextColorToHex(getComputedStyle(document.documentElement).getPropertyValue("--system-text")) || "#171916";
+      colorInput.classList.add("is-mixed");
+    }
+  }
+}
+
+function syncRichTextCardFromEditor(card, editor, options = {}) {
+  if (!card || !editor) {
+    return;
+  }
+  const html = normalizeRichTextHtml(editor.innerHTML);
+  card.textHtml = html;
+  card.text = richTextHtmlToPlainText(html);
+  if (card.kind === "comment" && options.touch !== false) {
+    card.commentUpdatedAt = Date.now();
+  }
+}
+
+function syncRichTextTargetFromEditor(editor, setter) {
+  if (!editor || typeof setter !== "function") {
+    return;
+  }
+  const html = normalizeRichTextHtml(editor.innerHTML);
+  setter(html, richTextHtmlToPlainText(html));
+}
+
+function syncActiveRichTextTarget(options = {}) {
+  if (!activeRichTextEditor) {
+    return;
+  }
+  if (activeRichTextTarget?.sync) {
+    activeRichTextTarget.sync(activeRichTextEditor, options);
+    return;
+  }
+  syncRichTextCardFromEditor(activeRichTextCard, activeRichTextEditor, options);
+}
+
+function sanitizeRichTextEditor(editor) {
+  if (!editor) {
+    return;
+  }
+  const html = normalizeRichTextHtml(editor.innerHTML);
+  if (editor.innerHTML !== html) {
+    editor.innerHTML = html;
+  }
+}
+
+function setRichTextCaretToEnd(editor) {
+  if (!editor) {
+    return;
+  }
+
+  editor.focus();
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  selection.removeAllRanges();
+  selection.addRange(range);
+  activeRichTextSelectionRange = range.cloneRange();
+}
+
+function applyRichTextClearFormat() {
+  if (state.locked || !activeRichTextTarget || !activeRichTextEditor) {
+    return;
+  }
+  if (!restoreRichTextSelection()) {
+    return;
+  }
+
+  const selection = window.getSelection();
+  const range = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+  if (!range || !activeRichTextEditor.contains(range.commonAncestorContainer)) {
+    return;
+  }
+
+  if (range.collapsed) {
+    const text = (activeRichTextEditor.innerText || activeRichTextEditor.textContent || "")
+      .replace(/\u00a0/g, " ")
+      .trimEnd();
+    activeRichTextEditor.innerHTML = plainTextToDefaultRichTextHtml(text);
+    setRichTextCaretToEnd(activeRichTextEditor);
+  } else {
+    const text = range.toString();
+    document.execCommand("removeFormat", false, null);
+    document.execCommand("insertHTML", false, plainTextToDefaultRichTextHtml(text));
+    rememberRichTextSelection();
+  }
+
+  syncActiveRichTextTarget();
+  positionRichTextToolbar(activeRichTextSelectionRange);
+  scheduleSave();
+}
+
+function applyRichTextCommand(command, value = null) {
+  if (state.locked || !activeRichTextTarget || !activeRichTextEditor) {
+    return;
+  }
+  if (command === "removeFormat") {
+    applyRichTextClearFormat();
+    return;
+  }
+  if (!restoreRichTextSelection()) {
+    return;
+  }
+
+  document.execCommand("styleWithCSS", false, true);
+  document.execCommand(command, false, value);
+  rememberRichTextSelection();
+  syncActiveRichTextTarget();
+  positionRichTextToolbar(activeRichTextSelectionRange);
+  scheduleSave();
+}
+
+function applyRichTextFontSize(value) {
+  if (state.locked || !activeRichTextTarget || !activeRichTextEditor || !restoreRichTextSelection()) {
+    return;
+  }
+
+  const size = normalizeRichTextFontSize(`${value}px`);
+  if (!size) {
+    return;
+  }
+  document.execCommand("styleWithCSS", false, false);
+  document.execCommand("fontSize", false, "7");
+  activeRichTextEditor.querySelectorAll("font[size='7']").forEach((font) => {
+    font.removeAttribute("size");
+    font.style.fontSize = size;
+  });
+  rememberRichTextSelection();
+  syncActiveRichTextTarget();
+  positionRichTextToolbar(activeRichTextSelectionRange);
+  scheduleSave();
+}
+
+function insertRichTextPlainText(text) {
+  const html = plainTextToRichTextHtml(text);
+  document.execCommand("insertHTML", false, html);
+}
+
+function updateRichTextToolbarFromSelection() {
+  const range = getSelectionRangeInsideRichTextEditor();
+  if (range) {
+    activeRichTextSelectionRange = range.cloneRange();
+    positionRichTextToolbar(range);
+    return;
+  }
+
+  if (isRichTextToolbarActive()) {
+    positionRichTextToolbar(activeRichTextSelectionRange);
+    return;
+  }
+
+  if (activeRichTextEditor && document.activeElement === activeRichTextEditor) {
+    positionRichTextToolbar(null);
+    return;
+  }
+
+  activeRichTextSelectionRange = null;
+  hideRichTextToolbar();
 }
 
 function autoGrowTextarea(textarea, minHeight = 28) {
@@ -5333,9 +7434,16 @@ function setLocked(locked, options = {}) {
   }
 
   state.locked = locked;
+  if (locked) {
+    hideRichTextToolbar();
+  }
   document.body.classList.toggle("is-locked", locked);
   updateModeUi();
-  workspace.querySelectorAll("textarea, input, select").forEach((field) => {
+  workspace.querySelectorAll("textarea, input, select, [contenteditable]").forEach((field) => {
+    if (field.matches("[contenteditable]")) {
+      field.contentEditable = locked ? "false" : "true";
+      return;
+    }
     const inputType = "type" in field ? field.type : "";
     if (field.tagName === "SELECT" || inputType === "checkbox" || inputType === "color" || inputType === "range" || inputType === "time") {
       field.disabled = locked;
@@ -5409,12 +7517,14 @@ function refreshWebContentRenderForWindowMode() {
   requestAnimationFrame(syncAllWebCardElements);
 }
 
+const widgetInteractiveTargetSelector = ".card, .context-menu, .mode-edit-button, .rich-text-toolbar";
+
 function isWidgetInteractiveTarget(target) {
   if (!(target instanceof Element)) {
     return false;
   }
 
-  return Boolean(target.closest(".card, .context-menu, .mode-edit-button"));
+  return Boolean(target.closest(widgetInteractiveTargetSelector));
 }
 
 function shouldWidgetOverlayCapturePointer() {
@@ -5431,7 +7541,7 @@ function shouldWidgetOverlayCapturePointer() {
   }
 
   const activeElement = document.activeElement;
-  return activeElement instanceof Element && Boolean(activeElement.closest(".card, .context-menu"));
+  return activeElement instanceof Element && Boolean(activeElement.closest(widgetInteractiveTargetSelector));
 }
 
 async function syncWidgetModeInteractivity(target = widgetHoverTarget, options = {}) {
@@ -5493,6 +7603,7 @@ function render() {
   applySettings();
   rebuildCardIndexes();
   enforceGroupStackHierarchy();
+  syncAllAttachedComments();
   renderConnections();
 
   state.cards
@@ -5816,6 +7927,11 @@ function getCardKindIcon(kind) {
   return getCardTypeDefinition(kind)?.icon || getCardTypeDefinition("note").icon;
 }
 
+function getThemeCardIconAsset(kind) {
+  const asset = getVisualTheme().assets?.icons?.[kind];
+  return typeof asset === "string" && asset.startsWith("data:image/") ? asset : "";
+}
+
 function getResizeDirections(card) {
   return card.kind === "group"
     ? ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
@@ -5936,8 +8052,12 @@ function renderCard(card) {
   const element = document.createElement("section");
   element.className = "card";
   element.classList.toggle("is-selected", selectedIds.has(card.id));
+  element.classList.toggle("is-attached", card.kind === "comment" && Boolean(card.commentAttachment));
   element.dataset.id = card.id;
   element.dataset.kind = card.kind;
+  if (card.kind === "comment" && card.commentAttachment?.side) {
+    element.dataset.attachedSide = card.commentAttachment.side;
+  }
   element.style.left = `${card.x}px`;
   element.style.top = `${card.y}px`;
   element.style.width = `${card.width}px`;
@@ -5971,9 +8091,24 @@ function renderCard(card) {
   kindIcon.className = "card-kind-icon";
   kindIcon.title = getCardKindLabel(card.kind);
   kindIcon.setAttribute("aria-hidden", "true");
-  kindIcon.innerHTML = getCardKindIcon(card.kind);
+  const themeIconAsset = getThemeCardIconAsset(card.kind);
+  if (themeIconAsset) {
+    const iconImage = document.createElement("img");
+    iconImage.src = themeIconAsset;
+    iconImage.alt = "";
+    iconImage.draggable = false;
+    iconImage.addEventListener("error", () => {
+      kindIcon.replaceChildren();
+      kindIcon.innerHTML = getCardKindIcon(card.kind);
+    }, { once: true });
+    kindIcon.appendChild(iconImage);
+  } else {
+    kindIcon.innerHTML = getCardKindIcon(card.kind);
+  }
 
-  if (card.kind === "web") {
+  if (card.kind === "comment") {
+    header.append(grip, headerFill, kindIcon);
+  } else if (card.kind === "web") {
     const { input, reloadButton } = createWebHeaderControls(card);
     header.append(grip, input, reloadButton, kindIcon);
   } else if (card.kind === "file") {
@@ -6043,6 +8178,125 @@ function applyCardColors(element, card) {
   element.style.setProperty("--card-button-text", getReadableTextColor(buttonPalette.background));
 }
 
+function renderRichTextField({
+  className,
+  placeholderKey = "note",
+  getHtml,
+  getText,
+  setValue,
+  onFocus,
+  onBlur,
+  onInput
+}) {
+  const editor = document.createElement("div");
+  editor.className = `${className} rich-text-editor`;
+  editor.contentEditable = state.locked ? "false" : "true";
+  editor.spellcheck = true;
+  editor.dataset.placeholder = t(placeholderKey);
+  editor.innerHTML = normalizeRichTextHtml(getHtml?.(), getText?.());
+  syncRichTextTargetFromEditor(editor, setValue);
+  editor.dataset.initialHtml = getHtml?.() || "";
+  editor.dataset.initialText = getText?.() || "";
+
+  editor.addEventListener("focus", () => {
+    activeRichTextEditor = editor;
+    activeRichTextCard = null;
+    activeRichTextTarget = {
+      sync: (targetEditor) => syncRichTextTargetFromEditor(targetEditor, setValue)
+    };
+    editor.dataset.initialHtml = getHtml?.() || "";
+    editor.dataset.initialText = getText?.() || "";
+    onFocus?.(editor);
+    rememberRichTextSelection();
+    window.setTimeout(updateRichTextToolbarFromSelection, 0);
+  });
+
+  editor.addEventListener("blur", () => {
+    syncRichTextTargetFromEditor(editor, setValue);
+    sanitizeRichTextEditor(editor);
+    onBlur?.(editor);
+    window.setTimeout(() => {
+      if (document.activeElement !== editor && !isRichTextToolbarActive()) {
+        hideRichTextToolbar();
+      }
+    }, 0);
+  });
+
+  editor.addEventListener("input", () => {
+    syncRichTextTargetFromEditor(editor, setValue);
+    onInput?.(editor);
+    rememberRichTextSelection();
+    updateRichTextToolbarFromSelection();
+    scheduleSave();
+  });
+
+  editor.addEventListener("paste", (event) => {
+    if (state.locked) {
+      return;
+    }
+    event.preventDefault();
+    insertRichTextPlainText(event.clipboardData?.getData("text/plain") || "");
+    syncRichTextTargetFromEditor(editor, setValue);
+    onInput?.(editor);
+    rememberRichTextSelection();
+    updateRichTextToolbarFromSelection();
+    scheduleSave();
+  });
+
+  editor.addEventListener("keydown", (event) => {
+    if (state.locked || !(event.ctrlKey || event.metaKey) || event.altKey) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+    if (key === "b") {
+      event.preventDefault();
+      applyRichTextCommand("bold");
+    } else if (key === "i") {
+      event.preventDefault();
+      applyRichTextCommand("italic");
+    } else if (key === "u") {
+      event.preventDefault();
+      applyRichTextCommand("underline");
+    }
+  });
+
+  editor.addEventListener("keyup", updateRichTextToolbarFromSelection);
+  editor.addEventListener("pointerup", () => window.setTimeout(updateRichTextToolbarFromSelection, 0));
+  return editor;
+}
+
+function renderRichTextEditor(card, className, placeholderKey = "note") {
+  return renderRichTextField({
+    className,
+    placeholderKey,
+    getHtml: () => card.textHtml,
+    getText: () => card.text,
+    setValue: (html, text) => {
+      card.textHtml = html;
+      card.text = text;
+    },
+    onFocus: (editor) => {
+      activeRichTextCard = card;
+      activeRichTextTarget = {
+        sync: (targetEditor, options = {}) => syncRichTextCardFromEditor(card, targetEditor, options)
+      };
+      editor.dataset.initialHtml = card.textHtml || "";
+      editor.dataset.initialText = card.text || "";
+    },
+    onBlur: (editor) => {
+      syncRichTextCardFromEditor(card, editor);
+      const beforeText = editor.dataset.initialText || "";
+      const afterText = card.text || "";
+      if (recordCommentTextEdit(card, beforeText, afterText)) {
+        editor.dataset.initialText = afterText;
+        editor.dataset.initialHtml = card.textHtml || "";
+        scheduleSave();
+      }
+    }
+  });
+}
+
 function renderCardBody(card) {
   if (card.kind === "tasks") {
     return renderTasks(card);
@@ -6103,17 +8357,11 @@ function renderCardBody(card) {
     return renderCodeSnippet(card);
   }
 
-  const textarea = document.createElement("textarea");
-  textarea.className = "note-text";
-  textarea.value = card.text || "";
-  textarea.readOnly = state.locked;
-  textarea.spellcheck = true;
-  textarea.addEventListener("input", () => {
-    card.text = textarea.value;
-    scheduleSave();
-  });
+  if (card.kind === "comment") {
+    return renderRichTextEditor(card, "comment-text", "commentPlaceholder");
+  }
 
-  return textarea;
+  return renderRichTextEditor(card, "note-text", "note");
 }
 
 function insertTextareaText(textarea, text) {
@@ -6170,121 +8418,444 @@ function renderCodeSnippet(card) {
   return wrapper;
 }
 
-function syncCalculatorResult(card, valueElement) {
-  if (!valueElement) {
-    return;
-  }
-
-  const result = computeCalculatorResult(card);
-  valueElement.textContent = result.text;
-  valueElement.classList.toggle("is-empty", !result.text || result.empty || result.messageOnly);
-}
-
 function renderCalculator(card) {
-  card.calculatorOperation = normalizeCalculatorOperation(card.calculatorOperation);
-  card.calculatorInputs = normalizeCalculatorInputs(card.calculatorInputs);
+  card.calculatorDisplay = normalizeCalculatorDisplay(card.calculatorDisplay);
+  card.calculatorExpression = typeof card.calculatorExpression === "string" ? card.calculatorExpression : "";
+  card.calculatorOperand = Number.isFinite(Number(card.calculatorOperand)) ? Number(card.calculatorOperand) : null;
+  card.calculatorOperation = normalizeStandardCalculatorOperation(card.calculatorOperation);
+  card.calculatorWaitingForOperand = Boolean(card.calculatorWaitingForOperand);
+  card.calculatorError = normalizeCalculatorError(card.calculatorError);
+  card.calculatorHistory = normalizeCalculatorHistory(card.calculatorHistory);
 
   const wrapper = document.createElement("div");
   wrapper.className = "calculator-card";
 
-  const operationRow = document.createElement("div");
-  operationRow.className = "calculator-operation-row";
+  const expression = document.createElement("div");
+  expression.className = "calculator-expression";
 
-  const operationLabel = document.createElement("div");
-  operationLabel.className = "calculator-label";
-  operationLabel.textContent = t("calculatorOperation");
+  const display = document.createElement("input");
+  display.type = "text";
+  display.className = "calculator-display";
+  display.inputMode = "decimal";
+  display.autocomplete = "off";
+  display.spellcheck = false;
+  display.readOnly = state.locked;
+  display.setAttribute("aria-label", t("calculator"));
+  display.setAttribute("role", "textbox");
+  display.setAttribute("aria-live", "polite");
 
-  const operationSelect = document.createElement("select");
-  operationSelect.className = "card-field";
-  operationSelect.disabled = state.locked;
-  [
-    ["add", "calculatorOperationAdd"],
-    ["subtract", "calculatorOperationSubtract"],
-    ["multiply", "calculatorOperationMultiply"],
-    ["divide", "calculatorOperationDivide"]
-  ].forEach(([value, key]) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = t(key);
-    operationSelect.appendChild(option);
-  });
-  operationSelect.value = card.calculatorOperation;
-  operationSelect.addEventListener("change", () => {
-    card.calculatorOperation = normalizeCalculatorOperation(operationSelect.value);
-    syncCalculatorResult(card, resultValue);
-    scheduleSave();
-  });
-  operationRow.append(operationLabel, operationSelect);
+  const historyDetails = document.createElement("details");
+  historyDetails.className = "calculator-history";
+  const historySummary = document.createElement("summary");
+  historySummary.textContent = t("calculatorHistory");
+  const historyPanel = document.createElement("div");
+  historyPanel.className = "calculator-history-panel";
+  const historyList = document.createElement("div");
+  historyList.className = "calculator-history-list";
+  const clearHistoryButton = document.createElement("button");
+  clearHistoryButton.type = "button";
+  clearHistoryButton.className = "calculator-history-clear";
+  clearHistoryButton.textContent = t("clearCalculatorHistory");
+  clearHistoryButton.disabled = state.locked;
 
-  const inputList = document.createElement("div");
-  inputList.className = "calculator-input-list";
+  const renderHistory = () => {
+    historyList.innerHTML = "";
+    if (!card.calculatorHistory.length) {
+      const empty = document.createElement("div");
+      empty.className = "calculator-history-empty";
+      empty.textContent = t("calculatorHistoryEmpty");
+      historyList.appendChild(empty);
+      clearHistoryButton.disabled = true;
+      return;
+    }
 
-  const resultBlock = document.createElement("div");
-  resultBlock.className = "calculator-result";
-
-  const resultLabel = document.createElement("div");
-  resultLabel.className = "calculator-label";
-  resultLabel.textContent = t("calculatorResult");
-
-  const resultValue = document.createElement("div");
-  resultValue.className = "calculator-result-value";
-
-  const canRemoveInputs = card.calculatorInputs.length > 2;
-  card.calculatorInputs.forEach((input, index) => {
-    const row = document.createElement("div");
-    row.className = "calculator-input-row";
-
-    const field = document.createElement("input");
-    field.type = "text";
-    field.inputMode = "decimal";
-    field.className = "card-field";
-    field.placeholder = `${t("calculatorInputPlaceholder")} ${index + 1}`;
-    field.value = input.value || "";
-    field.readOnly = state.locked;
-    field.addEventListener("input", () => {
-      input.value = field.value;
-      syncCalculatorResult(card, resultValue);
-      scheduleSave();
+    clearHistoryButton.disabled = state.locked;
+    [...card.calculatorHistory].reverse().forEach((entry) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "calculator-history-item";
+      item.disabled = state.locked;
+      const itemExpression = document.createElement("span");
+      itemExpression.className = "calculator-history-expression";
+      itemExpression.textContent = entry.expression;
+      const itemResult = document.createElement("span");
+      itemResult.className = "calculator-history-result";
+      itemResult.textContent = entry.result;
+      item.append(itemExpression, itemResult);
+      item.addEventListener("click", () => {
+        card.calculatorDisplay = normalizeCalculatorDisplay(entry.result);
+        card.calculatorExpression = entry.expression;
+        card.calculatorOperand = parseCalculatorDisplay(entry.result);
+        card.calculatorOperation = null;
+        card.calculatorWaitingForOperand = true;
+        card.calculatorError = "";
+        updateView();
+        scheduleSave();
+      });
+      historyList.appendChild(item);
     });
+  };
 
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "calculator-input-remove";
-    removeButton.textContent = "x";
-    removeButton.title = t("removeCalculatorInput");
-    removeButton.disabled = state.locked || !canRemoveInputs;
-    removeButton.addEventListener("click", () => {
-      if (state.locked || card.calculatorInputs.length <= 2) {
+  const getVisibleDisplay = () => getCalculatorErrorText(card.calculatorError) || card.calculatorDisplay || "0";
+
+  const sanitizeTypedDisplay = (value) => {
+    const raw = String(value ?? "").replace(",", ".").trim();
+    const negative = raw.startsWith("-");
+    const cleaned = raw.replace(/[^\d.]/g, "");
+    const parts = cleaned.split(".");
+    const integerPart = (parts.shift() || "0").replace(/^0+(?=\d)/, "") || "0";
+    const decimalPart = parts.join("");
+    const hasDecimal = raw.includes(".");
+    return normalizeCalculatorDisplay(`${negative ? "-" : ""}${integerPart}${hasDecimal ? `.${decimalPart}` : ""}`);
+  };
+
+  const updateView = () => {
+    expression.textContent = card.calculatorExpression || "\u00a0";
+    display.value = getVisibleDisplay();
+    display.classList.toggle("is-error", Boolean(card.calculatorError));
+    renderHistory();
+  };
+
+  const commit = () => {
+    updateView();
+    scheduleSave();
+  };
+
+  const setDisplay = (value) => {
+    card.calculatorDisplay = normalizeCalculatorDisplay(value);
+    card.calculatorError = "";
+  };
+
+  const resetAll = () => {
+    setDisplay("0");
+    card.calculatorExpression = "";
+    card.calculatorOperand = null;
+    card.calculatorOperation = null;
+    card.calculatorWaitingForOperand = false;
+  };
+
+  const setError = (error, expressionText = "") => {
+    card.calculatorDisplay = "0";
+    card.calculatorError = normalizeCalculatorError(error);
+    card.calculatorExpression = expressionText;
+    card.calculatorOperand = null;
+    card.calculatorOperation = null;
+    card.calculatorWaitingForOperand = true;
+  };
+
+  const pushHistory = (expressionText, resultText) => {
+    card.calculatorHistory = normalizeCalculatorHistory([
+      ...card.calculatorHistory,
+      {
+        id: createId("calc-history"),
+        at: Date.now(),
+        expression: expressionText,
+        result: resultText
+      }
+    ]);
+  };
+
+  const inputDigit = (digit) => {
+    if (card.calculatorError || card.calculatorWaitingForOperand) {
+      if (!card.calculatorOperation) {
+        card.calculatorExpression = "";
+      }
+      setDisplay(digit);
+      card.calculatorWaitingForOperand = false;
+      return;
+    }
+
+    const current = card.calculatorDisplay || "0";
+    setDisplay(current === "0" ? digit : `${current}${digit}`.slice(0, 18));
+  };
+
+  const inputDecimal = () => {
+    if (card.calculatorError || card.calculatorWaitingForOperand) {
+      if (!card.calculatorOperation) {
+        card.calculatorExpression = "";
+      }
+      setDisplay("0.");
+      card.calculatorWaitingForOperand = false;
+      return;
+    }
+
+    if (!String(card.calculatorDisplay || "").includes(".")) {
+      setDisplay(`${card.calculatorDisplay || "0"}.`);
+    }
+  };
+
+  const chooseOperation = (operation) => {
+    const currentValue = parseCalculatorDisplay(card.calculatorDisplay);
+    if (currentValue === null) {
+      setError("invalid");
+      return;
+    }
+
+    if (card.calculatorOperation && card.calculatorOperand !== null && !card.calculatorWaitingForOperand) {
+      const result = applyCalculatorOperation(card.calculatorOperand, currentValue, card.calculatorOperation);
+      const expressionText = `${formatCalculatorNumber(card.calculatorOperand)} ${getCalculatorOperatorSymbol(card.calculatorOperation)} ${formatCalculatorNumber(currentValue)} =`;
+      if (result.error) {
+        setError(result.text === t("calculatorDivisionByZero") ? "divisionByZero" : "invalid", expressionText);
         return;
       }
-      card.calculatorInputs = card.calculatorInputs.filter((item) => item.id !== input.id);
-      render();
-      scheduleSave();
-    });
+      setDisplay(result.text);
+      card.calculatorOperand = result.value;
+    } else {
+      card.calculatorOperand = currentValue;
+    }
 
-    row.append(field, removeButton);
-    inputList.appendChild(row);
-  });
+    card.calculatorOperation = operation;
+    card.calculatorExpression = `${formatCalculatorNumber(card.calculatorOperand)} ${getCalculatorOperatorSymbol(operation)}`;
+    card.calculatorWaitingForOperand = true;
+  };
 
-  resultBlock.append(resultLabel, resultValue);
+  const calculateEquals = () => {
+    const operation = normalizeStandardCalculatorOperation(card.calculatorOperation);
+    const left = card.calculatorOperand;
+    const right = parseCalculatorDisplay(card.calculatorDisplay);
+    if (!operation || left === null || right === null) {
+      return;
+    }
 
-  const addButton = document.createElement("button");
-  addButton.type = "button";
-  addButton.className = "calculator-add";
-  addButton.textContent = t("addCalculatorInput");
-  addButton.disabled = state.locked;
-  addButton.addEventListener("click", () => {
+    const expressionText = `${formatCalculatorNumber(left)} ${getCalculatorOperatorSymbol(operation)} ${formatCalculatorNumber(right)} =`;
+    const result = applyCalculatorOperation(left, right, operation);
+    if (result.error) {
+      setError(result.text === t("calculatorDivisionByZero") ? "divisionByZero" : "invalid", expressionText);
+      pushHistory(expressionText, getVisibleDisplay());
+      return;
+    }
+
+    setDisplay(result.text);
+    card.calculatorExpression = expressionText;
+    card.calculatorOperand = result.value;
+    card.calculatorOperation = null;
+    card.calculatorWaitingForOperand = true;
+    pushHistory(expressionText, result.text);
+  };
+
+  const applyUnary = (kind) => {
+    const currentValue = parseCalculatorDisplay(card.calculatorDisplay);
+    if (currentValue === null) {
+      setError("invalid");
+      return;
+    }
+
+    let expressionText = "";
+    let result = null;
+    if (kind === "square") {
+      expressionText = `sqr(${formatCalculatorNumber(currentValue)}) =`;
+      result = { error: false, value: currentValue * currentValue, text: formatCalculatorNumber(currentValue * currentValue) };
+    } else if (kind === "sqrt") {
+      expressionText = `sqrt(${formatCalculatorNumber(currentValue)}) =`;
+      result = currentValue < 0
+        ? { error: true, text: t("calculatorInvalidInput"), value: null }
+        : { error: false, value: Math.sqrt(currentValue), text: formatCalculatorNumber(Math.sqrt(currentValue)) };
+    } else if (kind === "reciprocal") {
+      expressionText = `1/(${formatCalculatorNumber(currentValue)}) =`;
+      result = currentValue === 0
+        ? { error: true, text: t("calculatorDivisionByZero"), value: null }
+        : { error: false, value: 1 / currentValue, text: formatCalculatorNumber(1 / currentValue) };
+    }
+
+    if (!result) {
+      return;
+    }
+
+    if (result.error) {
+      setError(result.text === t("calculatorDivisionByZero") ? "divisionByZero" : "invalid", expressionText);
+      pushHistory(expressionText, getVisibleDisplay());
+      return;
+    }
+
+    setDisplay(result.text);
+    card.calculatorExpression = expressionText;
+    card.calculatorOperand = result.value;
+    card.calculatorOperation = null;
+    card.calculatorWaitingForOperand = true;
+    pushHistory(expressionText, result.text);
+  };
+
+  const applyPercent = () => {
+    const currentValue = parseCalculatorDisplay(card.calculatorDisplay);
+    if (currentValue === null) {
+      setError("invalid");
+      return;
+    }
+    const baseValue = Number.isFinite(Number(card.calculatorOperand)) ? Number(card.calculatorOperand) : 1;
+    setDisplay(formatCalculatorNumber((baseValue * currentValue) / 100));
+  };
+
+  const runAction = (action, value = null) => {
     if (state.locked) {
       return;
     }
-    card.calculatorInputs = [...card.calculatorInputs, createCalculatorInput()];
-    growCardHeight(card, 44);
-    render();
+
+    if (action === "digit") {
+      inputDigit(value);
+    } else if (action === "decimal") {
+      inputDecimal();
+    } else if (action === "operation") {
+      chooseOperation(value);
+    } else if (action === "equals") {
+      calculateEquals();
+    } else if (action === "clear") {
+      resetAll();
+    } else if (action === "clear-entry") {
+      setDisplay("0");
+      card.calculatorWaitingForOperand = false;
+    } else if (action === "backspace") {
+      if (card.calculatorError || card.calculatorWaitingForOperand) {
+        setDisplay("0");
+        card.calculatorWaitingForOperand = false;
+      } else {
+        const current = String(card.calculatorDisplay || "0");
+        setDisplay(current.length > 1 ? current.slice(0, -1) : "0");
+      }
+    } else if (action === "sign") {
+      const current = parseCalculatorDisplay(card.calculatorDisplay);
+      if (current !== null && current !== 0) {
+        setDisplay(formatCalculatorNumber(-current));
+      }
+    } else if (action === "percent") {
+      applyPercent();
+    } else if (action === "unary") {
+      applyUnary(value);
+    }
+    commit();
+  };
+
+  const keyboardOperations = {
+    "+": "add",
+    "-": "subtract",
+    "*": "multiply",
+    x: "multiply",
+    X: "multiply",
+    "\u00d7": "multiply",
+    "/": "divide",
+    "\u00f7": "divide"
+  };
+
+  display.addEventListener("keydown", (event) => {
+    if (state.locked || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      runAction("digit", event.key);
+      return;
+    }
+
+    if (event.key === "." || event.key === ",") {
+      event.preventDefault();
+      runAction("decimal");
+      return;
+    }
+
+    const operation = keyboardOperations[event.key];
+    if (operation) {
+      event.preventDefault();
+      runAction("operation", operation);
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === "=") {
+      event.preventDefault();
+      runAction("equals");
+      return;
+    }
+
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      runAction("backspace");
+      return;
+    }
+
+    if (event.key === "Delete") {
+      event.preventDefault();
+      runAction("clear-entry");
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      runAction("clear");
+      return;
+    }
+
+    if (event.key === "%") {
+      event.preventDefault();
+      runAction("percent");
+    }
+  });
+
+  display.addEventListener("input", () => {
+    if (state.locked) {
+      return;
+    }
+    const sanitized = sanitizeTypedDisplay(display.value);
+    display.value = sanitized;
+    card.calculatorDisplay = sanitized;
+    card.calculatorError = "";
+    card.calculatorWaitingForOperand = false;
+    if (!card.calculatorOperation) {
+      card.calculatorExpression = "";
+    }
+    display.classList.remove("is-error");
     scheduleSave();
   });
 
-  syncCalculatorResult(card, resultValue);
-  wrapper.append(operationRow, inputList, resultBlock, addButton);
+  clearHistoryButton.addEventListener("click", () => {
+    if (state.locked) {
+      return;
+    }
+    card.calculatorHistory = [];
+    commit();
+  });
+
+  historyPanel.append(historyList, clearHistoryButton);
+  historyDetails.append(historySummary, historyPanel);
+
+  const buttons = document.createElement("div");
+  buttons.className = "calculator-buttons";
+  [
+    ["%", "percent", null, "utility", "%"],
+    ["CE", "clear-entry", null, "utility", t("calculatorClearEntry")],
+    ["C", "clear", null, "utility", t("calculatorClear")],
+    ["⌫", "backspace", null, "utility", t("calculatorBackspace")],
+    ["1/x", "unary", "reciprocal", "utility", "1/x"],
+    ["x²", "unary", "square", "utility", "x²"],
+    ["√x", "unary", "sqrt", "utility", "√x"],
+    ["÷", "operation", "divide", "operator", t("calculatorOperationDivide")],
+    ["7", "digit", "7", "number", "7"],
+    ["8", "digit", "8", "number", "8"],
+    ["9", "digit", "9", "number", "9"],
+    ["×", "operation", "multiply", "operator", t("calculatorOperationMultiply")],
+    ["4", "digit", "4", "number", "4"],
+    ["5", "digit", "5", "number", "5"],
+    ["6", "digit", "6", "number", "6"],
+    ["-", "operation", "subtract", "operator", t("calculatorOperationSubtract")],
+    ["1", "digit", "1", "number", "1"],
+    ["2", "digit", "2", "number", "2"],
+    ["3", "digit", "3", "number", "3"],
+    ["+", "operation", "add", "operator", t("calculatorOperationAdd")],
+    ["±", "sign", null, "number", "±"],
+    ["0", "digit", "0", "number", "0"],
+    [".", "decimal", null, "number", "."],
+    ["=", "equals", null, "equals", t("calculatorEquals")]
+  ].forEach(([label, action, value, tone, title]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `calculator-button calculator-button-${tone}`;
+    button.textContent = label;
+    button.title = title;
+    button.disabled = state.locked;
+    button.addEventListener("click", () => runAction(action, value));
+    buttons.appendChild(button);
+  });
+
+  updateView();
+  wrapper.append(expression, display, buttons, historyDetails);
   return wrapper;
 }
 
@@ -6461,6 +9032,10 @@ function createMetaChip(className, text, onClick = null) {
 }
 
 function renderCardMeta(card) {
+  if (card.kind === "comment") {
+    return null;
+  }
+
   const tags = Array.isArray(card.tags) ? card.tags : [];
   const references = getReferencedCards(card);
   const backlinks = getBacklinkCards(card);
@@ -7122,18 +9697,18 @@ function renderReminder(card) {
   const messageCaption = document.createElement("span");
   messageCaption.className = "schedule-item-label";
   messageCaption.textContent = t("reminderMessage");
-  const messageInput = document.createElement("textarea");
-  messageInput.className = "card-field schedule-note-input reminder-message-input";
-  messageInput.rows = 2;
-  messageInput.value = card.text || "";
-  messageInput.placeholder = t("reminderMessagePlaceholder");
-  messageInput.readOnly = state.locked;
-  messageInput.spellcheck = true;
-  const resizeMessage = autoGrowTextarea(messageInput, 56);
-  messageInput.addEventListener("input", () => {
-    card.text = messageInput.value;
-    resizeMessage();
-    scheduleSave();
+  const messageInput = renderRichTextField({
+    className: "card-field schedule-note-input reminder-message-input",
+    placeholderKey: "reminderMessagePlaceholder",
+    getHtml: () => card.textHtml,
+    getText: () => card.text,
+    setValue: (html, plainText) => {
+      card.textHtml = html;
+      card.text = plainText;
+    },
+    onInput: (editor) => {
+      syncAutoSizedFields(editor.closest(".card"));
+    }
   });
   messageLabel.append(messageCaption, messageInput);
 
@@ -7946,28 +10521,31 @@ function createChecklistRow(card, task, options = {}) {
     scheduleSave();
   });
 
-  const text = document.createElement("textarea");
-  text.className = "task-text-input";
-  text.rows = 1;
-  text.value = task.text;
-  text.readOnly = state.locked;
-  text.spellcheck = true;
-  const resizeText = autoGrowTextarea(text, 28);
-  text.addEventListener("input", () => {
-    task.text = text.value;
-    resizeText();
-    scheduleSave();
-  });
-  text.addEventListener("blur", () => {
-    task.text = text.value;
-    if (!String(text.value || "").trim()) {
-      window.setTimeout(() => {
-        if (!String(task.text || "").trim()) {
-          removeChecklistRow(card, task.id, options);
-        }
-      }, 0);
+  const text = renderRichTextField({
+    className: "task-text-input",
+    placeholderKey: "newTask",
+    getHtml: () => task.textHtml,
+    getText: () => task.text,
+    setValue: (html, plainText) => {
+      task.textHtml = html;
+      task.text = plainText;
+    },
+    onInput: (editor) => {
+      syncAutoSizedFields(editor.closest(".card"));
+    },
+    onBlur: () => {
+      if (!String(task.text || "").trim()) {
+        window.setTimeout(() => {
+          if (!String(task.text || "").trim()) {
+            removeChecklistRow(card, task.id, options);
+          }
+        }, 0);
+      }
     }
   });
+  if (state.locked) {
+    text.setAttribute("aria-readonly", "true");
+  }
 
   item.append(checkbox, text);
   return item;
@@ -7981,7 +10559,13 @@ function createChecklistAddButton(card, label = t("addTask"), afterAdd = null) {
   addTask.addEventListener("click", () => {
     ensureEditMode();
     card.tasks = Array.isArray(card.tasks) ? card.tasks : [];
-    card.tasks.push({ id: createId("task"), text: t("newTask"), done: false });
+    const text = t("newTask");
+    card.tasks.push({
+      id: createId("task"),
+      text,
+      textHtml: plainTextToDefaultRichTextHtml(text),
+      done: false
+    });
     growCardHeight(card, 48);
     afterAdd?.();
     render();
@@ -8109,19 +10693,22 @@ function createScheduleRow(card, entry) {
   noteCaption.className = "schedule-item-label";
   noteCaption.textContent = t("scheduleComment");
 
-  const noteInput = document.createElement("textarea");
-  noteInput.className = "card-field schedule-note-input";
-  noteInput.rows = 1;
-  noteInput.value = entry.note || "";
-  noteInput.placeholder = t("scheduleCommentPlaceholder");
-  noteInput.readOnly = state.locked;
-  noteInput.spellcheck = true;
-  const resizeNote = autoGrowTextarea(noteInput, 40);
-  noteInput.addEventListener("input", () => {
-    entry.note = noteInput.value;
-    resizeNote();
-    syncScheduleLegacyText(card);
-    scheduleSave();
+  const noteInput = renderRichTextField({
+    className: "card-field schedule-note-input",
+    placeholderKey: "scheduleCommentPlaceholder",
+    getHtml: () => entry.noteHtml,
+    getText: () => entry.note,
+    setValue: (html, plainText) => {
+      entry.noteHtml = html;
+      entry.note = plainText;
+    },
+    onInput: (editor) => {
+      syncAutoSizedFields(editor.closest(".card"));
+      syncScheduleLegacyText(card);
+    },
+    onBlur: () => {
+      syncScheduleLegacyText(card);
+    }
   });
   noteLabel.append(noteCaption, noteInput);
 
@@ -8853,7 +11440,26 @@ function getConnectionMarkerId(connection, suffix) {
   return `${connection.id}-${suffix}`.replace(/[^a-z0-9_-]/gi, "-");
 }
 
+function getConnectionVisualTheme() {
+  return getVisualTheme().connections;
+}
+
+function getConnectionDashArray(theme, draft = false) {
+  if (draft) {
+    return "10 8";
+  }
+  if (theme.lineStyle === "dashed") {
+    return `${Math.max(theme.strokeWidth * 3, 8)} ${Math.max(theme.strokeWidth * 2, 5)}`;
+  }
+  if (theme.lineStyle === "dotted") {
+    return `0 ${Math.max(theme.strokeWidth * 2.4, 5)}`;
+  }
+  return "";
+}
+
 function renderConnectionMarker(defs, connection, capType) {
+  const theme = getConnectionVisualTheme();
+  const markerScale = theme.markerScale;
   const marker = createSvgElement("marker");
   marker.setAttribute("id", getConnectionMarkerId(connection, capType));
   marker.setAttribute("markerUnits", "userSpaceOnUse");
@@ -8862,12 +11468,12 @@ function renderConnectionMarker(defs, connection, capType) {
     marker.setAttribute("viewBox", "0 0 12 12");
     marker.setAttribute("refX", "6");
     marker.setAttribute("refY", "6");
-    marker.setAttribute("markerWidth", "8");
-    marker.setAttribute("markerHeight", "8");
+    marker.setAttribute("markerWidth", String(8 * markerScale));
+    marker.setAttribute("markerHeight", String(8 * markerScale));
     const dot = createSvgElement("circle");
     dot.setAttribute("cx", "6");
     dot.setAttribute("cy", "6");
-    dot.setAttribute("r", "3.5");
+    dot.setAttribute("r", String(3.5 * markerScale));
     dot.setAttribute("fill", connection.color);
     dot.setAttribute("stroke", "var(--connection-outline)");
     dot.setAttribute("stroke-width", "1.4");
@@ -8876,8 +11482,8 @@ function renderConnectionMarker(defs, connection, capType) {
     marker.setAttribute("viewBox", "0 0 10 10");
     marker.setAttribute("refX", "8.4");
     marker.setAttribute("refY", "5");
-    marker.setAttribute("markerWidth", "10");
-    marker.setAttribute("markerHeight", "10");
+    marker.setAttribute("markerWidth", String(10 * markerScale));
+    marker.setAttribute("markerHeight", String(10 * markerScale));
     const arrow = createSvgElement("path");
     arrow.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
     arrow.setAttribute("fill", connection.color);
@@ -8903,12 +11509,19 @@ function renderConnectionPath(layer, connection, draft = false) {
   }
 
   const isSelected = !draft && selectedConnectionId === connection.id;
+  const visualTheme = getConnectionVisualTheme();
+  const dashArray = getConnectionDashArray(visualTheme, draft);
   const outlinePath = createSvgElement("path");
   outlinePath.classList.add("connection-outline");
   outlinePath.setAttribute("d", pathData);
-  outlinePath.setAttribute("stroke-width", isSelected ? "7" : "6");
+  outlinePath.setAttribute("stroke-width", String(isSelected ? visualTheme.outlineWidth + 1 : visualTheme.outlineWidth));
+  if (dashArray) {
+    outlinePath.setAttribute("stroke-dasharray", dashArray);
+  }
 
-  layer.appendChild(outlinePath);
+  if (visualTheme.outlineWidth > 0) {
+    layer.appendChild(outlinePath);
+  }
 
   const visiblePath = createSvgElement("path");
   visiblePath.classList.add("connection-path");
@@ -8918,7 +11531,10 @@ function renderConnectionPath(layer, connection, draft = false) {
   }
   visiblePath.setAttribute("d", pathData);
   visiblePath.setAttribute("stroke", connection.color);
-  visiblePath.setAttribute("stroke-width", draft ? "2" : (isSelected ? "3.5" : "3"));
+  visiblePath.setAttribute("stroke-width", String(draft ? visualTheme.draftStrokeWidth : (isSelected ? visualTheme.selectedStrokeWidth : visualTheme.strokeWidth)));
+  if (dashArray) {
+    visiblePath.setAttribute("stroke-dasharray", dashArray);
+  }
 
   if (!draft && connection.startCap && connection.startCap !== "none") {
     visiblePath.setAttribute("marker-start", `url(#${getConnectionMarkerId(connection, connection.startCap)})`);
@@ -8948,12 +11564,13 @@ function renderConnectionPath(layer, connection, draft = false) {
 }
 
 function renderConnectionWaypoints(layer, connection, routeGeometry = getConnectionRouteGeometry(connection)) {
+  const visualTheme = getConnectionVisualTheme();
   (routeGeometry?.autoPoints || []).forEach((point) => {
     const handle = createSvgElement("circle");
     handle.classList.add("connection-waypoint", "connection-waypoint-auto");
     handle.setAttribute("cx", point.x);
     handle.setAttribute("cy", point.y);
-    handle.setAttribute("r", "4");
+    handle.setAttribute("r", String(Math.max(2, visualTheme.waypointRadius - 1)));
     layer.appendChild(handle);
   });
 
@@ -8964,7 +11581,7 @@ function renderConnectionWaypoints(layer, connection, routeGeometry = getConnect
     handle.dataset.pointIndex = String(point.pointIndex);
     handle.setAttribute("cx", point.x);
     handle.setAttribute("cy", point.y);
-    handle.setAttribute("r", "6");
+    handle.setAttribute("r", String(visualTheme.waypointRadius));
     handle.setAttribute("tabindex", "0");
     handle.addEventListener("pointerdown", (event) => startWaypointMove(event, connection, point.pointIndex));
     layer.appendChild(handle);
@@ -9240,11 +11857,11 @@ function toggleCardSelection(card) {
 }
 
 function isEditableTarget(target) {
-  return Boolean(target.closest("input, textarea, button, select, audio, video, iframe, webview, .resize-handle, .context-menu, .card-header-toggle"));
+  return Boolean(target.closest("input, textarea, button, select, audio, video, iframe, webview, [contenteditable='true'], .rich-text-toolbar, .resize-handle, .context-menu, .card-header-toggle"));
 }
 
 function isTextInputTarget(target) {
-  return Boolean(target?.closest?.("input, textarea, select"));
+  return Boolean(target?.closest?.("input, textarea, select, [contenteditable='true']"));
 }
 
 function isBoardDeleteShortcutBlocked(target) {
@@ -9379,7 +11996,7 @@ function collectMoveItems(cards) {
 }
 
 function startCardMove(event, card) {
-  if (connectionMode || event.button !== 0 || state.locked || event.target.closest("button") || event.target.matches("input, textarea")) {
+  if (connectionMode || event.button !== 0 || state.locked || event.target.closest("button") || event.target.matches("input, textarea, [contenteditable='true']")) {
     return;
   }
 
@@ -9528,6 +12145,7 @@ function updateActiveAction(event) {
         }
       }
     });
+    syncAttachedCommentsForTargets(activeAction.items.map((item) => item.card.id));
     renderConnections();
   }
 
@@ -9576,6 +12194,7 @@ function updateActiveAction(event) {
     cardElement.style.width = `${card.width}px`;
     cardElement.style.height = `${card.height}px`;
     syncCardElementLayout(cardElement);
+    syncAttachedCommentsForTargets([card.id]);
     renderConnections();
   }
 }
@@ -9607,6 +12226,10 @@ function stopActiveAction(event) {
     if (cardElement && cardElement.hasPointerCapture(event.pointerId)) {
       cardElement.releasePointerCapture(event.pointerId);
     }
+  }
+
+  if (activeAction.type === "move") {
+    settleMovedCommentAttachments(activeAction.items);
   }
 
   activeAction = null;
@@ -9669,7 +12292,19 @@ function addCard(kind, worldPoint = null) {
     stackOrder: getNextStackOrderForLayer(kind === "group" ? "group" : "card")
   };
 
-  if (kind === "code") {
+  if (kind === "comment") {
+    const now = Date.now();
+    state.cards.push({
+      ...base,
+      title: t("newComment"),
+      text: "",
+      textHtml: "",
+      commentAttachment: null,
+      commentCreatedAt: now,
+      commentUpdatedAt: now,
+      commentHistory: []
+    });
+  } else if (kind === "code") {
     state.cards.push({
       ...base,
       title: t("newCode"),
@@ -9680,8 +12315,13 @@ function addCard(kind, worldPoint = null) {
     state.cards.push({
       ...base,
       title: t("newCalculator"),
-      calculatorOperation: "add",
-      calculatorInputs: normalizeCalculatorInputs([], 2)
+      calculatorDisplay: "0",
+      calculatorExpression: "",
+      calculatorOperand: null,
+      calculatorOperation: null,
+      calculatorWaitingForOperand: false,
+      calculatorError: "",
+      calculatorHistory: []
     });
   } else if (kind === "table") {
     state.cards.push({
@@ -9725,6 +12365,7 @@ function addCard(kind, worldPoint = null) {
       ...base,
       title: t("newReminder"),
       text: "",
+      textHtml: "",
       reminderAt: "",
       reminderShowToast: true,
       reminderPlaySound: false,
@@ -9744,7 +12385,8 @@ function addCard(kind, worldPoint = null) {
     state.cards.push({
       ...base,
       title: t("newNote"),
-      text: ""
+      text: "",
+      textHtml: ""
     });
   }
 
@@ -10191,6 +12833,229 @@ function saveMetaEditor() {
   scheduleSave();
 }
 
+function closeCommentHistoryModal() {
+  if (!commentHistoryModal) {
+    return;
+  }
+
+  commentHistoryModal.hidden = true;
+  if (commentHistoryList) {
+    commentHistoryList.innerHTML = "";
+  }
+  if (commentHistoryMeta) {
+    commentHistoryMeta.innerHTML = "";
+  }
+  requestAnimationFrame(syncAllWebCardElements);
+}
+
+function formatCommentHistoryText(value) {
+  if (value === null || typeof value === "undefined") {
+    return t("commentEmptyText");
+  }
+  if (typeof value === "string") {
+    const text = hasRichTextMarkup(value) ? richTextHtmlToPlainText(value) : value;
+    return text.trim() ? text : t("commentEmptyText");
+  }
+  const text = serializeAuditValue(value);
+  return text.trim() ? text : t("commentEmptyText");
+}
+
+function getHistoryEventLabel(entry) {
+  if (entry.kind === "created") {
+    return t("historyEventCreated");
+  }
+  if (entry.kind === "group-add") {
+    return t("historyEventGroupAdd");
+  }
+  if (entry.kind === "group-remove") {
+    return t("historyEventGroupRemove");
+  }
+  return t("historyEventUpdated");
+}
+
+function renderHistoryChange(change) {
+  const fragment = document.createDocumentFragment();
+  const fieldLabel = document.createElement("div");
+  fieldLabel.className = "comment-history-label";
+  fieldLabel.textContent = `${t("historyField")}: ${change.field === "textHtml" ? t("richTextContent") : change.field}`;
+
+  const beforeLabel = document.createElement("div");
+  beforeLabel.className = "comment-history-label";
+  beforeLabel.textContent = t("commentHistoryBefore");
+  const before = document.createElement("pre");
+  before.className = "comment-history-text";
+  before.textContent = formatCommentHistoryText(change.before);
+
+  const afterLabel = document.createElement("div");
+  afterLabel.className = "comment-history-label";
+  afterLabel.textContent = t("commentHistoryAfter");
+  const after = document.createElement("pre");
+  after.className = "comment-history-text";
+  after.textContent = formatCommentHistoryText(change.after);
+
+  fragment.append(fieldLabel, beforeLabel, before, afterLabel, after);
+  return fragment;
+}
+
+function renderCommentHistoryEntry(entry) {
+  const item = document.createElement("article");
+  item.className = "comment-history-item";
+
+  const time = document.createElement("div");
+  time.className = "comment-history-time";
+  const actorName = entry.actor?.name || t("unknown");
+  time.textContent = `${formatDateTimeDisplay(entry.at)} - ${actorName}`;
+
+  const eventLabel = document.createElement("strong");
+  eventLabel.className = "comment-history-label";
+  eventLabel.textContent = getHistoryEventLabel(entry);
+
+  item.append(time, eventLabel);
+
+  if (Array.isArray(entry.changes) && entry.changes.length) {
+    entry.changes.forEach((change) => {
+      item.appendChild(renderHistoryChange(change));
+    });
+  } else if (entry.before !== entry.after) {
+    item.appendChild(renderHistoryChange({
+      field: "text",
+      before: entry.before,
+      after: entry.after
+    }));
+  }
+
+  return item;
+}
+
+function getLegacyCommentHistoryEntries(card) {
+  if (!card || card.kind !== "comment") {
+    return [];
+  }
+  const hasNativeTextHistory = normalizeCardHistory(card.cardHistory).some((entry) => (
+    Array.isArray(entry.changes) && entry.changes.some((change) => change.field === "text" || change.field === "textHtml")
+  ));
+  if (hasNativeTextHistory) {
+    return [];
+  }
+
+  return normalizeCommentHistory(card.commentHistory).map((entry) => ({
+    id: entry.id,
+    at: entry.at,
+    actor: normalizeAuditActor(card.updatedBy || card.createdBy, createDefaultAuditActor()),
+    kind: "updated",
+    changes: [
+      {
+        field: "text",
+        before: entry.before,
+        after: entry.after
+      }
+    ]
+  }));
+}
+
+function getGroupMembershipHistoryEntries(group) {
+  if (!group || group.kind !== "group") {
+    return [];
+  }
+
+  return normalizeGroupHistory(state.groupHistory)
+    .filter((entry) => entry.groupId === group.id)
+    .map((entry) => ({
+      id: entry.id,
+      at: entry.at,
+      actor: entry.actor,
+      kind: entry.action === "remove" ? "group-remove" : "group-add",
+      changes: [
+        {
+          field: "member",
+          before: entry.action === "remove" ? entry.cardTitle || entry.cardId : "",
+          after: entry.action === "add" ? entry.cardTitle || entry.cardId : ""
+        }
+      ]
+    }));
+}
+
+function showCardHistoryModal(card) {
+  if (!commentHistoryModal || !commentHistoryList || !commentHistoryMeta || !card) {
+    return;
+  }
+
+  commentHistoryTitle.textContent = t("cardHistoryTitle");
+  closeCommentHistoryButton?.setAttribute("aria-label", t("closeCommentHistory"));
+  if (closeCommentHistoryFooterButton) {
+    closeCommentHistoryFooterButton.textContent = t("close");
+  }
+
+  commentHistoryMeta.innerHTML = "";
+  [
+    [t("cardCreatedAt"), formatDateTimeDisplay(card.createdAt)],
+    [t("cardCreatedBy"), card.createdBy?.name || t("unknown")],
+    [t("cardUpdatedAt"), formatDateTimeDisplay(card.updatedAt)],
+    [t("cardUpdatedBy"), card.updatedBy?.name || t("unknown")]
+  ].forEach(([label, value]) => {
+    const row = document.createElement("div");
+    row.className = "comment-history-meta-row";
+    const labelElement = document.createElement("span");
+    labelElement.textContent = label;
+    const valueElement = document.createElement("strong");
+    valueElement.textContent = value || t("unknown");
+    row.append(labelElement, valueElement);
+    commentHistoryMeta.appendChild(row);
+  });
+
+  commentHistoryList.innerHTML = "";
+  const history = [
+    ...normalizeCardHistory(card.cardHistory),
+    ...getLegacyCommentHistoryEntries(card),
+    ...getGroupMembershipHistoryEntries(card)
+  ].sort((a, b) => b.at - a.at);
+  if (!history.length) {
+    const empty = document.createElement("div");
+    empty.className = "meta-list-empty";
+    empty.textContent = t("historyEmpty");
+    commentHistoryList.appendChild(empty);
+  } else {
+    history.forEach((entry) => {
+      commentHistoryList.appendChild(renderCommentHistoryEntry(entry));
+    });
+  }
+
+  commentHistoryModal.hidden = false;
+  syncAllWebCardElements();
+  window.setTimeout(() => closeCommentHistoryFooterButton?.focus(), 0);
+}
+
+async function openCardHistory(card) {
+  closeContextMenu();
+  if (!card) {
+    return;
+  }
+
+  if (windowModeState.currentMode !== "normal" && window.desktopBoard?.openCardHistoryInNormalMode) {
+    try {
+      const result = await window.desktopBoard.openCardHistoryInNormalMode(card.id);
+      if (result?.state) {
+        windowModeState = normalizeWindowModeState(result.state);
+        refreshWallpaperModeUi({ force: true });
+        updateModeUi();
+        refreshWebContentRenderForWindowMode();
+      }
+      return;
+    } catch (error) {
+      reportError("cardHistory.openInNormalMode", error);
+    }
+  }
+
+  if (windowModeState.currentMode !== "normal") {
+    await switchWindowMode("normal");
+  }
+  showCardHistoryModal(card);
+}
+
+function openCommentHistory(card) {
+  void openCardHistory(card);
+}
+
 async function copyCardLink(card) {
   closeContextMenu();
   await copyText(createCardLink(card.id));
@@ -10541,6 +13406,11 @@ function duplicateCard(card) {
   copy.title = `${card.title || t("genericElement")} ${t("copySuffix")}`;
   copy.x = maybeSnap(card.x + gridSize);
   copy.y = maybeSnap(card.y + gridSize);
+  delete copy.createdAt;
+  delete copy.updatedAt;
+  delete copy.createdBy;
+  delete copy.updatedBy;
+  copy.cardHistory = [];
 
   if (Array.isArray(copy.tasks)) {
     copy.tasks = copy.tasks.map((task) => ({ ...task, id: createId("task") }));
@@ -10566,6 +13436,15 @@ function duplicateCard(card) {
     copy.calculatorInputs = copy.calculatorInputs.map((input) => createCalculatorInput({ ...input, id: "" }));
   }
 
+  if (copy.kind === "calculator") {
+    copy.calculatorHistory = [];
+    copy.calculatorExpression = "";
+    copy.calculatorOperand = null;
+    copy.calculatorOperation = null;
+    copy.calculatorWaitingForOperand = false;
+    copy.calculatorError = "";
+  }
+
   if (copy.kind === "timer") {
     copy.timerRemainingMs = getTimerRemainingMs(card);
     copy.timerEndsAt = null;
@@ -10573,6 +13452,14 @@ function duplicateCard(card) {
 
   if (copy.kind === "progress") {
     copy.progressValue = getProgressStats(copy).percent;
+  }
+
+  if (copy.kind === "comment") {
+    const now = Date.now();
+    copy.commentCreatedAt = now;
+    copy.commentUpdatedAt = now;
+    copy.commentHistory = [];
+    copy.commentAttachment = null;
   }
 
   assignTopStackOrder(copy);
@@ -10587,6 +13474,7 @@ function deleteCard(card) {
   state.cards = state.cards.filter((item) => item.id !== card.id);
   removeConnectionsForCardIds([card.id]);
   removeReferencesForCardIds([card.id]);
+  detachCommentsFromCardIds([card.id]);
   selectedIds.delete(card.id);
   render();
   scheduleSave();
@@ -10602,6 +13490,7 @@ function deleteSelectedCards() {
   state.cards = state.cards.filter((card) => !ids.has(card.id));
   removeConnectionsForCardIds(ids);
   removeReferencesForCardIds(ids);
+  detachCommentsFromCardIds(ids);
   clearSelection();
   render();
   scheduleSave();
@@ -10924,12 +13813,13 @@ function renderCardContextMenu(card) {
   title.textContent = card.title || t("genericElement");
 
   const mainActions = [
-    ...(card.kind === "web" ? [] : [createContextButton(t("rename"), () => focusCardTitle(card))]),
+    ...(card.kind === "web" || card.kind === "comment" ? [] : [createContextButton(t("rename"), () => focusCardTitle(card))]),
     createContextButton(t("duplicate"), () => duplicateCard(card)),
     createContextButton(t("bringForward"), () => moveCardStack(card, 1)),
     createContextButton(t("sendBackward"), () => moveCardStack(card, -1)),
     createContextButton(t("connectFromHere"), () => startConnectionFromAnchor({ type: "card", cardId: card.id })),
-    createContextButton(t("editLinks"), () => openMetaEditor(card))
+    createContextButton(t("cardHistory"), () => openCardHistory(card)),
+    ...(card.kind === "comment" ? [] : [createContextButton(t("editLinks"), () => openMetaEditor(card))])
   ];
 
   if (card.kind === "web") {
@@ -10937,6 +13827,13 @@ function renderCardContextMenu(card) {
       t(card.webInteractive ? "disableWebInteraction" : "enableWebInteraction"),
       () => setWebInteraction(card, !card.webInteractive)
     ));
+  }
+
+  if (card.kind === "comment") {
+    mainActions.push(createContextButton(t("attachCommentNearest"), () => attachCommentToNearestTarget(card, { render: true })));
+    if (card.commentAttachment) {
+      mainActions.push(createContextButton(t("detachComment"), () => detachComment(card, { render: true })));
+    }
   }
 
   if (card.kind === "file") {
@@ -10957,9 +13854,11 @@ function renderCardContextMenu(card) {
     ]),
     createContextSection([
       createContextButton(t("delete"), () => deleteCard(card), true)
-    ]),
-    createContextTagEditor(card)
+    ])
   );
+  if (card.kind !== "comment") {
+    contextMenu.append(createContextTagEditor(card));
+  }
 }
 
 function openContextMenu(event) {
@@ -11239,7 +14138,10 @@ async function saveSettings() {
     backgroundColor: backgroundColorInput.value || defaultSettings.backgroundColor,
     backgroundOpacity: Number(backgroundOpacityInput?.value ?? defaultSettings.backgroundOpacity),
     connectionColor: connectionColorInput.value || getDefaultConnectionColor(backgroundColorInput.value || defaultSettings.backgroundColor),
+    richTextFontFamily: richTextFontFamilyInput?.value || defaultSettings.richTextFontFamily,
+    richTextFontSize: Number(richTextFontSizeInput?.value || defaultSettings.richTextFontSize),
     snapToGrid: snapToGridInput.checked,
+    historyEnabled: historyEnabledInput?.checked !== false,
     quickCreateKinds: getSelectedQuickCreateKinds(),
     toolbarCreateKinds: getSelectedToolbarCreateKinds(),
     colorSchemes: state.settings.colorSchemes,
@@ -11440,6 +14342,12 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (commentHistoryModal && !commentHistoryModal.hidden && event.key === "Escape") {
+    event.preventDefault();
+    closeCommentHistoryModal();
+    return;
+  }
+
   if ((event.ctrlKey || event.metaKey) && !event.altKey && event.code === "KeyZ" && !typingTarget) {
     event.preventDefault();
     if (event.shiftKey) {
@@ -11502,9 +14410,13 @@ window.addEventListener("pointerdown", (event) => {
   if (!contextMenu.hidden && !event.target.closest(".context-menu") && event.button !== 2) {
     closeContextMenu();
   }
+  if (!event.target.closest(".rich-text-editor") && !event.target.closest(".rich-text-toolbar")) {
+    hideRichTextToolbar();
+  }
 });
 
 window.addEventListener("resize", closeContextMenu);
+document.addEventListener("selectionchange", updateRichTextToolbarFromSelection);
 document.addEventListener("visibilitychange", syncBrandLogoAnimationState);
 
 lockButton.addEventListener("click", () => setLocked(!state.locked));
@@ -11547,6 +14459,12 @@ saveColorSchemeButton?.addEventListener("click", () => {
   void saveCurrentColorScheme();
 });
 exportColorSchemeButton?.addEventListener("click", exportCurrentColorScheme);
+importThemeButton?.addEventListener("click", () => {
+  void importThemeFromFile();
+});
+importThemePackageButton?.addEventListener("click", () => {
+  void importThemePackageFromDirectory();
+});
 multiMonitorModeInput?.addEventListener("change", () => refreshAppConfigUi());
 backgroundOpacityInput?.addEventListener("input", () => {
   if (backgroundOpacityValue) {
@@ -11603,6 +14521,8 @@ copyMetaLinkButton.addEventListener("click", async () => {
     await copyCardLink(card);
   }
 });
+closeCommentHistoryButton?.addEventListener("click", closeCommentHistoryModal);
+closeCommentHistoryFooterButton?.addEventListener("click", closeCommentHistoryModal);
 settingsModal.addEventListener("click", (event) => {
   if (event.target === settingsModal) {
     closeSettings();
@@ -11621,6 +14541,11 @@ searchModal.addEventListener("click", (event) => {
 metaModal.addEventListener("click", (event) => {
   if (event.target === metaModal) {
     closeMetaModal();
+  }
+});
+commentHistoryModal?.addEventListener("click", (event) => {
+  if (event.target === commentHistoryModal) {
+    closeCommentHistoryModal();
   }
 });
 
@@ -11660,6 +14585,13 @@ if (window.desktopBoard) {
     refreshWallpaperModeUi({ force: true });
     updateModeUi();
     refreshWebContentRenderForWindowMode();
+  });
+  window.desktopBoard.onOpenCardHistory?.((payload) => {
+    const cardId = typeof payload?.cardId === "string" ? payload.cardId : "";
+    const card = cardId ? getCardById(cardId) : null;
+    if (card) {
+      showCardHistoryModal(card);
+    }
   });
   window.desktopBoard.onNotificationEvent?.((payload) => {
     const cardId = typeof payload?.cardId === "string" ? payload.cardId : "";

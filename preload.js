@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld("desktopBoard", {
   dismissNotificationsForCard: (cardId) => ipcRenderer.invoke("notifications:dismiss-for-card", cardId),
   updateHotkeys: (settings) => ipcRenderer.invoke("hotkeys:update", settings),
   getSystemTheme: () => ipcRenderer.invoke("theme:get"),
+  importThemePackage: () => ipcRenderer.invoke("theme-package:import"),
   getUpdateState: () => ipcRenderer.invoke("updates:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   installAppUpdate: () => ipcRenderer.invoke("updates:install"),
@@ -37,6 +38,9 @@ contextBridge.exposeInMainWorld("desktopBoard", {
   setWindowMode: (mode) => ipcRenderer.invoke("window-mode:set", mode),
   activateWallpaperInteraction: () => ipcRenderer.invoke("window-mode:activate-overlay"),
   setWidgetModeInteractivity: (state) => ipcRenderer.invoke("widget-mode:set-interactivity", state),
+  openCardHistoryInNormalMode: (cardId) => ipcRenderer.invoke("card-history:open-in-normal-mode", cardId),
+  syncWebCards: (cards) => ipcRenderer.invoke("web-card:sync", cards),
+  reloadWebCard: (cardId) => ipcRenderer.invoke("web-card:reload", cardId),
   hideWindow: () => ipcRenderer.invoke("window:hide"),
   onStateChanged: (callback) => {
     const listener = (_event, nextState) => callback(nextState);
@@ -58,6 +62,11 @@ contextBridge.exposeInMainWorld("desktopBoard", {
     const listener = (_event, nextState) => callback(nextState);
     ipcRenderer.on("window-mode:state", listener);
     return () => ipcRenderer.removeListener("window-mode:state", listener);
+  },
+  onOpenCardHistory: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("card-history:open", listener);
+    return () => ipcRenderer.removeListener("card-history:open", listener);
   },
   onNotificationEvent: (callback) => {
     const listener = (_event, payload) => callback(payload);

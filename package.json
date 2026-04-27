@@ -1,6 +1,6 @@
 {
   "name": "desktop-board",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A Windows desktop board for notes, schedule blocks, and quick personal widgets.",
   "author": "Desktop Board",
   "main": "main.js",

@@ -23,7 +23,6 @@
               </select>
               <select id="toolbarWindowModeSelect" class="toolbar-board-select toolbar-mode-select" aria-label="Window mode" title="Window mode">
                 <option value="normal">Normal</option>
-                <option value="desktop-edit">Desktop edit</option>
                 <option value="wallpaper-view">Wallpaper view</option>
                 <option value="widget-mode">Widget mode</option>
               </select>
@@ -35,6 +34,9 @@
           <div class="tool-group" aria-label="Текстовые элементы">
             <button id="addNoteButton" class="icon-button" type="button" aria-label="Добавить заметку" data-tooltip="Заметка">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v4h4"/><path d="M9 11h6M9 15h6"/></svg>
+            </button>
+            <button id="addCommentButton" class="icon-button" type="button" aria-label="Добавить комментарий" data-tooltip="Комментарий">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H9l-4 4z"/><path d="M8 10h8M8 13h5"/></svg>
             </button>
             <button id="addCodeButton" class="icon-button" type="button" aria-label="Добавить код" data-tooltip="Code / snippet">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7l-4 5 4 5"/><path d="M15 7l4 5-4 5"/><path d="M13 5l-2 14"/></svg>
@@ -113,7 +115,7 @@
         <div id="selectionBox" class="selection-box" hidden></div>
       </main>
 
-      <button id="widgetDesktopEditButton" class="widget-desktop-edit-button" type="button" aria-label="Desktop edit" title="Desktop edit">
+      <button id="modeEditButton" class="mode-edit-button" type="button" aria-label="Normal mode" title="Normal mode">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M12 6l4 4"/></svg>
       </button>
     </div>
@@ -177,6 +179,8 @@
               <div class="settings-inline-actions settings-update-actions">
                 <button id="saveColorSchemeButton" type="button">Сохранить схему</button>
                 <button id="exportColorSchemeButton" type="button">Экспортировать схему</button>
+                <button id="importThemeButton" type="button">Импортировать тему</button>
+                <button id="importThemePackageButton" type="button">Импорт пакета</button>
               </div>
             </div>
           </div>
@@ -218,37 +222,40 @@
         </label>
         <p id="autoStartHelp" class="settings-help">Приложение будет запускаться автоматически после входа в Windows.</p>
 
-        <label class="settings-row settings-checkbox">
-          <span id="wallpaperModeEnabledLabel">Включить wallpaper mode</span>
-          <input id="wallpaperModeEnabledInput" type="checkbox" />
-        </label>
         <label class="settings-row">
           <span id="windowModeLabel">Режим окна</span>
           <select id="windowModeInput">
             <option value="normal">Обычный режим</option>
-            <option value="desktop-edit">Редактирование на рабочем столе</option>
             <option value="wallpaper-view">Wallpaper view</option>
             <option value="widget-mode">Widget mode</option>
           </select>
         </label>
-        <p id="wallpaperModeHelp" class="settings-help">Wallpaper view делает окно кликабельным только через трей или хоткей. Для редактирования переключитесь обратно в режим рабочего стола.</p>
+        <p id="wallpaperModeHelp" class="settings-help">Wallpaper view делает окно click-through. Для редактирования переключитесь обратно в обычный режим.</p>
 
-        <label class="settings-row settings-checkbox">
-          <span id="multiMonitorEnabledLabel">Бесшовная доска на всех экранах</span>
-          <input id="multiMonitorEnabledInput" type="checkbox" />
+        <label class="settings-row">
+          <span id="multiMonitorModeLabel">Режим нескольких экранов</span>
+          <select id="multiMonitorModeInput">
+            <option value="single">Одно окно</option>
+            <option value="seamless">Бесшовная доска</option>
+            <option value="workspace">Окно на каждом экране</option>
+          </select>
         </label>
-        <p id="multiMonitorHelp" class="settings-help">Окно доски растягивается на общую область всех подключенных мониторов.</p>
-
-        <label class="settings-row settings-checkbox">
-          <span id="wallpaperInteractionEnabledLabel">Взаимодействие в Wallpaper view</span>
-          <input id="wallpaperInteractionEnabledInput" type="checkbox" />
-        </label>
-        <p id="wallpaperInteractionHelp" class="settings-help">Поверх wallpaper-слоя открывается отдельное overlay-окно. Доска остается в режиме просмотра, но по ней можно кликать и перемещаться.</p>
+        <div class="settings-row settings-row-stack" id="multiMonitorDisplaysRow">
+          <span id="multiMonitorDisplaysLabel">Экраны</span>
+          <div id="multiMonitorDisplays" class="settings-display-grid"></div>
+        </div>
+        <p id="multiMonitorHelp" class="settings-help">Выберите, какие подключенные экраны может использовать Desktop Board.</p>
 
         <label class="settings-row settings-checkbox">
           <span id="diagnosticsEnabledLabel">Локальный диагностический лог</span>
           <input id="diagnosticsEnabledInput" type="checkbox" checked />
         </label>
+
+        <label class="settings-row settings-checkbox">
+          <span id="historyEnabledLabel">Запись истории изменений</span>
+          <input id="historyEnabledInput" type="checkbox" checked />
+        </label>
+        <p id="historyEnabledHelp" class="settings-help">Добавляет в JSON историю карточек, пользователя и состава групп.</p>
 
         <div class="settings-row settings-row-stack">
           <span id="logsFolderLabel">Логи</span>
@@ -297,6 +304,10 @@
             <span id="noteColorRuleLabel">Заметки</span>
             <input id="noteHeaderColorInput" type="color" value="#f2c94c" aria-label="Хедер заметок" />
             <input id="noteBodyColorInput" type="color" value="#fff8d7" aria-label="Фон заметок" />
+
+            <span id="commentColorRuleLabel">Комментарий</span>
+            <input id="commentHeaderColorInput" type="color" value="#8a6f2a" aria-label="Хедер комментария" />
+            <input id="commentBodyColorInput" type="color" value="#fff1c2" aria-label="Фон комментария" />
 
             <span id="codeColorRuleLabel">Code / snippet</span>
             <input id="codeHeaderColorInput" type="color" value="#4c6ef5" aria-label="Хедер кода" />
@@ -373,6 +384,16 @@
           <div id="toolbarCreateKindsGrid" class="settings-toggle-grid"></div>
           <p id="toolbarCreateHelp" class="settings-help">Выберите типы карточек, которые будут видны в верхней панели быстрого создания.</p>
         </details>
+
+        <label class="settings-row">
+          <span id="richTextFontFamilyLabel">Шрифт текста</span>
+          <select id="richTextFontFamilyInput"></select>
+        </label>
+
+        <label class="settings-row">
+          <span id="richTextFontSizeLabel">Размер текста</span>
+          <select id="richTextFontSizeInput"></select>
+        </label>
 
         <label class="settings-row settings-checkbox">
           <span id="snapToGridLabel">Притягивать к сетке</span>
@@ -497,6 +518,22 @@
     </div>
 
     <div id="contextMenu" class="context-menu" hidden role="menu" aria-label="Контекстное меню"></div>
+
+    <div id="commentHistoryModal" class="modal" hidden>
+      <section class="comment-history-panel" role="dialog" aria-modal="true" aria-labelledby="commentHistoryTitle">
+        <header class="settings-header">
+          <h2 id="commentHistoryTitle">История комментария</h2>
+          <button id="closeCommentHistoryButton" type="button" aria-label="Закрыть историю">x</button>
+        </header>
+
+        <div id="commentHistoryMeta" class="comment-history-meta"></div>
+        <div id="commentHistoryList" class="comment-history-list"></div>
+
+        <footer class="settings-actions">
+          <button id="closeCommentHistoryFooterButton" type="button">Закрыть</button>
+        </footer>
+      </section>
+    </div>
 
     <script src="./renderer.js"></script>
   </body>
