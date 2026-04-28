@@ -1,6 +1,6 @@
 {
   "name": "desktop-board",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "A Windows desktop board for notes, schedule blocks, and quick personal widgets.",
   "author": "Desktop Board",
   "main": "main.js",
@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "electron .",
     "preview": "node scripts/serve.js",
-    "check": "node --check main.js && node --check preload.js && node --check src/renderer.js && node --check scripts/serve.js && node --check scripts/after-pack.js",
+    "test": "node scripts/test-interactive-background.js",
+    "check": "node --check main.js && node --check preload.js && node --check src/renderer.js && node --check src/theme-validation.js && node --check scripts/serve.js && node --check scripts/after-pack.js && node --check scripts/test-interactive-background.js",
     "dist": "electron-builder",
     "dist:win": "set ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/&& set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win",
     "dist:win:publish": "set ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/&& set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --publish always"

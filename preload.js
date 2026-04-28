@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld("desktopBoard", {
   updateHotkeys: (settings) => ipcRenderer.invoke("hotkeys:update", settings),
   getSystemTheme: () => ipcRenderer.invoke("theme:get"),
   importThemePackage: () => ipcRenderer.invoke("theme-package:import"),
+  scanCatalogUsage: (payload) => ipcRenderer.invoke("catalog:scan-usage", payload || {}),
+  applyCatalogRemoval: (payload) => ipcRenderer.invoke("catalog:apply-removal", payload || {}),
   getUpdateState: () => ipcRenderer.invoke("updates:get-state"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   installAppUpdate: () => ipcRenderer.invoke("updates:install"),

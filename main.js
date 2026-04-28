@@ -526,11 +526,15 @@ function getSelectedBoardDisplays(config = appConfig) {
   const displays = screen.getAllDisplays();
   const primaryDisplay = screen.getPrimaryDisplay();
   const mode = normalizeMultiMonitorMode(config?.multiMonitorMode, config?.multiMonitorEnabled === true);
+  const selectedIds = new Set(normalizeDisplayIds(config?.multiMonitorDisplayIds));
+
   if (mode === "single") {
-    return [primaryDisplay];
+    const selectedDisplay = selectedIds.size > 0
+      ? displays.find((display) => selectedIds.has(getDisplayId(display)))
+      : null;
+    return [selectedDisplay || primaryDisplay];
   }
 
-  const selectedIds = new Set(normalizeDisplayIds(config?.multiMonitorDisplayIds));
   const selectedDisplays = selectedIds.size > 0
     ? displays.filter((display) => selectedIds.has(getDisplayId(display)))
     : displays;
@@ -565,7 +569,8 @@ function getBoardWindowBounds(config = appConfig) {
   }
 
   if (mode !== "seamless") {
-    return { ...primaryDisplay.workArea };
+    const mainDisplay = getMainBoardDisplay(config);
+    return { ...(mainDisplay.workArea || mainDisplay.bounds || primaryDisplay.workArea) };
   }
 
   return getRectUnion(getSelectedBoardDisplays(config).map((display) => display.workArea || display.bounds));
@@ -623,7 +628,8 @@ function getDisplayLayoutInfo(config = appConfig, windowRef = null) {
   }
 
   const boardBounds = getBoardWindowBounds(config);
-  const primaryBounds = primaryDisplay.workArea || primaryDisplay.bounds;
+  const mainDisplay = getMainBoardDisplay(config);
+  const primaryBounds = mainDisplay.workArea || mainDisplay.bounds || primaryDisplay.workArea || primaryDisplay.bounds;
   const layoutDisplays = getSelectedBoardDisplays(config);
 
   return {
@@ -1360,6 +1366,22 @@ async function hydrateThemePackageAssetsBlock(assets, packageRoot, skippedAssets
     nextAssets.connection = await hydrateThemePackageAssetMap(assets.connection, packageRoot, skippedAssets);
   }
 
+  if (assets.actors && typeof assets.actors === "object" && !Array.isArray(assets.actors)) {
+    nextAssets.actors = await hydrateThemePackageAssetMap(assets.actors, packageRoot, skippedAssets);
+  }
+
+  if (assets.backgrounds && typeof assets.backgrounds === "object" && !Array.isArray(assets.backgrounds)) {
+    nextAssets.backgrounds = await hydrateThemePackageAssetMap(assets.backgrounds, packageRoot, skippedAssets);
+  }
+
+  if (assets.cardHeaders && typeof assets.cardHeaders === "object" && !Array.isArray(assets.cardHeaders)) {
+    nextAssets.cardHeaders = await hydrateThemePackageAssetMap(assets.cardHeaders, packageRoot, skippedAssets);
+  }
+
+  if (assets.cardBodies && typeof assets.cardBodies === "object" && !Array.isArray(assets.cardBodies)) {
+    nextAssets.cardBodies = await hydrateThemePackageAssetMap(assets.cardBodies, packageRoot, skippedAssets);
+  }
+
   return nextAssets;
 }
 
@@ -1376,7 +1398,11 @@ async function hydrateThemePackageAssets(payload, packageRoot) {
     const beforeSkipped = skippedAssets.length;
     target.assets = await hydrateThemePackageAssetsBlock(target.assets, packageRoot, skippedAssets);
     const importedInBlock = Object.values(target.assets?.icons || {}).filter(Boolean).length
-      + Object.values(target.assets?.connection || {}).filter(Boolean).length;
+      + Object.values(target.assets?.connection || {}).filter(Boolean).length
+      + Object.values(target.assets?.actors || {}).filter(Boolean).length
+      + Object.values(target.assets?.backgrounds || {}).filter(Boolean).length
+      + Object.values(target.assets?.cardHeaders || {}).filter(Boolean).length
+      + Object.values(target.assets?.cardBodies || {}).filter(Boolean).length;
     importedAssetCount += importedInBlock;
     if (skippedAssets.length > beforeSkipped) {
       target.assets.skipped = undefined;
@@ -3135,6 +3161,185 @@ async function writeState(state, storageRoot = null, boardId = null) {
     lastKnownState = preparedState;
   }
   return true;
+}
+
+function normalizeCatalogId(value) {
+  const safe = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return safe;
+}
+
+function isCardTemplateCreateIdForPack(value, packId) {
+  const normalizedPackId = normalizeCatalogId(packId);
+  return typeof value === "string" && value.startsWith(`template:${normalizedPackId}:`);
+}
+
+async function getBoardStatesForCatalogOperation(currentState = null, currentBoardId = null) {
+  const activeBoardId = getActiveBoardId(currentBoardId);
+  const boards = await listBoards(null, currentState, activeBoardId);
+  const results = [];
+  const seen = new Set();
+
+  for (const board of boards) {
+    const boardId = getActiveBoardId(board.id);
+    if (seen.has(boardId)) {
+      continue;
+    }
+    seen.add(boardId);
+    const state = boardId === activeBoardId && currentState
+      ? currentState
+      : await readState(null, boardId);
+    if (!state) {
+      continue;
+    }
+    results.push({
+      boardId,
+      boardName: normalizeBoardName(state.boardName || board.name, getFallbackBoardName(boardId)),
+      state
+    });
+  }
+
+  return results;
+}
+
+async function scanCatalogUsage(payload = {}, options = {}) {
+  const themeId = normalizeCatalogId(payload.themeId);
+  const cardPackId = normalizeCatalogId(payload.cardPackId);
+  const boards = await getBoardStatesForCatalogOperation(payload.currentState || null, options.currentBoardId);
+  const themeBoards = [];
+  const cardPackBoards = [];
+  let cardPackCardCount = 0;
+
+  boards.forEach(({ boardId, boardName, state }) => {
+    if (themeId && state.settings?.activeVisualThemeId === themeId) {
+      themeBoards.push({ id: boardId, name: boardName });
+    }
+
+    if (cardPackId) {
+      const count = Array.isArray(state.cards)
+        ? state.cards.filter((card) => card?.sourceCardPackId === cardPackId).length
+        : 0;
+      if (count > 0) {
+        cardPackCardCount += count;
+        cardPackBoards.push({ id: boardId, name: boardName, cardCount: count });
+      }
+    }
+  });
+
+  return {
+    themeBoards,
+    cardPackBoards,
+    cardPackCardCount
+  };
+}
+
+function applyCatalogRemovalToState(state = {}, payload = {}) {
+  const themeId = normalizeCatalogId(payload.themeId);
+  const cardPackId = normalizeCatalogId(payload.cardPackId);
+  const defaultThemeSettings = payload.defaultThemeSettings && typeof payload.defaultThemeSettings === "object"
+    ? payload.defaultThemeSettings
+    : {};
+  const nextState = {
+    ...state,
+    settings: {
+      ...(state.settings || {})
+    },
+    cards: Array.isArray(state.cards) ? [...state.cards] : [],
+    connections: Array.isArray(state.connections) ? [...state.connections] : []
+  };
+  let changed = false;
+
+  if (themeId) {
+    const installedThemes = Array.isArray(nextState.settings.installedThemes)
+      ? nextState.settings.installedThemes
+      : [];
+    const nextInstalledThemes = installedThemes.filter((theme) => normalizeCatalogId(theme?.id) !== themeId);
+    if (nextInstalledThemes.length !== installedThemes.length) {
+      nextState.settings.installedThemes = nextInstalledThemes;
+      changed = true;
+    }
+    if (nextState.settings.activeVisualThemeId === themeId) {
+      nextState.settings = {
+        ...nextState.settings,
+        ...defaultThemeSettings,
+        activeVisualThemeId: ""
+      };
+      changed = true;
+    }
+  }
+
+  if (cardPackId) {
+    const cardPacks = Array.isArray(nextState.settings.cardPacks) ? nextState.settings.cardPacks : [];
+    const nextCardPacks = cardPacks.filter((pack) => normalizeCatalogId(pack?.id) !== cardPackId);
+    if (nextCardPacks.length !== cardPacks.length) {
+      nextState.settings.cardPacks = nextCardPacks;
+      changed = true;
+    }
+    ["quickCreateKinds", "toolbarCreateKinds"].forEach((field) => {
+      const source = Array.isArray(nextState.settings[field]) ? nextState.settings[field] : [];
+      const filtered = source.filter((kind) => !isCardTemplateCreateIdForPack(kind, cardPackId));
+      if (filtered.length !== source.length) {
+        nextState.settings[field] = filtered;
+        changed = true;
+      }
+    });
+
+    const removedIds = new Set(nextState.cards
+      .filter((card) => card?.sourceCardPackId === cardPackId)
+      .map((card) => card.id)
+      .filter(Boolean));
+    if (removedIds.size > 0) {
+      nextState.cards = nextState.cards.filter((card) => !removedIds.has(card.id));
+      nextState.connections = nextState.connections.filter((connection) => {
+        const anchors = [connection?.from, connection?.to];
+        return anchors.every((anchor) => !(anchor?.type === "card" && removedIds.has(anchor.cardId)));
+      });
+      nextState.cards = nextState.cards.map((card) => {
+        const nextCard = { ...card };
+        if (Array.isArray(nextCard.references)) {
+          nextCard.references = nextCard.references.filter((id) => !removedIds.has(id));
+        }
+        if (nextCard.commentAttachment && removedIds.has(nextCard.commentAttachment.cardId)) {
+          nextCard.commentAttachment = null;
+        }
+        return nextCard;
+      });
+      changed = true;
+    }
+  }
+
+  return { state: nextState, changed };
+}
+
+async function applyCatalogRemoval(payload = {}, options = {}) {
+  const currentBoardId = getActiveBoardId(options.currentBoardId);
+  const boards = await getBoardStatesForCatalogOperation(payload.currentState || null, currentBoardId);
+  let currentState = null;
+  let changedBoards = 0;
+
+  for (const board of boards) {
+    const result = applyCatalogRemovalToState(board.state, payload);
+    if (!result.changed) {
+      continue;
+    }
+    changedBoards += 1;
+    await writeState(result.state, null, board.boardId);
+    sendStateChangedToBoard(result.state, board.boardId, {
+      excludedWindow: options.excludedWindow || null
+    });
+    if (board.boardId === currentBoardId) {
+      currentState = result.state;
+    }
+  }
+
+  return {
+    changedBoards,
+    state: currentState
+  };
 }
 
 async function promptInstallDownloadedUpdate(version) {
@@ -5049,10 +5254,14 @@ function syncWindowBounds(windowRef) {
   }
 
   const workArea = getBoardWindowBounds();
+  const targetDisplay = getMainBoardDisplay(appConfig);
+  const targetDisplayId = getDisplayId(targetDisplay);
+  const session = getWindowSession(windowRef);
+  const displayChanged = Boolean(session && targetDisplayId && session.displayId !== targetDisplayId);
   const useManualBounds = isMultiMonitorBoardEnabled()
     || normalizeMultiMonitorMode(appConfig.multiMonitorMode, appConfig.multiMonitorEnabled === true) === "workspace";
   try {
-    if (useManualBounds && windowRef.isMaximized()) {
+    if ((useManualBounds || displayChanged) && windowRef.isMaximized()) {
       windowRef.unmaximize();
     }
     windowRef.setBounds({
@@ -5063,6 +5272,9 @@ function syncWindowBounds(windowRef) {
     });
     if (!useManualBounds && !windowRef.isMaximized()) {
       windowRef.maximize();
+    }
+    if (session && targetDisplayId) {
+      session.displayId = targetDisplayId;
     }
   } catch {
     return false;
@@ -5487,9 +5699,10 @@ function createWindow() {
   const runtimeWindowIcon = loadNativeImage(taskbarIconPath) || loadNativeImage(trayIconPath);
 
   mainWindow = new BrowserWindow(createWindowOptions(workArea, runtimeWindowIcon));
+  const mainDisplay = getMainBoardDisplay(appConfig);
   registerWindowSession(mainWindow, {
     role: "main",
-    displayId: String(screen.getPrimaryDisplay().id),
+    displayId: getDisplayId(mainDisplay),
     boardId: getActiveBoardId(),
     mode: currentWindowMode
   });
@@ -6126,6 +6339,34 @@ app.whenReady().then(async () => {
   ipcMain.handle("notifications:dismiss-for-card", (_event, cardId) => dismissNotificationsForCard(String(cardId || "")));
   ipcMain.handle("theme:get", getSystemTheme);
   ipcMain.handle("theme-package:import", () => importThemePackage());
+  ipcMain.handle("catalog:scan-usage", async (event, payload) => {
+    const currentBoardId = getRendererBoardId(event.sender);
+    const stateForOperation = payload?.currentState
+      ? await prepareStateFromWindowForStorage(event.sender, payload.currentState, currentBoardId)
+      : null;
+    return scanCatalogUsage({
+      ...(payload || {}),
+      currentState: stateForOperation
+    }, { currentBoardId });
+  });
+  ipcMain.handle("catalog:apply-removal", async (event, payload) => {
+    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+    const currentBoardId = getRendererBoardId(event.sender);
+    const stateForOperation = payload?.currentState
+      ? await prepareStateFromWindowForStorage(event.sender, payload.currentState, currentBoardId)
+      : null;
+    const result = await applyCatalogRemoval({
+      ...(payload || {}),
+      currentState: stateForOperation
+    }, {
+      currentBoardId,
+      excludedWindow: sourceWindow
+    });
+    if (result?.state) {
+      result.state = await applySessionViewportForLoad(event.sender, result.state, currentBoardId);
+    }
+    return result;
+  });
   ipcMain.handle("updates:get-state", () => getAutoUpdateStateForRenderer());
   ipcMain.handle("updates:check", () => checkForAppUpdates("manual"));
   ipcMain.handle("updates:install", () => installDownloadedUpdate());

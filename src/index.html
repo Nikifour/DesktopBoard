@@ -38,9 +38,6 @@
             <button id="addCommentButton" class="icon-button" type="button" aria-label="Добавить комментарий" data-tooltip="Комментарий">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H9l-4 4z"/><path d="M8 10h8M8 13h5"/></svg>
             </button>
-            <button id="addCodeButton" class="icon-button" type="button" aria-label="Добавить код" data-tooltip="Code / snippet">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7l-4 5 4 5"/><path d="M15 7l4 5-4 5"/><path d="M13 5l-2 14"/></svg>
-            </button>
             <button id="addTableButton" class="icon-button" type="button" aria-label="Добавить таблицу" data-tooltip="Таблица">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 10h16M9 5v14M15 5v14"/></svg>
             </button>
@@ -66,6 +63,8 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a4 4 0 0 1 4 4v2.2c0 1.3.4 2.6 1.2 3.7l1.1 1.6H5.7l1.1-1.6A6.4 6.4 0 0 0 8 9.2V7a4 4 0 0 1 4-4"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>
             </button>
           </div>
+
+          <div id="toolbarTemplateGroup" class="tool-group toolbar-template-group" aria-label="Пакеты карточек"></div>
 
           <div class="tool-group" aria-label="Медиа">
             <button id="addImageButton" class="icon-button" type="button" aria-label="Добавить картинку" data-tooltip="Картинка">
@@ -167,6 +166,16 @@
         </div>
 
         <label class="settings-row">
+          <span id="interactiveBackgroundQualityLabel">Интерактивный фон</span>
+          <select id="interactiveBackgroundQualityInput">
+            <option value="off">Выключен</option>
+            <option value="low">Низкое качество</option>
+            <option value="normal">Обычное качество</option>
+          </select>
+        </label>
+        <p id="interactiveBackgroundHelp" class="settings-help">Работает только для тем, где задан interactiveBackground.</p>
+
+        <label class="settings-row">
           <span id="connectionColorLabel">Цвет соединений</span>
           <input id="connectionColorInput" type="color" value="#171916" />
         </label>
@@ -181,6 +190,8 @@
                 <button id="exportColorSchemeButton" type="button">Экспортировать схему</button>
                 <button id="importThemeButton" type="button">Импортировать тему</button>
                 <button id="importThemePackageButton" type="button">Импорт пакета</button>
+                <button id="openThemeCatalogButton" type="button">Каталог тем</button>
+                <button id="openThemeEditorButton" type="button">Редактор тем</button>
               </div>
             </div>
           </div>
@@ -345,6 +356,14 @@
             <input id="reminderHeaderColorInput" type="color" value="#d96b5f" aria-label="Хедер напоминания" />
             <input id="reminderBodyColorInput" type="color" value="#fdebe7" aria-label="Фон напоминания" />
 
+            <span id="clockColorRuleLabel">Часы / дата</span>
+            <input id="clockHeaderColorInput" type="color" value="#3a8f9f" aria-label="Хедер часов" />
+            <input id="clockBodyColorInput" type="color" value="#e6f6f8" aria-label="Фон часов" />
+
+            <span id="weatherColorRuleLabel">Погода</span>
+            <input id="weatherHeaderColorInput" type="color" value="#4f85a6" aria-label="Хедер погоды" />
+            <input id="weatherBodyColorInput" type="color" value="#e4f0f4" aria-label="Фон погоды" />
+
             <span id="imageColorRuleLabel">Картинка</span>
             <input id="imageHeaderColorInput" type="color" value="#7453a6" aria-label="Хедер картинки" />
             <input id="imageBodyColorInput" type="color" value="#f0ebf8" aria-label="Фон картинки" />
@@ -377,6 +396,16 @@
           <div id="quickCreateKindsGrid" class="settings-toggle-grid"></div>
           <p id="quickCreateHelp" class="settings-help">Выберите типы карточек, которые будут видны в контекстном меню по правой кнопке мыши.</p>
         </details>
+
+        <section id="cardCatalogSettingsBlock" class="settings-block">
+          <div class="settings-row settings-row-stack">
+            <span id="cardCatalogSettingsLabel">Пакеты карточек</span>
+            <div class="settings-inline-actions settings-update-actions">
+              <button id="openCardCatalogButton" type="button">Каталог карточек</button>
+            </div>
+          </div>
+          <p id="cardCatalogSettingsHelp" class="settings-help">Установленные пакеты добавляют шаблоны карточек для узких сценариев работы.</p>
+        </section>
 
         <details id="toolbarCreateDetails" class="settings-block" aria-label="Верхняя панель">
           <summary><span id="toolbarCreateTitle">Верхняя панель</span></summary>
@@ -517,6 +546,228 @@
       </section>
     </div>
 
+    <div id="themeEditorModal" class="modal" hidden>
+      <section class="theme-editor-panel" role="dialog" aria-modal="true" aria-labelledby="themeEditorTitle">
+        <header class="settings-header">
+          <h2 id="themeEditorTitle">Редактор тем</h2>
+          <button id="closeThemeEditorButton" type="button" aria-label="Закрыть редактор тем">x</button>
+        </header>
+
+        <div class="theme-editor-content">
+          <div class="theme-editor-form">
+          <label class="settings-row">
+            <span id="themeEditorNameLabel">Название темы</span>
+            <input id="themeEditorNameInput" type="text" maxlength="80" />
+          </label>
+
+          <div class="settings-inline-actions settings-update-actions theme-editor-toolbar">
+            <button id="themeEditorLoadCurrentButton" type="button">Загрузить текущую</button>
+            <button id="themeEditorLoadDefaultButton" type="button">Новая стандартная</button>
+          </div>
+
+          <details class="settings-block" open>
+            <summary id="themeEditorShapeTitle">Форма и карточки</summary>
+            <div class="theme-editor-grid">
+              <label><span id="themeCardRadiusLabel">Радиус карточек</span><input id="themeCardRadiusInput" type="number" min="0" max="24" step="1" /></label>
+              <label><span id="themePanelRadiusLabel">Радиус панелей</span><input id="themePanelRadiusInput" type="number" min="0" max="24" step="1" /></label>
+              <label><span id="themeButtonRadiusLabel">Радиус кнопок</span><input id="themeButtonRadiusInput" type="number" min="0" max="24" step="1" /></label>
+              <label><span id="themeCardBorderWidthLabel">Рамка карточек</span><input id="themeCardBorderWidthInput" type="number" min="0" max="4" step="1" /></label>
+              <label><span id="themeCardHeaderHeightLabel">Хедер карточек</span><input id="themeCardHeaderHeightInput" type="number" min="24" max="48" step="1" /></label>
+              <label><span id="themeGroupHeaderHeightLabel">Хедер групп</span><input id="themeGroupHeaderHeightInput" type="number" min="32" max="64" step="1" /></label>
+              <label><span id="themeIconScaleLabel">Размер иконок</span><input id="themeIconScaleInput" type="number" min="0.7" max="1.6" step="0.05" /></label>
+              <label><span id="themeShadowLabel">Тень</span><select id="themeShadowInput"><option value="none">none</option><option value="light">light</option><option value="medium">medium</option><option value="strong">strong</option></select></label>
+            </div>
+          </details>
+
+          <details class="settings-block" open>
+            <summary id="themeEditorCardBackgroundsTitle">SVG фоны карточек</summary>
+            <label class="theme-editor-asset-row">
+              <span id="themeHeaderAssetLabel">SVG хедера</span>
+              <input id="themeHeaderAssetInput" type="text" readonly />
+              <button id="themePickHeaderAssetButton" type="button">Выбрать SVG</button>
+              <button id="themeClearHeaderAssetButton" type="button">Очистить</button>
+            </label>
+            <label class="theme-editor-asset-row">
+              <span id="themeBodyAssetLabel">SVG фона элемента</span>
+              <input id="themeBodyAssetInput" type="text" readonly />
+              <button id="themePickBodyAssetButton" type="button">Выбрать SVG</button>
+              <button id="themeClearBodyAssetButton" type="button">Очистить</button>
+            </label>
+            <p id="themeEditorCardBackgroundsHelp" class="settings-help">Файлы встраиваются в тему как data URI. Для разных типов карточек можно позже отредактировать JSON темы вручную: assets.cardHeaders.note, assets.cardBodies.tasks и т.д.</p>
+            <label class="theme-editor-json-row">
+              <span id="themeAssetsJsonLabel">Ассеты темы JSON</span>
+              <textarea id="themeAssetsJsonInput" spellcheck="false"></textarea>
+            </label>
+          </details>
+
+          <details class="settings-block" open>
+            <summary id="themeEditorConnectionsTitle">Соединения</summary>
+            <div class="theme-editor-grid">
+              <label><span id="themeStrokeWidthLabel">Толщина линии</span><input id="themeStrokeWidthInput" type="number" min="1" max="10" step="0.5" /></label>
+              <label><span id="themeSelectedStrokeWidthLabel">Выделенная линия</span><input id="themeSelectedStrokeWidthInput" type="number" min="1" max="12" step="0.5" /></label>
+              <label><span id="themeDraftStrokeWidthLabel">Черновая линия</span><input id="themeDraftStrokeWidthInput" type="number" min="1" max="8" step="0.5" /></label>
+              <label><span id="themeOutlineWidthLabel">Контур</span><input id="themeOutlineWidthInput" type="number" min="0" max="14" step="0.5" /></label>
+              <label><span id="themeWaypointRadiusLabel">Путевые точки</span><input id="themeWaypointRadiusInput" type="number" min="2" max="12" step="0.5" /></label>
+              <label><span id="themeMarkerScaleLabel">Маркеры</span><input id="themeMarkerScaleInput" type="number" min="0.5" max="2.5" step="0.05" /></label>
+              <label><span id="themeLineStyleLabel">Стиль линии</span><select id="themeLineStyleInput"><option value="solid">solid</option><option value="dashed">dashed</option><option value="dotted">dotted</option></select></label>
+            </div>
+          </details>
+
+          <details class="settings-block">
+            <summary id="themeEditorInteractiveTitle">Интерактивный фон</summary>
+            <label class="settings-row settings-checkbox">
+              <span id="themeInteractiveEnabledLabel">Включен в теме</span>
+              <input id="themeInteractiveEnabledInput" type="checkbox" />
+            </label>
+            <div class="theme-editor-grid">
+              <label><span id="themeInteractiveFpsLabel">FPS</span><input id="themeInteractiveFpsInput" type="number" min="10" max="60" step="1" /></label>
+              <label><span id="themeBackgroundTypeLabel">Тип фона</span><select id="themeBackgroundTypeInput"><option value="none">none</option><option value="solid">solid</option><option value="gradient">gradient</option><option value="image">image</option><option value="particles">particles</option></select></label>
+              <label><span id="themeBackgroundColorLabel">Цвет фона</span><input id="themeBackgroundColorInput" type="color" /></label>
+              <label><span id="themeBackgroundOpacityLabel">Прозрачность слоя</span><input id="themeBackgroundOpacityInput" type="number" min="0" max="1" step="0.05" /></label>
+              <label><span id="themeParticleColorLabel">Цвет частиц</span><input id="themeParticleColorInput" type="color" /></label>
+              <label><span id="themeParticleCountLabel">Количество частиц</span><input id="themeParticleCountInput" type="number" min="0" max="240" step="1" /></label>
+            </div>
+            <div class="theme-editor-builder">
+              <strong id="themeBuilderTitle">Сборщик сложной темы</strong>
+              <p id="themeBuilderHelp" class="settings-help">Пресеты добавляют безопасные JSON-блоки. Их можно доработать ниже вручную.</p>
+              <div class="theme-editor-builder-grid">
+                <label>
+                  <span id="themeActorPresetLabel">Пресет actor</span>
+                  <select id="themeActorPresetInput">
+                    <option value="surfacePet">Персонаж по карточкам</option>
+                    <option value="orbitSprite">Орбита вокруг карточки</option>
+                    <option value="growAroundCard">Рост вокруг карточки</option>
+                    <option value="ambientWander">Фоновый wander actor</option>
+                  </select>
+                </label>
+                <button id="themeAddActorPresetButton" type="button">Добавить actor</button>
+                <label>
+                  <span id="themeActorEnhancerLabel">Усиление последнего actor</span>
+                  <select id="themeActorEnhancerInput">
+                    <option value="transitions">Прыжки и переходы</option>
+                    <option value="mouseHunt">Реакция на мышь</option>
+                    <option value="rest">Отдых на карточках</option>
+                    <option value="interactions">Взаимодействия actors</option>
+                  </select>
+                </label>
+                <button id="themeApplyActorEnhancerButton" type="button">Применить</button>
+                <label>
+                  <span id="themeEffectPresetLabel">Пресет эффектов</span>
+                  <select id="themeEffectPresetInput">
+                    <option value="portalLifecycle">Портал создания/удаления</option>
+                    <option value="particlesLifecycle">Частицы создания/удаления</option>
+                    <option value="hoverGlow">Свечение при наведении</option>
+                  </select>
+                </label>
+                <button id="themeApplyEffectPresetButton" type="button">Добавить эффект</button>
+              </div>
+              <div class="settings-inline-actions settings-update-actions theme-editor-builder-actions">
+                <button id="themeFormatJsonButton" type="button">Форматировать JSON</button>
+                <button id="themeValidateJsonButton" type="button">Проверить тему</button>
+              </div>
+              <p id="themeBuilderSummary" class="settings-help">Actors: 0, reactions: 0.</p>
+            </div>
+            <label class="theme-editor-json-row">
+              <span id="themeActorsJsonLabel">Actors JSON</span>
+              <textarea id="themeActorsJsonInput" spellcheck="false"></textarea>
+            </label>
+            <label class="theme-editor-json-row">
+              <span id="themeReactionsJsonLabel">Reactions JSON</span>
+              <textarea id="themeReactionsJsonInput" spellcheck="false"></textarea>
+            </label>
+            <label class="theme-editor-json-row">
+              <span id="themeCardEffectsJsonLabel">Card effects JSON</span>
+              <textarea id="themeCardEffectsJsonInput" spellcheck="false"></textarea>
+            </label>
+            <p id="themeEditorInteractiveHelp" class="settings-help">Для ассетов используйте импорт пакета темы. Здесь редактируется безопасный JSON без JavaScript.</p>
+          </details>
+          </div>
+
+          <aside class="theme-editor-preview" aria-live="polite">
+            <strong id="themePreviewTitle">Превью</strong>
+            <section id="themePreviewCard" class="card theme-preview-card" data-kind="note">
+              <div class="card-header">
+                <span class="drag-grip" aria-hidden="true"></span>
+                <span id="themePreviewCardTitle" class="theme-preview-card-title">Новая карточка</span>
+                <span class="header-fill" aria-hidden="true"></span>
+                <span class="card-kind-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v4h4"/><path d="M9 12h6M9 16h5"/></svg>
+                </span>
+              </div>
+              <div class="card-body">
+                <p id="themePreviewCardText">Текст, чекбоксы, таблицы и другие элементы будут использовать этот фон.</p>
+                <button type="button">Кнопка</button>
+              </div>
+            </section>
+          </aside>
+        </div>
+
+        <p id="themeEditorStatus" class="settings-status" aria-live="polite"></p>
+        <footer class="settings-actions">
+          <button id="themeEditorApplyButton" type="button">Применить</button>
+          <button id="themeEditorExportButton" type="button">Экспортировать</button>
+          <button id="themeEditorCloseFooterButton" type="button">Закрыть</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="themeCatalogModal" class="modal" hidden>
+      <section class="theme-catalog-panel" role="dialog" aria-modal="true" aria-labelledby="themeCatalogTitle">
+        <header class="settings-header">
+          <h2 id="themeCatalogTitle">Каталог тем</h2>
+          <button id="closeThemeCatalogButton" type="button" aria-label="Закрыть каталог тем">x</button>
+        </header>
+
+        <div class="theme-catalog-toolbar">
+          <p id="themeCatalogHelp" class="settings-help"></p>
+          <div class="catalog-tabs" role="tablist" aria-label="Разделы каталога тем">
+            <button id="themeCatalogBrowseTab" class="catalog-tab is-active" type="button">Каталог</button>
+            <button id="themeCatalogInstalledTab" class="catalog-tab" type="button">Загруженные</button>
+          </div>
+          <div class="settings-inline-actions settings-update-actions">
+            <button id="themeCatalogImportFileButton" type="button">Импортировать тему</button>
+            <button id="themeCatalogImportPackageButton" type="button">Импорт пакета</button>
+            <button id="themeCatalogUploadButton" type="button">Загрузить свою тему</button>
+          </div>
+        </div>
+
+        <div id="themeCatalogGrid" class="theme-catalog-grid"></div>
+        <p id="themeCatalogStatus" class="settings-status" aria-live="polite"></p>
+
+        <footer class="settings-actions">
+          <button id="themeCatalogCloseFooterButton" type="button">Закрыть</button>
+        </footer>
+      </section>
+    </div>
+
+    <div id="cardCatalogModal" class="modal" hidden>
+      <section class="card-catalog-panel" role="dialog" aria-modal="true" aria-labelledby="cardCatalogTitle">
+        <header class="settings-header">
+          <h2 id="cardCatalogTitle">Каталог карточек</h2>
+          <button id="closeCardCatalogButton" type="button" aria-label="Закрыть каталог карточек">x</button>
+        </header>
+
+        <div class="card-catalog-toolbar">
+          <p id="cardCatalogHelp" class="settings-help"></p>
+          <div class="catalog-tabs" role="tablist" aria-label="Разделы каталога карточек">
+            <button id="cardCatalogBrowseTab" class="catalog-tab is-active" type="button">Каталог</button>
+            <button id="cardCatalogInstalledTab" class="catalog-tab" type="button">Загруженные</button>
+          </div>
+          <div class="settings-inline-actions settings-update-actions">
+            <button id="cardCatalogImportButton" type="button">Импорт пакета</button>
+            <button id="cardCatalogUploadButton" type="button">Загрузить свой пакет</button>
+          </div>
+        </div>
+
+        <div id="cardCatalogGrid" class="card-catalog-grid"></div>
+        <p id="cardCatalogStatus" class="settings-status" aria-live="polite"></p>
+
+        <footer class="settings-actions">
+          <button id="cardCatalogCloseFooterButton" type="button">Закрыть</button>
+        </footer>
+      </section>
+    </div>
+
     <div id="contextMenu" class="context-menu" hidden role="menu" aria-label="Контекстное меню"></div>
 
     <div id="commentHistoryModal" class="modal" hidden>
@@ -535,6 +786,7 @@
       </section>
     </div>
 
+    <script src="./theme-validation.js"></script>
     <script src="./renderer.js"></script>
   </body>
 </html>

@@ -2,15 +2,16 @@ const board = document.getElementById("board");
 const workspace = document.getElementById("workspace");
 const urlParams = new URLSearchParams(window.location.search);
 const isOverlayWindow = urlParams.get("role") === "overlay";
+const themeValidation = window.DesktopBoardThemeValidation || {};
 const brandMark = document.querySelector(".brand-mark");
 const toolbarBoardSelect = document.getElementById("toolbarBoardSelect");
 const toolbarWindowModeSelect = document.getElementById("toolbarWindowModeSelect");
+const toolbarTemplateGroup = document.getElementById("toolbarTemplateGroup");
 const modeLabel = document.getElementById("modeLabel");
 const lockButton = document.getElementById("lockButton");
 const hideButton = document.getElementById("hideButton");
 const addNoteButton = document.getElementById("addNoteButton");
 const addCommentButton = document.getElementById("addCommentButton");
-const addCodeButton = document.getElementById("addCodeButton");
 const addTableButton = document.getElementById("addTableButton");
 const addCalculatorButton = document.getElementById("addCalculatorButton");
 const addTasksButton = document.getElementById("addTasksButton");
@@ -78,6 +79,7 @@ const themeModeInput = document.getElementById("themeModeInput");
 const backgroundColorInput = document.getElementById("backgroundColorInput");
 const backgroundOpacityInput = document.getElementById("backgroundOpacityInput");
 const backgroundOpacityValue = document.getElementById("backgroundOpacityValue");
+const interactiveBackgroundQualityInput = document.getElementById("interactiveBackgroundQualityInput");
 const noteHeaderColorInput = document.getElementById("noteHeaderColorInput");
 const noteBodyColorInput = document.getElementById("noteBodyColorInput");
 const commentHeaderColorInput = document.getElementById("commentHeaderColorInput");
@@ -100,6 +102,10 @@ const timerHeaderColorInput = document.getElementById("timerHeaderColorInput");
 const timerBodyColorInput = document.getElementById("timerBodyColorInput");
 const reminderHeaderColorInput = document.getElementById("reminderHeaderColorInput");
 const reminderBodyColorInput = document.getElementById("reminderBodyColorInput");
+const clockHeaderColorInput = document.getElementById("clockHeaderColorInput");
+const clockBodyColorInput = document.getElementById("clockBodyColorInput");
+const weatherHeaderColorInput = document.getElementById("weatherHeaderColorInput");
+const weatherBodyColorInput = document.getElementById("weatherBodyColorInput");
 const imageHeaderColorInput = document.getElementById("imageHeaderColorInput");
 const imageBodyColorInput = document.getElementById("imageBodyColorInput");
 const videoHeaderColorInput = document.getElementById("videoHeaderColorInput");
@@ -124,6 +130,8 @@ const colorInputRefs = {
   progress: { header: progressHeaderColorInput, body: progressBodyColorInput },
   timer: { header: timerHeaderColorInput, body: timerBodyColorInput },
   reminder: { header: reminderHeaderColorInput, body: reminderBodyColorInput },
+  clock: { header: clockHeaderColorInput, body: clockBodyColorInput },
+  weather: { header: weatherHeaderColorInput, body: weatherBodyColorInput },
   image: { header: imageHeaderColorInput, body: imageBodyColorInput },
   video: { header: videoHeaderColorInput, body: videoBodyColorInput },
   audio: { header: audioHeaderColorInput, body: audioBodyColorInput },
@@ -135,6 +143,9 @@ const quickCreateDetails = document.getElementById("quickCreateDetails");
 const quickCreateTitle = document.getElementById("quickCreateTitle");
 const quickCreateKindsGrid = document.getElementById("quickCreateKindsGrid");
 const quickCreateHelp = document.getElementById("quickCreateHelp");
+const cardCatalogSettingsLabel = document.getElementById("cardCatalogSettingsLabel");
+const cardCatalogSettingsHelp = document.getElementById("cardCatalogSettingsHelp");
+const openCardCatalogButton = document.getElementById("openCardCatalogButton");
 const toolbarCreateDetails = document.getElementById("toolbarCreateDetails");
 const toolbarCreateTitle = document.getElementById("toolbarCreateTitle");
 const toolbarCreateKindsGrid = document.getElementById("toolbarCreateKindsGrid");
@@ -148,6 +159,8 @@ const saveColorSchemeButton = document.getElementById("saveColorSchemeButton");
 const exportColorSchemeButton = document.getElementById("exportColorSchemeButton");
 const importThemeButton = document.getElementById("importThemeButton");
 const importThemePackageButton = document.getElementById("importThemePackageButton");
+const openThemeCatalogButton = document.getElementById("openThemeCatalogButton");
+const openThemeEditorButton = document.getElementById("openThemeEditorButton");
 const snapToGridInput = document.getElementById("snapToGridInput");
 const toggleHotkeyInput = document.getElementById("toggleHotkeyInput");
 const lockHotkeyInput = document.getElementById("lockHotkeyInput");
@@ -195,6 +208,81 @@ const updatesVersion = document.getElementById("updatesVersion");
 const updatesStatus = document.getElementById("updatesStatus");
 const checkUpdatesButton = document.getElementById("checkUpdatesButton");
 const installUpdateButton = document.getElementById("installUpdateButton");
+const themeCatalogModal = document.getElementById("themeCatalogModal");
+const themeCatalogTitle = document.getElementById("themeCatalogTitle");
+const closeThemeCatalogButton = document.getElementById("closeThemeCatalogButton");
+const themeCatalogCloseFooterButton = document.getElementById("themeCatalogCloseFooterButton");
+const themeCatalogHelp = document.getElementById("themeCatalogHelp");
+const themeCatalogGrid = document.getElementById("themeCatalogGrid");
+const themeCatalogStatus = document.getElementById("themeCatalogStatus");
+const themeCatalogImportFileButton = document.getElementById("themeCatalogImportFileButton");
+const themeCatalogImportPackageButton = document.getElementById("themeCatalogImportPackageButton");
+const themeCatalogUploadButton = document.getElementById("themeCatalogUploadButton");
+const themeCatalogBrowseTab = document.getElementById("themeCatalogBrowseTab");
+const themeCatalogInstalledTab = document.getElementById("themeCatalogInstalledTab");
+const cardCatalogModal = document.getElementById("cardCatalogModal");
+const cardCatalogTitle = document.getElementById("cardCatalogTitle");
+const closeCardCatalogButton = document.getElementById("closeCardCatalogButton");
+const cardCatalogCloseFooterButton = document.getElementById("cardCatalogCloseFooterButton");
+const cardCatalogHelp = document.getElementById("cardCatalogHelp");
+const cardCatalogGrid = document.getElementById("cardCatalogGrid");
+const cardCatalogStatus = document.getElementById("cardCatalogStatus");
+const cardCatalogImportButton = document.getElementById("cardCatalogImportButton");
+const cardCatalogUploadButton = document.getElementById("cardCatalogUploadButton");
+const cardCatalogBrowseTab = document.getElementById("cardCatalogBrowseTab");
+const cardCatalogInstalledTab = document.getElementById("cardCatalogInstalledTab");
+const themeEditorModal = document.getElementById("themeEditorModal");
+const themeEditorTitle = document.getElementById("themeEditorTitle");
+const closeThemeEditorButton = document.getElementById("closeThemeEditorButton");
+const themeEditorCloseFooterButton = document.getElementById("themeEditorCloseFooterButton");
+const themeEditorLoadCurrentButton = document.getElementById("themeEditorLoadCurrentButton");
+const themeEditorLoadDefaultButton = document.getElementById("themeEditorLoadDefaultButton");
+const themeEditorApplyButton = document.getElementById("themeEditorApplyButton");
+const themeEditorExportButton = document.getElementById("themeEditorExportButton");
+const themeEditorStatus = document.getElementById("themeEditorStatus");
+const themeEditorNameInput = document.getElementById("themeEditorNameInput");
+const themeCardRadiusInput = document.getElementById("themeCardRadiusInput");
+const themePanelRadiusInput = document.getElementById("themePanelRadiusInput");
+const themeButtonRadiusInput = document.getElementById("themeButtonRadiusInput");
+const themeCardBorderWidthInput = document.getElementById("themeCardBorderWidthInput");
+const themeCardHeaderHeightInput = document.getElementById("themeCardHeaderHeightInput");
+const themeGroupHeaderHeightInput = document.getElementById("themeGroupHeaderHeightInput");
+const themeIconScaleInput = document.getElementById("themeIconScaleInput");
+const themeShadowInput = document.getElementById("themeShadowInput");
+const themeHeaderAssetInput = document.getElementById("themeHeaderAssetInput");
+const themeBodyAssetInput = document.getElementById("themeBodyAssetInput");
+const themePickHeaderAssetButton = document.getElementById("themePickHeaderAssetButton");
+const themePickBodyAssetButton = document.getElementById("themePickBodyAssetButton");
+const themeClearHeaderAssetButton = document.getElementById("themeClearHeaderAssetButton");
+const themeClearBodyAssetButton = document.getElementById("themeClearBodyAssetButton");
+const themeAssetsJsonInput = document.getElementById("themeAssetsJsonInput");
+const themeStrokeWidthInput = document.getElementById("themeStrokeWidthInput");
+const themeSelectedStrokeWidthInput = document.getElementById("themeSelectedStrokeWidthInput");
+const themeDraftStrokeWidthInput = document.getElementById("themeDraftStrokeWidthInput");
+const themeOutlineWidthInput = document.getElementById("themeOutlineWidthInput");
+const themeWaypointRadiusInput = document.getElementById("themeWaypointRadiusInput");
+const themeMarkerScaleInput = document.getElementById("themeMarkerScaleInput");
+const themeLineStyleInput = document.getElementById("themeLineStyleInput");
+const themeInteractiveEnabledInput = document.getElementById("themeInteractiveEnabledInput");
+const themeInteractiveFpsInput = document.getElementById("themeInteractiveFpsInput");
+const themeBackgroundTypeInput = document.getElementById("themeBackgroundTypeInput");
+const themeBackgroundColorInput = document.getElementById("themeBackgroundColorInput");
+const themeBackgroundOpacityInput = document.getElementById("themeBackgroundOpacityInput");
+const themeParticleColorInput = document.getElementById("themeParticleColorInput");
+const themeParticleCountInput = document.getElementById("themeParticleCountInput");
+const themeActorPresetInput = document.getElementById("themeActorPresetInput");
+const themeAddActorPresetButton = document.getElementById("themeAddActorPresetButton");
+const themeActorEnhancerInput = document.getElementById("themeActorEnhancerInput");
+const themeApplyActorEnhancerButton = document.getElementById("themeApplyActorEnhancerButton");
+const themeEffectPresetInput = document.getElementById("themeEffectPresetInput");
+const themeApplyEffectPresetButton = document.getElementById("themeApplyEffectPresetButton");
+const themeFormatJsonButton = document.getElementById("themeFormatJsonButton");
+const themeValidateJsonButton = document.getElementById("themeValidateJsonButton");
+const themeBuilderSummary = document.getElementById("themeBuilderSummary");
+const themeActorsJsonInput = document.getElementById("themeActorsJsonInput");
+const themeReactionsJsonInput = document.getElementById("themeReactionsJsonInput");
+const themeCardEffectsJsonInput = document.getElementById("themeCardEffectsJsonInput");
+const themePreviewCard = document.getElementById("themePreviewCard");
 const searchScopeRow = document.createElement("label");
 searchScopeRow.className = "settings-row search-scope-row";
 const searchScopeLabel = document.createElement("span");
@@ -244,6 +332,13 @@ const brandLogoAnimations = [
   { src: "./assets/logo-animations/03_float_transparent.gif", loopMs: 1920 },
   { src: "./assets/logo-animations/04_shine_transparent.gif", loopMs: 2110 }
 ];
+const interactiveBackgroundQualityProfiles = {
+  off: { fps: 0, maxActors: 0, particleScale: 0 },
+  low: { fps: 20, maxActors: 16, particleScale: 0.45 },
+  normal: { fps: 30, maxActors: 48, particleScale: 1 }
+};
+const interactiveBackgroundMaxDpr = 2;
+const interactiveBackgroundMaxCardEffectDelayMs = 4000;
 const richTextFontFamilies = [
   "Segoe UI",
   "Arial",
@@ -298,8 +393,8 @@ const cardTypeRegistry = [
     colorKind: "code",
     quickCreateGroup: "text",
     createMode: "card",
+    packageOnly: true,
     defaultSize: { width: 420, height: 280 },
-    toolbarButton: addCodeButton,
     icon: '<svg viewBox="0 0 24 24"><path d="M9 7l-4 5 4 5"/><path d="M15 7l4 5-4 5"/><path d="M13 5l-2 14"/></svg>'
   },
   {
@@ -391,6 +486,28 @@ const cardTypeRegistry = [
     icon: '<svg viewBox="0 0 24 24"><path d="M12 3a4 4 0 0 1 4 4v2.2c0 1.3.4 2.6 1.2 3.7l1.1 1.6H5.7l1.1-1.6A6.4 6.4 0 0 0 8 9.2V7a4 4 0 0 1 4-4"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>'
   },
   {
+    kind: "clock",
+    labelKey: "clock",
+    createLabelKey: "addClock",
+    colorKind: "clock",
+    quickCreateGroup: "text",
+    createMode: "card",
+    packageOnly: true,
+    defaultSize: { width: 320, height: 220 },
+    icon: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/><path d="M7 3l-3 3M17 3l3 3"/></svg>'
+  },
+  {
+    kind: "weather",
+    labelKey: "weather",
+    createLabelKey: "addWeather",
+    colorKind: "weather",
+    quickCreateGroup: "text",
+    createMode: "card",
+    packageOnly: true,
+    defaultSize: { width: 360, height: 260 },
+    icon: '<svg viewBox="0 0 24 24"><path d="M8 17h9a4 4 0 0 0 .6-7.9A6 6 0 0 0 6.2 9.7 3.7 3.7 0 0 0 8 17z"/><path d="M8 20h8"/></svg>'
+  },
+  {
     kind: "image",
     labelKey: "image",
     createLabelKey: "addImage",
@@ -459,10 +576,228 @@ const cardTypeRegistry = [
 ];
 const cardTypeMap = new Map(cardTypeRegistry.map((definition) => [definition.kind, definition]));
 const quickCreateGroupOrder = ["text", "media", "board"];
-const defaultQuickCreateKinds = cardTypeRegistry.map((definition) => definition.kind);
+const defaultQuickCreateKinds = getStaticQuickCreateDefinitions().map((definition) => definition.kind);
 const defaultToolbarCreateKinds = cardTypeRegistry
   .filter((definition) => Boolean(definition.toolbarButton))
   .map((definition) => definition.kind);
+
+const bundledCardCatalog = [
+  {
+    id: "planning-pack",
+    nameKey: "cardCatalogPlanningPackName",
+    descriptionKey: "cardCatalogPlanningPackDescription",
+    author: "Desktop Board",
+    rating: 4.8,
+    downloads: 0,
+    tags: ["cardCatalogTagPlanning", "cardCatalogTagBuiltIn"],
+    templates: [
+      {
+        id: "daily-plan",
+        kind: "tasks",
+        nameKey: "cardTemplateDailyPlanName",
+        descriptionKey: "cardTemplateDailyPlanDescription",
+        titleKey: "cardTemplateDailyPlanTitle",
+        width: 360,
+        height: 300,
+        data: {
+          tasks: [
+            { textKey: "cardTemplateDailyPlanTask1", done: false },
+            { textKey: "cardTemplateDailyPlanTask2", done: false },
+            { textKey: "cardTemplateDailyPlanTask3", done: false }
+          ]
+        }
+      },
+      {
+        id: "meeting-notes",
+        kind: "note",
+        nameKey: "cardTemplateMeetingNotesName",
+        descriptionKey: "cardTemplateMeetingNotesDescription",
+        titleKey: "cardTemplateMeetingNotesTitle",
+        width: 360,
+        height: 280,
+        data: {
+          textKey: "cardTemplateMeetingNotesText"
+        }
+      },
+      {
+        id: "weekly-schedule",
+        kind: "schedule",
+        nameKey: "cardTemplateWeeklyScheduleName",
+        descriptionKey: "cardTemplateWeeklyScheduleDescription",
+        titleKey: "cardTemplateWeeklyScheduleTitle",
+        width: 380,
+        height: 300,
+        data: {
+          scheduleEntries: [
+            { time: "09:00", noteKey: "cardTemplateWeeklyScheduleEntry1" },
+            { time: "13:00", noteKey: "cardTemplateWeeklyScheduleEntry2" },
+            { time: "17:00", noteKey: "cardTemplateWeeklyScheduleEntry3" }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    id: developerCardPackId,
+    nameKey: "cardCatalogDeveloperPackName",
+    descriptionKey: "cardCatalogDeveloperPackDescription",
+    author: "Desktop Board",
+    rating: 4.7,
+    downloads: 0,
+    tags: ["cardCatalogTagDev", "cardCatalogTagBuiltIn"],
+    templates: [
+      {
+        id: codeSnippetCardTemplateId,
+        kind: "code",
+        nameKey: "cardTemplateCodeSnippetName",
+        descriptionKey: "cardTemplateCodeSnippetDescription",
+        titleKey: "cardTemplateCodeSnippetTitle",
+        width: 420,
+        height: 280,
+        data: {
+          codeLanguage: "",
+          text: ""
+        }
+      },
+      {
+        id: "bug-report",
+        kind: "note",
+        nameKey: "cardTemplateBugReportName",
+        descriptionKey: "cardTemplateBugReportDescription",
+        titleKey: "cardTemplateBugReportTitle",
+        width: 380,
+        height: 300,
+        data: {
+          textKey: "cardTemplateBugReportText",
+          tags: ["bug", "qa"]
+        }
+      },
+      {
+        id: "api-snippet",
+        kind: "code",
+        nameKey: "cardTemplateApiSnippetName",
+        descriptionKey: "cardTemplateApiSnippetDescription",
+        titleKey: "cardTemplateApiSnippetTitle",
+        width: 440,
+        height: 300,
+        data: {
+          codeLanguage: "js",
+          text: "async function request(url) {\n  const response = await fetch(url);\n  return response.json();\n}"
+        }
+      },
+      {
+        id: "test-matrix",
+        kind: "table",
+        nameKey: "cardTemplateTestMatrixName",
+        descriptionKey: "cardTemplateTestMatrixDescription",
+        titleKey: "cardTemplateTestMatrixTitle",
+        width: 460,
+        height: 300,
+        data: {
+          tableColumns: [
+            { titleKey: "cardTemplateTestMatrixColumn1" },
+            { titleKey: "cardTemplateTestMatrixColumn2" },
+            { titleKey: "cardTemplateTestMatrixColumn3" }
+          ],
+          tableRows: [
+            { cellsKeys: ["cardTemplateTestMatrixRow1A", "cardTemplateTestMatrixRow1B", "cardTemplateTestMatrixRow1C"] },
+            { cellsKeys: ["cardTemplateTestMatrixRow2A", "cardTemplateTestMatrixRow2B", "cardTemplateTestMatrixRow2C"] }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    id: "research-pack",
+    nameKey: "cardCatalogResearchPackName",
+    descriptionKey: "cardCatalogResearchPackDescription",
+    author: "Desktop Board",
+    rating: 4.6,
+    downloads: 0,
+    tags: ["cardCatalogTagResearch", "cardCatalogTagBuiltIn"],
+    templates: [
+      {
+        id: "source-list",
+        kind: "bookmark",
+        nameKey: "cardTemplateSourceListName",
+        descriptionKey: "cardTemplateSourceListDescription",
+        titleKey: "cardTemplateSourceListTitle",
+        width: 360,
+        height: 280,
+        data: {
+          links: [
+            { titleKey: "cardTemplateSourceListLink1", url: "https://example.com" }
+          ]
+        }
+      },
+      {
+        id: "experiment-progress",
+        kind: "progress",
+        nameKey: "cardTemplateExperimentProgressName",
+        descriptionKey: "cardTemplateExperimentProgressDescription",
+        titleKey: "cardTemplateExperimentProgressTitle",
+        width: 360,
+        height: 300,
+        data: {
+          tasks: [
+            { textKey: "cardTemplateExperimentProgressTask1", done: false },
+            { textKey: "cardTemplateExperimentProgressTask2", done: false },
+            { textKey: "cardTemplateExperimentProgressTask3", done: false }
+          ]
+        }
+      },
+      {
+        id: "reminder-review",
+        kind: "reminder",
+        nameKey: "cardTemplateReminderReviewName",
+        descriptionKey: "cardTemplateReminderReviewDescription",
+        titleKey: "cardTemplateReminderReviewTitle",
+        width: 360,
+        height: 280,
+        data: {
+          textKey: "cardTemplateReminderReviewText"
+        }
+      }
+    ]
+  },
+  {
+    id: "desktop-widgets-pack",
+    nameKey: "cardCatalogWidgetsPackName",
+    descriptionKey: "cardCatalogWidgetsPackDescription",
+    author: "Desktop Board",
+    rating: 4.6,
+    downloads: 0,
+    tags: ["cardCatalogTagWidgets", "cardCatalogTagBuiltIn"],
+    templates: [
+      {
+        id: "clock-date",
+        kind: "clock",
+        nameKey: "cardTemplateClockDateName",
+        descriptionKey: "cardTemplateClockDateDescription",
+        titleKey: "cardTemplateClockDateTitle",
+        width: 320,
+        height: 220,
+        data: {
+          clockTimeZone: "system",
+          clockShowSeconds: true
+        }
+      },
+      {
+        id: "weather-location",
+        kind: "weather",
+        nameKey: "cardTemplateWeatherName",
+        descriptionKey: "cardTemplateWeatherDescription",
+        titleKey: "cardTemplateWeatherTitle",
+        width: 360,
+        height: 260,
+        data: {
+          weatherLocation: "",
+          weatherUnits: "metric"
+        }
+      }
+    ]
+  }
+];
 
 const builtInColorSchemes = [
   {
@@ -483,6 +818,8 @@ const builtInColorSchemes = [
       progress: { header: "#2f7d57", body: "#e7f3ec" },
       timer: { header: "#3a8f9f", body: "#e6f6f8" },
       reminder: { header: "#d96b5f", body: "#fdebe7" },
+      clock: { header: "#3a8f9f", body: "#e6f6f8" },
+      weather: { header: "#4f85a6", body: "#e4f0f4" },
       image: { header: "#7453a6", body: "#f0ebf8" },
       video: { header: "#7453a6", body: "#f0ebf8" },
       audio: { header: "#7453a6", body: "#f0ebf8" },
@@ -509,6 +846,8 @@ const builtInColorSchemes = [
       progress: { header: "#31805f", body: "#dcefe6" },
       timer: { header: "#428f9b", body: "#dff1f3" },
       reminder: { header: "#bd655b", body: "#f5dfdb" },
+      clock: { header: "#428f9b", body: "#dff1f3" },
+      weather: { header: "#536fb5", body: "#e7edf9" },
       image: { header: "#7555a5", body: "#ebe5f4" },
       video: { header: "#7555a5", body: "#ebe5f4" },
       audio: { header: "#7555a5", body: "#ebe5f4" },
@@ -535,6 +874,8 @@ const builtInColorSchemes = [
       progress: { header: "#3f8b66", body: "#e2f1e8" },
       timer: { header: "#2894a3", body: "#ddf3f5" },
       reminder: { header: "#c25c65", body: "#f7e0e3" },
+      clock: { header: "#2894a3", body: "#ddf3f5" },
+      weather: { header: "#4f85a6", body: "#e4f0f4" },
       image: { header: "#6b62a8", body: "#eceafd" },
       video: { header: "#6b62a8", body: "#eceafd" },
       audio: { header: "#6b62a8", body: "#eceafd" },
@@ -569,9 +910,170 @@ const defaultVisualTheme = {
   },
   assets: {
     icons: {},
-    connection: null
+    connection: null,
+    actors: {},
+    backgrounds: {},
+    cardHeaders: {},
+    cardBodies: {}
+  },
+  interactiveBackground: {
+    enabled: false,
+    fps: 30,
+    background: {
+      type: "none"
+    },
+    actors: [],
+    reactions: [],
+    cardEffects: {
+      create: {
+        enabled: false,
+        type: "none",
+        delayMs: 0,
+        durationMs: 600,
+        color: "#7aa884",
+        asset: "",
+        animation: ""
+      },
+      delete: {
+        enabled: false,
+        type: "none",
+        delayMs: 0,
+        durationMs: 600,
+        color: "#7aa884",
+        asset: "",
+        animation: ""
+      }
+    }
   }
 };
+
+const bundledThemeCatalog = [
+  {
+    id: "classic-board",
+    nameKey: "themeCatalogClassicName",
+    descriptionKey: "themeCatalogClassicDescription",
+    colorSchemeId: "classic",
+    rating: 4.8,
+    downloads: 0,
+    previewKind: "classic",
+    tags: ["themeCatalogTagClean", "themeCatalogTagBuiltIn"],
+    visualTheme: {
+      name: "Classic Board",
+      tokens: {
+        shadow: "medium",
+        cardRadius: 8,
+        panelRadius: 8,
+        buttonRadius: 6
+      },
+      connections: {
+        lineStyle: "solid",
+        outlineWidth: 6
+      }
+    }
+  },
+  {
+    id: "graphite-focus",
+    nameKey: "themeCatalogGraphiteName",
+    descriptionKey: "themeCatalogGraphiteDescription",
+    colorSchemeId: "graphite",
+    rating: 4.9,
+    downloads: 0,
+    previewKind: "graphite",
+    tags: ["themeCatalogTagDark", "themeCatalogTagFocus"],
+    visualTheme: {
+      name: "Graphite Focus",
+      tokens: {
+        shadow: "strong",
+        cardRadius: 7,
+        panelRadius: 8,
+        buttonRadius: 6
+      },
+      connections: {
+        strokeWidth: 3.5,
+        selectedStrokeWidth: 4,
+        outlineWidth: 7,
+        lineStyle: "solid"
+      }
+    }
+  },
+  {
+    id: "studio-soft",
+    nameKey: "themeCatalogStudioName",
+    descriptionKey: "themeCatalogStudioDescription",
+    colorSchemeId: "studio",
+    rating: 4.7,
+    downloads: 0,
+    previewKind: "studio",
+    tags: ["themeCatalogTagSoft", "themeCatalogTagWork"],
+    visualTheme: {
+      name: "Studio Soft",
+      tokens: {
+        shadow: "light",
+        cardRadius: 8,
+        panelRadius: 8,
+        buttonRadius: 6
+      },
+      connections: {
+        strokeWidth: 2.5,
+        selectedStrokeWidth: 3,
+        outlineWidth: 5,
+        lineStyle: "solid"
+      }
+    }
+  },
+  {
+    id: "interactive-lab",
+    nameKey: "themeCatalogInteractiveName",
+    descriptionKey: "themeCatalogInteractiveDescription",
+    colorSchemeId: "graphite",
+    rating: 4.6,
+    downloads: 0,
+    previewKind: "interactive",
+    tags: ["themeCatalogTagInteractive", "themeCatalogTagExperimental"],
+    visualTheme: {
+      name: "Interactive Lab",
+      tokens: {
+        shadow: "strong",
+        cardRadius: 8,
+        panelRadius: 8,
+        buttonRadius: 6
+      },
+      interactiveBackground: {
+        enabled: true,
+        fps: 30,
+        background: {
+          type: "particles",
+          color: "#1f2423",
+          opacity: 0.55,
+          particleColor: "#8fd8c6",
+          particleCount: 70
+        },
+        actors: [],
+        reactions: [],
+        cardEffects: {
+          create: {
+            enabled: false,
+            type: "none",
+            delayMs: 0,
+            durationMs: 600,
+            color: "#7aa884",
+            asset: "",
+            animation: ""
+          },
+          delete: {
+            enabled: false,
+            type: "none",
+            delayMs: 0,
+            durationMs: 600,
+            color: "#7aa884",
+            asset: "",
+            animation: ""
+          }
+        }
+      }
+    }
+  }
+];
 
 const defaultSettings = {
   themeMode: "system",
@@ -580,13 +1082,17 @@ const defaultSettings = {
   backgroundColor: "#f4f5f0",
   backgroundOpacity: 0,
   connectionColor: "#171916",
+  interactiveBackgroundQuality: "off",
   richTextFontFamily: defaultRichTextFontFamily,
   richTextFontSize: defaultRichTextFontSize,
   visualTheme: clone(defaultVisualTheme),
+  activeVisualThemeId: "",
+  installedThemes: [],
   snapToGrid: true,
   historyEnabled: true,
   quickCreateKinds: [...defaultQuickCreateKinds],
   toolbarCreateKinds: [...defaultToolbarCreateKinds],
+  cardPacks: [],
   colorSchemes: [],
   colors: {
     note: { header: "#f2c94c", body: "#fff8d7" },
@@ -600,6 +1106,8 @@ const defaultSettings = {
     progress: { header: "#2f7d57", body: "#e7f3ec" },
     timer: { header: "#3a8f9f", body: "#e6f6f8" },
     reminder: { header: "#d96b5f", body: "#fdebe7" },
+    clock: { header: "#3a8f9f", body: "#e6f6f8" },
+    weather: { header: "#4f85a6", body: "#e4f0f4" },
     image: { header: "#7453a6", body: "#f0ebf8" },
     video: { header: "#7453a6", body: "#f0ebf8" },
     audio: { header: "#7453a6", body: "#f0ebf8" },
@@ -808,6 +1316,8 @@ let assetManagerState = {
   statusMessage: "",
   statusTone: ""
 };
+let themeCatalogActiveTab = "browse";
+let cardCatalogActiveTab = "browse";
 let startupAssetMaintenanceStarted = false;
 const imagePreviewExtensions = new Set(["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg", "avif", "ico"]);
 const videoPreviewExtensions = new Set(["mp4", "webm", "mov", "m4v", "ogv"]);
@@ -819,6 +1329,7 @@ const textPreviewExtensions = new Set([
   "ps1", "cmd", "bat", "py", "java", "c", "cpp", "h", "hpp", "rs", "go", "sql", "sh"
 ]);
 const filePreviewCache = new Map();
+const weatherFetchRequests = new Map();
 const nativeWebResizeReserve = 14;
 const webResizeObserver = typeof ResizeObserver === "function"
   ? new ResizeObserver((entries) => {
@@ -834,6 +1345,35 @@ let brandLogoAnimationTimer = null;
 let brandLogoResetTimer = null;
 let brandLogoAnimationActive = false;
 let lastBrandLogoAnimationSrc = "";
+let themeEditorWorkingTheme = null;
+const interactiveBackgroundState = {
+  baseCanvas: null,
+  overlayCanvas: null,
+  baseContext: null,
+  overlayContext: null,
+  raf: 0,
+  lastFrameAt: 0,
+  lastConfigKey: "",
+  actors: [],
+  particles: [],
+  cardEffects: [],
+  reactionCooldowns: new Map(),
+  images: new Map(),
+  geometry: {
+    key: "",
+    version: 0,
+    cards: [],
+    cardRoutes: [],
+    connectionRoutes: []
+  },
+  mouse: {
+    worldX: 0,
+    worldY: 0,
+    active: false,
+    lastMoveAt: 0
+  }
+};
+const pendingCardRemovalIds = new Set();
 let settingsLayoutInitialized = false;
 let activeSettingsSectionId = "general";
 
@@ -854,8 +1394,12 @@ const settingsSectionDefinitions = [
     selectors: [
       "#backgroundColorLabel",
       "#backgroundOpacityLabel",
+      "#interactiveBackgroundQualityLabel",
+      "#interactiveBackgroundHelp",
       "#connectionColorLabel",
       "#colorSchemeSettingsBlock",
+      "#openThemeCatalogButton",
+      "#openThemeEditorButton",
       "#colorRulesDetails"
     ]
   },
@@ -878,6 +1422,7 @@ const settingsSectionDefinitions = [
     labelKey: "settingsSectionCards",
     selectors: [
       "#quickCreateDetails",
+      "#cardCatalogSettingsBlock",
       "#toolbarCreateDetails",
       "#richTextFontFamilyLabel",
       "#richTextFontSizeLabel",
@@ -958,7 +1503,188 @@ const translations = {
     themeMode: "Тема интерфейса",
     languageMode: "Язык интерфейса",
     backgroundColor: "Цвет фона",
+    interactiveBackgroundQuality: "Интерактивный фон",
+    interactiveBackgroundHelp: "Работает только для тем, где задан interactiveBackground. Низкое качество ограничивает FPS и число объектов.",
+    interactiveBackgroundOff: "Выключен",
+    interactiveBackgroundLow: "Низкое качество",
+    interactiveBackgroundNormal: "Обычное качество",
     connectionColor: "Цвет соединений",
+    themeCatalog: "Каталог тем",
+    themeCatalogClose: "Закрыть каталог тем",
+    themeCatalogHelp: "Пока серверной части нет, здесь отображаются темы, встроенные в приложение. Позже в этом окне появятся пользовательские темы, рейтинг, скриншоты, видео превью, загрузка и публикация.",
+    themeCatalogUpload: "Загрузить свою тему",
+    themeCatalogUploadLocal: "Публикация на сервер пока недоступна. Сейчас можно импортировать тему локально.",
+    themeCatalogApply: "Применить",
+    themeCatalogDownload: "Скачать файл",
+    themeCatalogRating: "Рейтинг {rating}",
+    themeCatalogDownloads: "Скачиваний: {count}",
+    themeCatalogBuiltIn: "Встроенная",
+    themeCatalogScreenshots: "Скриншоты",
+    themeCatalogVideoPreview: "Видео превью",
+    themeCatalogApplied: "Тема применена: {name}.",
+    themeCatalogExported: "Тема экспортирована: {name}.",
+    themePackageImportFinished: "Импорт пакета темы завершен.",
+    themeCatalogClassicName: "Classic Board",
+    themeCatalogClassicDescription: "Базовая светлая тема приложения: спокойный фон, читаемые карточки и стандартные соединения.",
+    themeCatalogGraphiteName: "Graphite Focus",
+    themeCatalogGraphiteDescription: "Темная рабочая тема с более контрастными соединениями и усиленной тенью карточек.",
+    themeCatalogStudioName: "Studio Soft",
+    themeCatalogStudioDescription: "Мягкая светлая тема для длинной работы с заметками, таблицами и планами.",
+    themeCatalogInteractiveName: "Interactive Lab",
+    themeCatalogInteractiveDescription: "Демонстрационная заготовка для интерактивного фона: частицы включены, актеры и эффекты можно добавить через пакет темы.",
+    themeCatalogTagClean: "чистая",
+    themeCatalogTagBuiltIn: "стандартная",
+    themeCatalogTagDark: "темная",
+    themeCatalogTagFocus: "фокус",
+    themeCatalogTagSoft: "мягкая",
+    themeCatalogTagWork: "рабочая",
+    themeCatalogTagInteractive: "интерактивная",
+    themeCatalogTagExperimental: "эксперимент",
+    cardCatalog: "Каталог карточек",
+    cardCatalogClose: "Закрыть каталог карточек",
+    cardCatalogSettings: "Пакеты карточек",
+    cardCatalogSettingsHelp: "Установленные пакеты добавляют шаблоны карточек для узких сценариев работы.",
+    cardCatalogHelp: "Пока серверной части нет, здесь отображаются встроенные и локально установленные пакеты карточек. Позже это окно можно подключить к онлайн-каталогу с рейтингом, описанием, скриншотами и публикацией.",
+    cardCatalogImport: "Импорт пакета",
+    cardCatalogUpload: "Загрузить свой пакет",
+    cardCatalogUploadLocal: "Публикация на сервер пока недоступна. Сейчас можно импортировать пакет карточек локально.",
+    cardCatalogInstall: "Установить",
+    cardCatalogInstalled: "Установлено",
+    cardCatalogBuiltIn: "Встроенный",
+    cardCatalogCreate: "Создать",
+    cardCatalogExport: "Скачать пакет",
+    cardCatalogRemove: "Удалить пакет",
+    cardCatalogAuthor: "Автор: {author}",
+    cardCatalogTemplateCount: "Шаблонов: {count}",
+    cardCatalogInstalledStatus: "Пакет установлен: {name}.",
+    cardCatalogImported: "Пакет импортирован: {name}.",
+    cardCatalogRemoved: "Пакет удален.",
+    cardCatalogExported: "Пакет экспортирован: {name}.",
+    cardCatalogImportFailed: "Не удалось импортировать пакет карточек.",
+    cardCatalogTemplateCreated: "Создана карточка: {name}.",
+    cardCatalogPlanningPackName: "Планирование",
+    cardCatalogPlanningPackDescription: "Шаблоны для ежедневного планирования, встреч и расписания.",
+    cardCatalogDeveloperPackName: "Разработка",
+    cardCatalogDeveloperPackDescription: "Шаблоны для баг-репортов, сниппетов и тестовых матриц.",
+    cardCatalogResearchPackName: "Исследования",
+    cardCatalogResearchPackDescription: "Шаблоны для источников, экспериментов и напоминаний о проверке.",
+    cardCatalogTagPlanning: "планирование",
+    cardCatalogTagBuiltIn: "стандартный",
+    cardCatalogTagDev: "разработка",
+    cardCatalogTagResearch: "исследования",
+    cardTemplateDailyPlanName: "План дня",
+    cardTemplateDailyPlanDescription: "Список задач для быстрых ежедневных приоритетов.",
+    cardTemplateDailyPlanTitle: "План дня",
+    cardTemplateDailyPlanTask1: "Главная задача",
+    cardTemplateDailyPlanTask2: "Проверить прогресс",
+    cardTemplateDailyPlanTask3: "Закрыть день",
+    cardTemplateMeetingNotesName: "Заметки встречи",
+    cardTemplateMeetingNotesDescription: "Заготовка для фиксации темы, решений и следующих шагов.",
+    cardTemplateMeetingNotesTitle: "Встреча",
+    cardTemplateMeetingNotesText: "Тема:\n\nРешения:\n\nСледующие шаги:",
+    cardTemplateWeeklyScheduleName: "Расписание недели",
+    cardTemplateWeeklyScheduleDescription: "Базовые временные блоки для планирования недели.",
+    cardTemplateWeeklyScheduleTitle: "Неделя",
+    cardTemplateWeeklyScheduleEntry1: "Фокус-блок",
+    cardTemplateWeeklyScheduleEntry2: "Проверка задач",
+    cardTemplateWeeklyScheduleEntry3: "Итоги дня",
+    cardTemplateBugReportName: "Bug report",
+    cardTemplateBugReportDescription: "Структура для описания ошибки и шагов воспроизведения.",
+    cardTemplateBugReportTitle: "Bug report",
+    cardTemplateBugReportText: "Ожидаемый результат:\n\nФактический результат:\n\nШаги воспроизведения:\n1. \n2. \n3. ",
+    cardTemplateApiSnippetName: "API snippet",
+    cardTemplateApiSnippetDescription: "Карточка кода для небольшого примера запроса.",
+    cardTemplateApiSnippetTitle: "API snippet",
+    cardTemplateTestMatrixName: "Тестовая матрица",
+    cardTemplateTestMatrixDescription: "Таблица для проверки сценариев по окружениям.",
+    cardTemplateTestMatrixTitle: "Тестовая матрица",
+    cardTemplateTestMatrixColumn1: "Сценарий",
+    cardTemplateTestMatrixColumn2: "Статус",
+    cardTemplateTestMatrixColumn3: "Комментарий",
+    cardTemplateTestMatrixRow1A: "Основной путь",
+    cardTemplateTestMatrixRow1B: "Не проверено",
+    cardTemplateTestMatrixRow1C: "",
+    cardTemplateTestMatrixRow2A: "Ошибка",
+    cardTemplateTestMatrixRow2B: "Не проверено",
+    cardTemplateTestMatrixRow2C: "",
+    cardTemplateSourceListName: "Список источников",
+    cardTemplateSourceListDescription: "Карточка ссылок для материалов и исследований.",
+    cardTemplateSourceListTitle: "Источники",
+    cardTemplateSourceListLink1: "Новый источник",
+    cardTemplateExperimentProgressName: "Прогресс эксперимента",
+    cardTemplateExperimentProgressDescription: "Процент готовности по чеклисту этапов.",
+    cardTemplateExperimentProgressTitle: "Эксперимент",
+    cardTemplateExperimentProgressTask1: "Гипотеза",
+    cardTemplateExperimentProgressTask2: "Проверка",
+    cardTemplateExperimentProgressTask3: "Выводы",
+    cardTemplateReminderReviewName: "Напоминание о проверке",
+    cardTemplateReminderReviewDescription: "Напоминание для повторной проверки материала или решения.",
+    cardTemplateReminderReviewTitle: "Проверить позже",
+    cardTemplateReminderReviewText: "Что проверить:",
+    themeEditor: "Редактор тем",
+    themeEditorTitle: "Редактор тем",
+    themeEditorName: "Название темы",
+    themeEditorLoadCurrent: "Загрузить текущую",
+    themeEditorLoadDefault: "Новая стандартная",
+    themeEditorShape: "Форма и карточки",
+    themeEditorCardBackgrounds: "SVG фоны карточек",
+    themeHeaderAsset: "SVG хедера",
+    themeBodyAsset: "SVG фона элемента",
+    themePickAsset: "Выбрать SVG",
+    themeClearAsset: "Очистить",
+    themePreview: "Превью",
+    themeEditorCardBackgroundsHelp: "Файлы встраиваются в тему как data URI. Для разных типов карточек можно позже отредактировать JSON темы вручную: assets.cardHeaders.note, assets.cardBodies.tasks и т.д.",
+    themeAssetsJson: "Ассеты темы JSON",
+    themeEditorConnections: "Соединения",
+    themeEditorInteractive: "Интерактивный фон",
+    themeBuilderTitle: "Сборщик сложной темы",
+    themeBuilderHelp: "Пресеты добавляют безопасные JSON-блоки. Их можно доработать ниже вручную.",
+    themeActorPreset: "Пресет actor",
+    themeActorEnhancer: "Усиление последнего actor",
+    themeEffectPreset: "Пресет эффектов",
+    themeAddActorPreset: "Добавить actor",
+    themeApplyActorEnhancer: "Применить",
+    themeApplyEffectPreset: "Добавить эффект",
+    themeFormatJson: "Форматировать JSON",
+    themeValidateJson: "Проверить тему",
+    themeBuilderSummary: "Actors: {actors}, reactions: {reactions}, assets: {assets}.",
+    themeBuilderActorAdded: "Actor добавлен.",
+    themeBuilderEnhancerApplied: "Усиление применено к последнему actor.",
+    themeBuilderEffectApplied: "Эффект добавлен.",
+    themeBuilderNoActor: "Сначала добавьте actor.",
+    themeBuilderJsonFormatted: "JSON отформатирован.",
+    themeBuilderValid: "Тема корректна: actors {actors}, reactions {reactions}, assets {assets}.",
+    themeCardRadius: "Радиус карточек",
+    themePanelRadius: "Радиус панелей",
+    themeButtonRadius: "Радиус кнопок",
+    themeCardBorderWidth: "Рамка карточек",
+    themeCardHeaderHeight: "Хедер карточек",
+    themeGroupHeaderHeight: "Хедер групп",
+    themeIconScale: "Размер иконок",
+    themeShadow: "Тень",
+    themeStrokeWidth: "Толщина линии",
+    themeSelectedStrokeWidth: "Выделенная линия",
+    themeDraftStrokeWidth: "Черновая линия",
+    themeOutlineWidth: "Контур",
+    themeWaypointRadius: "Путевые точки",
+    themeMarkerScale: "Маркеры",
+    themeLineStyle: "Стиль линии",
+    themeInteractiveEnabled: "Включен в теме",
+    themeInteractiveFps: "FPS",
+    themeBackgroundType: "Тип фона",
+    themeBackgroundColor: "Цвет фона",
+    themeBackgroundOpacity: "Прозрачность слоя",
+    themeParticleColor: "Цвет частиц",
+    themeParticleCount: "Количество частиц",
+    themeActorsJson: "Actors JSON",
+    themeReactionsJson: "Reactions JSON",
+    themeCardEffectsJson: "Card effects JSON",
+    themeEditorInteractiveHelp: "Для ассетов используйте импорт пакета темы. Здесь редактируется безопасный JSON без JavaScript.",
+    themeEditorApplied: "Тема применена.",
+    themeEditorExported: "Тема экспортирована.",
+    themeEditorInvalidJson: "Ошибка JSON в редакторе темы.",
+    themeEditorLoaded: "Тема загружена в редактор.",
+    themeEditorDefaultLoaded: "Стандартная тема загружена в редактор.",
     newElementColors: "Цвета новых элементов",
     quickCreateMenu: "Быстрое создание",
     quickCreateHelp: "Выберите типы карточек, которые будут показаны в контекстном меню по правой кнопке мыши.",
@@ -971,6 +1697,7 @@ const translations = {
     lockHotkey: "Закрепить/редактировать",
     hotkeyFormat: "Формат: Ctrl+Alt+B, Ctrl+Shift+Space, Alt+Q.",
     save: "Сохранить",
+    apply: "Применить",
     cancel: "Отмена",
     add: "Добавить",
     address: "Адрес",
@@ -1072,7 +1799,188 @@ const translations = {
     themeMode: "Interface theme",
     languageMode: "Interface language",
     backgroundColor: "Background color",
+    interactiveBackgroundQuality: "Interactive background",
+    interactiveBackgroundHelp: "Works only for themes with interactiveBackground. Low quality limits FPS and actor count.",
+    interactiveBackgroundOff: "Off",
+    interactiveBackgroundLow: "Low quality",
+    interactiveBackgroundNormal: "Normal quality",
     connectionColor: "Connection color",
+    themeCatalog: "Theme catalog",
+    themeCatalogClose: "Close theme catalog",
+    themeCatalogHelp: "There is no server yet, so this list shows themes bundled with the app. Later this window will host community themes, ratings, screenshots, video previews, downloads, and publishing.",
+    themeCatalogUpload: "Upload your theme",
+    themeCatalogUploadLocal: "Server publishing is not available yet. For now, import a theme locally.",
+    themeCatalogApply: "Apply",
+    themeCatalogDownload: "Download file",
+    themeCatalogRating: "Rating {rating}",
+    themeCatalogDownloads: "Downloads: {count}",
+    themeCatalogBuiltIn: "Built in",
+    themeCatalogScreenshots: "Screenshots",
+    themeCatalogVideoPreview: "Video preview",
+    themeCatalogApplied: "Theme applied: {name}.",
+    themeCatalogExported: "Theme exported: {name}.",
+    themePackageImportFinished: "Theme package import finished.",
+    themeCatalogClassicName: "Classic Board",
+    themeCatalogClassicDescription: "The app's base light theme: calm background, readable cards, and standard connections.",
+    themeCatalogGraphiteName: "Graphite Focus",
+    themeCatalogGraphiteDescription: "Dark workspace theme with more contrast for connections and stronger card shadows.",
+    themeCatalogStudioName: "Studio Soft",
+    themeCatalogStudioDescription: "Soft light theme for long sessions with notes, tables, and plans.",
+    themeCatalogInteractiveName: "Interactive Lab",
+    themeCatalogInteractiveDescription: "Demo base for interactive backgrounds: particles are enabled, actors and effects can be added through a theme package.",
+    themeCatalogTagClean: "clean",
+    themeCatalogTagBuiltIn: "standard",
+    themeCatalogTagDark: "dark",
+    themeCatalogTagFocus: "focus",
+    themeCatalogTagSoft: "soft",
+    themeCatalogTagWork: "work",
+    themeCatalogTagInteractive: "interactive",
+    themeCatalogTagExperimental: "experimental",
+    cardCatalog: "Card catalog",
+    cardCatalogClose: "Close card catalog",
+    cardCatalogSettings: "Card packages",
+    cardCatalogSettingsHelp: "Installed packages add card templates for specialized workflows.",
+    cardCatalogHelp: "There is no server yet, so this list shows bundled and locally installed card packages. Later this window can connect to an online catalog with ratings, descriptions, screenshots, and publishing.",
+    cardCatalogImport: "Import package",
+    cardCatalogUpload: "Upload your package",
+    cardCatalogUploadLocal: "Server publishing is not available yet. For now, import a card package locally.",
+    cardCatalogInstall: "Install",
+    cardCatalogInstalled: "Installed",
+    cardCatalogBuiltIn: "Built in",
+    cardCatalogCreate: "Create",
+    cardCatalogExport: "Download package",
+    cardCatalogRemove: "Remove package",
+    cardCatalogAuthor: "Author: {author}",
+    cardCatalogTemplateCount: "Templates: {count}",
+    cardCatalogInstalledStatus: "Package installed: {name}.",
+    cardCatalogImported: "Package imported: {name}.",
+    cardCatalogRemoved: "Package removed.",
+    cardCatalogExported: "Package exported: {name}.",
+    cardCatalogImportFailed: "Could not import card package.",
+    cardCatalogTemplateCreated: "Card created: {name}.",
+    cardCatalogPlanningPackName: "Planning",
+    cardCatalogPlanningPackDescription: "Templates for daily planning, meetings, and schedules.",
+    cardCatalogDeveloperPackName: "Development",
+    cardCatalogDeveloperPackDescription: "Templates for bug reports, snippets, and test matrices.",
+    cardCatalogResearchPackName: "Research",
+    cardCatalogResearchPackDescription: "Templates for sources, experiments, and review reminders.",
+    cardCatalogTagPlanning: "planning",
+    cardCatalogTagBuiltIn: "standard",
+    cardCatalogTagDev: "development",
+    cardCatalogTagResearch: "research",
+    cardTemplateDailyPlanName: "Daily plan",
+    cardTemplateDailyPlanDescription: "Task list for quick daily priorities.",
+    cardTemplateDailyPlanTitle: "Daily plan",
+    cardTemplateDailyPlanTask1: "Main task",
+    cardTemplateDailyPlanTask2: "Check progress",
+    cardTemplateDailyPlanTask3: "Close the day",
+    cardTemplateMeetingNotesName: "Meeting notes",
+    cardTemplateMeetingNotesDescription: "Template for topic, decisions, and next steps.",
+    cardTemplateMeetingNotesTitle: "Meeting",
+    cardTemplateMeetingNotesText: "Topic:\n\nDecisions:\n\nNext steps:",
+    cardTemplateWeeklyScheduleName: "Weekly schedule",
+    cardTemplateWeeklyScheduleDescription: "Base time blocks for weekly planning.",
+    cardTemplateWeeklyScheduleTitle: "Week",
+    cardTemplateWeeklyScheduleEntry1: "Focus block",
+    cardTemplateWeeklyScheduleEntry2: "Task review",
+    cardTemplateWeeklyScheduleEntry3: "Daily wrap-up",
+    cardTemplateBugReportName: "Bug report",
+    cardTemplateBugReportDescription: "Structure for describing a bug and reproduction steps.",
+    cardTemplateBugReportTitle: "Bug report",
+    cardTemplateBugReportText: "Expected result:\n\nActual result:\n\nSteps to reproduce:\n1. \n2. \n3. ",
+    cardTemplateApiSnippetName: "API snippet",
+    cardTemplateApiSnippetDescription: "Code card for a small request example.",
+    cardTemplateApiSnippetTitle: "API snippet",
+    cardTemplateTestMatrixName: "Test matrix",
+    cardTemplateTestMatrixDescription: "Table for checking scenarios across environments.",
+    cardTemplateTestMatrixTitle: "Test matrix",
+    cardTemplateTestMatrixColumn1: "Scenario",
+    cardTemplateTestMatrixColumn2: "Status",
+    cardTemplateTestMatrixColumn3: "Comment",
+    cardTemplateTestMatrixRow1A: "Happy path",
+    cardTemplateTestMatrixRow1B: "Not checked",
+    cardTemplateTestMatrixRow1C: "",
+    cardTemplateTestMatrixRow2A: "Error case",
+    cardTemplateTestMatrixRow2B: "Not checked",
+    cardTemplateTestMatrixRow2C: "",
+    cardTemplateSourceListName: "Source list",
+    cardTemplateSourceListDescription: "Bookmark card for research materials.",
+    cardTemplateSourceListTitle: "Sources",
+    cardTemplateSourceListLink1: "New source",
+    cardTemplateExperimentProgressName: "Experiment progress",
+    cardTemplateExperimentProgressDescription: "Completion percentage based on checklist stages.",
+    cardTemplateExperimentProgressTitle: "Experiment",
+    cardTemplateExperimentProgressTask1: "Hypothesis",
+    cardTemplateExperimentProgressTask2: "Validation",
+    cardTemplateExperimentProgressTask3: "Findings",
+    cardTemplateReminderReviewName: "Review reminder",
+    cardTemplateReminderReviewDescription: "Reminder to re-check a material or decision.",
+    cardTemplateReminderReviewTitle: "Review later",
+    cardTemplateReminderReviewText: "What to review:",
+    themeEditor: "Theme editor",
+    themeEditorTitle: "Theme editor",
+    themeEditorName: "Theme name",
+    themeEditorLoadCurrent: "Load current",
+    themeEditorLoadDefault: "New default",
+    themeEditorShape: "Shape and cards",
+    themeEditorCardBackgrounds: "SVG card backgrounds",
+    themeHeaderAsset: "Header SVG",
+    themeBodyAsset: "Card body SVG",
+    themePickAsset: "Choose SVG",
+    themeClearAsset: "Clear",
+    themePreview: "Preview",
+    themeEditorCardBackgroundsHelp: "Files are embedded into the theme as data URIs. Per-card-type backgrounds can later be edited in theme JSON: assets.cardHeaders.note, assets.cardBodies.tasks, etc.",
+    themeAssetsJson: "Theme assets JSON",
+    themeEditorConnections: "Connections",
+    themeEditorInteractive: "Interactive background",
+    themeBuilderTitle: "Complex theme builder",
+    themeBuilderHelp: "Presets add safe JSON blocks. You can fine-tune them manually below.",
+    themeActorPreset: "Actor preset",
+    themeActorEnhancer: "Last actor enhancement",
+    themeEffectPreset: "Effect preset",
+    themeAddActorPreset: "Add actor",
+    themeApplyActorEnhancer: "Apply",
+    themeApplyEffectPreset: "Add effect",
+    themeFormatJson: "Format JSON",
+    themeValidateJson: "Validate theme",
+    themeBuilderSummary: "Actors: {actors}, reactions: {reactions}, assets: {assets}.",
+    themeBuilderActorAdded: "Actor added.",
+    themeBuilderEnhancerApplied: "Enhancement applied to the last actor.",
+    themeBuilderEffectApplied: "Effect added.",
+    themeBuilderNoActor: "Add an actor first.",
+    themeBuilderJsonFormatted: "JSON formatted.",
+    themeBuilderValid: "Theme is valid: actors {actors}, reactions {reactions}, assets {assets}.",
+    themeCardRadius: "Card radius",
+    themePanelRadius: "Panel radius",
+    themeButtonRadius: "Button radius",
+    themeCardBorderWidth: "Card border",
+    themeCardHeaderHeight: "Card header",
+    themeGroupHeaderHeight: "Group header",
+    themeIconScale: "Icon size",
+    themeShadow: "Shadow",
+    themeStrokeWidth: "Line width",
+    themeSelectedStrokeWidth: "Selected line",
+    themeDraftStrokeWidth: "Draft line",
+    themeOutlineWidth: "Outline",
+    themeWaypointRadius: "Waypoints",
+    themeMarkerScale: "Markers",
+    themeLineStyle: "Line style",
+    themeInteractiveEnabled: "Enabled in theme",
+    themeInteractiveFps: "FPS",
+    themeBackgroundType: "Background type",
+    themeBackgroundColor: "Background color",
+    themeBackgroundOpacity: "Layer opacity",
+    themeParticleColor: "Particle color",
+    themeParticleCount: "Particle count",
+    themeActorsJson: "Actors JSON",
+    themeReactionsJson: "Reactions JSON",
+    themeCardEffectsJson: "Card effects JSON",
+    themeEditorInteractiveHelp: "Use theme package import for assets. This field edits safe JSON without JavaScript.",
+    themeEditorApplied: "Theme applied.",
+    themeEditorExported: "Theme exported.",
+    themeEditorInvalidJson: "Theme editor JSON error.",
+    themeEditorLoaded: "Theme loaded into editor.",
+    themeEditorDefaultLoaded: "Default theme loaded into editor.",
     newElementColors: "New element colors",
     quickCreateMenu: "Quick create",
     quickCreateHelp: "Choose which card types are shown in the right-click quick create menu.",
@@ -1085,6 +1993,7 @@ const translations = {
     lockHotkey: "Lock/edit",
     hotkeyFormat: "Format: Ctrl+Alt+B, Ctrl+Shift+Space, Alt+Q.",
     save: "Save",
+    apply: "Apply",
     cancel: "Cancel",
     add: "Add",
     address: "Address",
@@ -1237,7 +2146,7 @@ Object.assign(translations.ru, {
   multiMonitorDisplayPrimary: "основной",
   multiMonitorDisplaySize: "{width} x {height}",
   multiMonitorHelp: "Выбрано экранов: {selected} из {count}.",
-  multiMonitorSingleHelp: "Используется одно обычное окно на основном экране.",
+  multiMonitorSingleHelp: "Одно обычное окно будет открываться на выбранном экране.",
   multiMonitorSingleDisplayHelp: "Сейчас подключен один экран. Дополнительные режимы станут полезны после подключения второго.",
   multiMonitorNoDisplays: "Экраны не найдены.",
   settingsSections: "Разделы настроек",
@@ -1281,7 +2190,7 @@ Object.assign(translations.en, {
   multiMonitorDisplayPrimary: "primary",
   multiMonitorDisplaySize: "{width} x {height}",
   multiMonitorHelp: "Selected screens: {selected} of {count}.",
-  multiMonitorSingleHelp: "Using one regular window on the primary screen.",
+  multiMonitorSingleHelp: "One regular window will open on the selected screen.",
   multiMonitorSingleDisplayHelp: "One screen is connected now. Additional modes become useful after connecting another screen.",
   multiMonitorNoDisplays: "No screens found.",
   settingsSections: "Settings sections",
@@ -1750,6 +2659,102 @@ Object.assign(translations.en, {
   previewUnavailableHint: "Preview is not available for this file type.",
   previewLoading: "Loading preview...",
   previewReadError: "Could not read preview."
+});
+
+Object.assign(translations.ru, {
+  catalogBrowseTab: "Каталог",
+  catalogInstalledTab: "Загруженные",
+  catalogActive: "Используется",
+  themeCatalogRemove: "Удалить",
+  themeCatalogRemoved: "Тема удалена.",
+  themeCatalogRemoveFailed: "Не удалось удалить тему.",
+  themeCatalogInstalledEmpty: "Загруженных тем пока нет.",
+  themeCatalogInstalledDescription: "Тема доступна локально и может быть применена к текущей доске.",
+  themeRemoveConfirm: "Удалить эту тему из загруженных?",
+  themeRemoveUsedConfirm: "Эта тема используется в досках: {count}. При удалении эти доски будут переведены на стандартную тему. Продолжить?",
+  cardCatalogInstalledEmpty: "Загруженных пакетов карточек пока нет.",
+  cardPackRemoveConfirm: "Удалить этот пакет карточек из загруженных?",
+  cardPackRemoveUsedConfirm: "Карточки из этого пакета используются на досках: {count}. При удалении пакета эти карточки будут удалены. Продолжить?",
+  cardCatalogRemoveFailed: "Не удалось удалить пакет карточек.",
+  cardTemplateCodeSnippetName: "\u0421\u043d\u0438\u043f\u043f\u0435\u0442 \u043a\u043e\u0434\u0430",
+  cardTemplateCodeSnippetDescription: "\u041f\u0443\u0441\u0442\u0430\u044f \u043a\u0430\u0440\u0442\u043e\u0447\u043a\u0430 \u043a\u043e\u0434\u0430 \u0434\u043b\u044f \u0437\u0430\u043c\u0435\u0442\u043e\u043a, \u043a\u043e\u043c\u0430\u043d\u0434 \u0438 \u0444\u0440\u0430\u0433\u043c\u0435\u043d\u0442\u043e\u0432.",
+  cardTemplateCodeSnippetTitle: "\u0421\u043d\u0438\u043f\u043f\u0435\u0442",
+  clock: "Часы / дата",
+  weather: "Погода",
+  addClock: "Добавить часы",
+  addWeather: "Добавить погоду",
+  newClock: "Новые часы",
+  newWeather: "Новая погода",
+  clockTimeZone: "Часовой пояс",
+  clockSystemTimeZone: "Системный: {zone}",
+  clockTimeZoneHelp: "Пустое поле использует системный часовой пояс. Можно указать IANA-зону, например Europe/Moscow или Asia/Qyzylorda.",
+  weatherLocationPlaceholder: "Город или место",
+  weatherRefresh: "Обновить",
+  weatherLoading: "Загрузка...",
+  weatherNoData: "Данных пока нет",
+  weatherEmptyLocation: "Укажите место и нажмите обновить.",
+  weatherSource: "Источник: wttr.in",
+  weatherUpdated: "Обновлено: {time}",
+  weatherFailed: "Не удалось загрузить погоду.",
+  weatherHumidity: "Влажность {value}%",
+  weatherWind: "Ветер {value}",
+  cardCatalogWidgetsPackName: "Виджеты",
+  cardCatalogWidgetsPackDescription: "Карточки для быстрых информеров на доске: часы, дата и погода.",
+  cardCatalogTagWidgets: "виджеты",
+  cardTemplateClockDateName: "Часы / дата",
+  cardTemplateClockDateDescription: "Локальное время и дата с выбором часового пояса.",
+  cardTemplateClockDateTitle: "Часы",
+  cardTemplateWeatherName: "Погода",
+  cardTemplateWeatherDescription: "Погода для выбранного места с ручным обновлением.",
+  cardTemplateWeatherTitle: "Погода"
+});
+
+Object.assign(translations.en, {
+  catalogBrowseTab: "Catalog",
+  catalogInstalledTab: "Downloaded",
+  catalogActive: "In use",
+  themeCatalogRemove: "Remove",
+  themeCatalogRemoved: "Theme removed.",
+  themeCatalogRemoveFailed: "Could not remove theme.",
+  themeCatalogInstalledEmpty: "No downloaded themes yet.",
+  themeCatalogInstalledDescription: "This theme is available locally and can be applied to the current board.",
+  themeRemoveConfirm: "Remove this downloaded theme?",
+  themeRemoveUsedConfirm: "This theme is used by {count} board(s). Removing it will reset those boards to the default theme. Continue?",
+  cardCatalogInstalledEmpty: "No downloaded card packages yet.",
+  cardPackRemoveConfirm: "Remove this downloaded card package?",
+  cardPackRemoveUsedConfirm: "Cards from this package are used on boards: {count}. Removing the package will delete those cards. Continue?",
+  cardCatalogRemoveFailed: "Could not remove card package.",
+  cardTemplateCodeSnippetName: "Code snippet",
+  cardTemplateCodeSnippetDescription: "Blank code card for notes, commands, and fragments.",
+  cardTemplateCodeSnippetTitle: "Snippet",
+  clock: "Clock / date",
+  weather: "Weather",
+  addClock: "Add clock",
+  addWeather: "Add weather",
+  newClock: "New clock",
+  newWeather: "New weather",
+  clockTimeZone: "Time zone",
+  clockSystemTimeZone: "System: {zone}",
+  clockTimeZoneHelp: "Leave empty to use the system time zone. You can enter an IANA zone, for example Europe/London or America/New_York.",
+  weatherLocationPlaceholder: "City or place",
+  weatherRefresh: "Refresh",
+  weatherLoading: "Loading...",
+  weatherNoData: "No data yet",
+  weatherEmptyLocation: "Enter a place and refresh.",
+  weatherSource: "Source: wttr.in",
+  weatherUpdated: "Updated: {time}",
+  weatherFailed: "Could not load weather.",
+  weatherHumidity: "Humidity {value}%",
+  weatherWind: "Wind {value}",
+  cardCatalogWidgetsPackName: "Widgets",
+  cardCatalogWidgetsPackDescription: "Quick board widgets: clock, date, and weather.",
+  cardCatalogTagWidgets: "widgets",
+  cardTemplateClockDateName: "Clock / date",
+  cardTemplateClockDateDescription: "Local time and date with selectable time zone.",
+  cardTemplateClockDateTitle: "Clock",
+  cardTemplateWeatherName: "Weather",
+  cardTemplateWeatherDescription: "Weather for a selected place with manual refresh.",
+  cardTemplateWeatherTitle: "Weather"
 });
 
 Object.assign(translations.ru, {
@@ -2407,6 +3412,65 @@ function normalizeReminderFields(card = {}) {
   };
 }
 
+function getSystemTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function isValidTimeZone(value) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(Date.now());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeClockTimeZone(value) {
+  const text = String(value || "").trim();
+  if (!text || text.toLowerCase() === "system") {
+    return "system";
+  }
+  return isValidTimeZone(text) ? text.slice(0, 80) : "system";
+}
+
+function getClockResolvedTimeZone(card) {
+  const timeZone = normalizeClockTimeZone(card?.clockTimeZone);
+  return timeZone === "system" ? getSystemTimeZone() : timeZone;
+}
+
+function normalizeClockFields(card = {}) {
+  return {
+    clockTimeZone: normalizeClockTimeZone(card.clockTimeZone),
+    clockShowSeconds: card.clockShowSeconds !== false
+  };
+}
+
+function normalizeWeatherLocation(value) {
+  return String(value || "").trim().slice(0, 120);
+}
+
+function normalizeWeatherUnits(value) {
+  return value === "imperial" ? "imperial" : "metric";
+}
+
+function normalizeWeatherFields(card = {}) {
+  return {
+    weatherLocation: normalizeWeatherLocation(card.weatherLocation),
+    weatherUnits: normalizeWeatherUnits(card.weatherUnits),
+    weatherTemperatureC: Number.isFinite(Number(card.weatherTemperatureC)) ? Number(card.weatherTemperatureC) : null,
+    weatherFeelsLikeC: Number.isFinite(Number(card.weatherFeelsLikeC)) ? Number(card.weatherFeelsLikeC) : null,
+    weatherDescription: typeof card.weatherDescription === "string" ? card.weatherDescription.slice(0, 120) : "",
+    weatherHumidity: Number.isFinite(Number(card.weatherHumidity)) ? clamp(Math.round(Number(card.weatherHumidity)), 0, 100) : null,
+    weatherWindKph: Number.isFinite(Number(card.weatherWindKph)) ? Math.max(0, Math.round(Number(card.weatherWindKph))) : null,
+    weatherUpdatedAt: Number.isFinite(Number(card.weatherUpdatedAt)) ? Number(card.weatherUpdatedAt) : null,
+    weatherError: typeof card.weatherError === "string" ? card.weatherError.slice(0, 160) : ""
+  };
+}
+
 function normalizeTagList(tags) {
   const values = Array.isArray(tags)
     ? tags
@@ -2911,7 +3975,7 @@ function getAvailableDisplaysForSettings() {
 
 function getSelectedMultiMonitorDisplayIdsFromUi(options = {}) {
   const checkedIds = multiMonitorDisplays
-    ? [...multiMonitorDisplays.querySelectorAll('input[type="checkbox"]:checked')]
+    ? [...multiMonitorDisplays.querySelectorAll('input[type="checkbox"]:checked, input[type="radio"]:checked')]
       .map((input) => input.value)
       .filter(Boolean)
     : [];
@@ -2943,7 +4007,11 @@ function renderMultiMonitorDisplayPicker(options = {}) {
         : selectedFromLayout.length ? selectedFromLayout
           : displays.map((display) => display.id)
   );
-  const pickerDisabled = mode === "single";
+  const isSingleMode = mode === "single";
+  const primaryDisplay = displays.find((display) => display.primary) || displays[0];
+  const singleSelectedDisplay = displays.find((display) => selectedIds.has(display.id))
+    || primaryDisplay;
+  const singleSelectedId = singleSelectedDisplay?.id || "";
 
   multiMonitorDisplays.innerHTML = "";
   if (!displays.length) {
@@ -2958,13 +4026,12 @@ function renderMultiMonitorDisplayPicker(options = {}) {
     const id = display.id || `display-${index}`;
     const label = document.createElement("label");
     label.className = "settings-display-item";
-    label.classList.toggle("is-disabled", pickerDisabled);
 
     const input = document.createElement("input");
-    input.type = "checkbox";
+    input.type = isSingleMode ? "radio" : "checkbox";
+    input.name = "multiMonitorDisplaySelection";
     input.value = id;
-    input.checked = pickerDisabled ? false : selectedIds.has(id);
-    input.disabled = pickerDisabled;
+    input.checked = isSingleMode ? id === singleSelectedId : selectedIds.has(id);
     input.addEventListener("change", () => {
       if (getMultiMonitorModeFromUi() !== "single" && !getSelectedMultiMonitorDisplayIdsFromUi({ fallback: false }).length) {
         input.checked = true;
@@ -3020,7 +4087,7 @@ function refreshAppConfigUi(options = {}) {
     const layout = getActiveDisplayLayout();
     const displayCount = Number(layout.displayCount || 1);
     const selectedCount = getMultiMonitorModeFromUi() === "single"
-      ? 1
+      ? getSelectedMultiMonitorDisplayIdsFromUi().length || 1
       : getSelectedMultiMonitorDisplayIdsFromUi().length || Number(layout.selectedDisplayCount || 1);
     multiMonitorHelp.textContent = displayCount > 1
       ? (getMultiMonitorModeFromUi() === "single"
@@ -3847,8 +4914,65 @@ function getCardTypeDefinition(kind) {
   return cardTypeMap.get(kind) || cardTypeMap.get("note");
 }
 
+function getStaticQuickCreateDefinitions() {
+  return cardTypeRegistry.filter((definition) => !definition.packageOnly);
+}
+
 function getToolbarCardTypes() {
   return cardTypeRegistry.filter((definition) => Boolean(definition.toolbarButton));
+}
+
+const cardTemplateCreatePrefix = "template:";
+const developerCardPackId = "developer-pack";
+const codeSnippetCardTemplateId = "code-snippet";
+const legacyCodeCardKind = "code";
+
+function getCardTemplateCreateId(packId, templateId) {
+  return `${cardTemplateCreatePrefix}${normalizePackId(packId, "pack")}:${normalizePackId(templateId, "template")}`;
+}
+
+function isCardTemplateCreateId(value) {
+  return typeof value === "string" && value.startsWith(cardTemplateCreatePrefix);
+}
+
+function isCardTemplateCreateIdForPack(value, packId) {
+  return isCardTemplateCreateId(value) && value.startsWith(`${cardTemplateCreatePrefix}${normalizePackId(packId, "pack")}:`);
+}
+
+function getCardPackCreateDefinitions(packs = getInstalledCardPacks()) {
+  const normalizedPacks = normalizeCardPacks(packs);
+  return normalizedPacks.flatMap((pack) => pack.templates.map((template) => {
+    const baseDefinition = getCardTypeDefinition(template.kind);
+    return {
+      kind: getCardTemplateCreateId(pack.id, template.id),
+      template,
+      packId: pack.id,
+      templateId: template.id,
+      label: getCardTemplateDisplayName(template),
+      description: getCardTemplateDescription(template),
+      quickCreateGroup: baseDefinition.quickCreateGroup || "text",
+      createMode: "template",
+      icon: baseDefinition.icon || getCardTypeDefinition("note").icon
+    };
+  }));
+}
+
+function getAllQuickCreateDefinitions(packs = getInstalledCardPacks()) {
+  return [
+    ...getStaticQuickCreateDefinitions(),
+    ...getCardPackCreateDefinitions(packs)
+  ];
+}
+
+function getAllToolbarCreateDefinitions(packs = getInstalledCardPacks()) {
+  return [
+    ...getToolbarCardTypes(),
+    ...getCardPackCreateDefinitions(packs)
+  ];
+}
+
+function getCreateDefinitionLabel(definition) {
+  return definition.label || t(definition.labelKey) || t("genericElement");
 }
 
 function normalizeCardKindList(kinds, allowedDefinitions = cardTypeRegistry, fallbackKinds = defaultQuickCreateKinds) {
@@ -3866,12 +4990,12 @@ function normalizeCardKindList(kinds, allowedDefinitions = cardTypeRegistry, fal
   return normalized;
 }
 
-function normalizeQuickCreateKinds(kinds) {
-  return normalizeCardKindList(kinds, cardTypeRegistry, defaultQuickCreateKinds);
+function normalizeQuickCreateKinds(kinds, cardPacks = state.settings?.cardPacks) {
+  return normalizeCardKindList(kinds, getAllQuickCreateDefinitions(cardPacks), defaultQuickCreateKinds);
 }
 
-function normalizeToolbarCreateKinds(kinds) {
-  return normalizeCardKindList(kinds, getToolbarCardTypes(), defaultToolbarCreateKinds);
+function normalizeToolbarCreateKinds(kinds, cardPacks = state.settings?.cardPacks) {
+  return normalizeCardKindList(kinds, getAllToolbarCreateDefinitions(cardPacks), defaultToolbarCreateKinds);
 }
 
 function ensureCardKindInList(kinds, kind, allowedDefinitions = cardTypeRegistry) {
@@ -3883,23 +5007,262 @@ function ensureCardKindInList(kinds, kind, allowedDefinitions = cardTypeRegistry
   return normalized;
 }
 
+function normalizePackId(value, fallback = "pack") {
+  const safe = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return safe || `${fallback}-${Date.now().toString(36)}`;
+}
+
+function localizeTemplateValue(value, key) {
+  if (key && typeof key === "string") {
+    return t(key);
+  }
+  return typeof value === "string" ? value : "";
+}
+
+function normalizeCardTemplate(template = {}, index = 0) {
+  const source = template && typeof template === "object" ? template : {};
+  const kind = cardTypeMap.has(source.kind) ? source.kind : "note";
+  const definition = getCardTypeDefinition(kind);
+  const parsedWidth = Number(source.width);
+  const parsedHeight = Number(source.height);
+  const data = source.data && typeof source.data === "object" && !Array.isArray(source.data)
+    ? source.data
+    : {};
+
+  return {
+    id: normalizePackId(source.id, `template-${index + 1}`),
+    kind,
+    name: typeof source.name === "string" ? source.name.slice(0, 80) : "",
+    nameKey: typeof source.nameKey === "string" ? source.nameKey.slice(0, 120) : "",
+    description: typeof source.description === "string" ? source.description.slice(0, 240) : "",
+    descriptionKey: typeof source.descriptionKey === "string" ? source.descriptionKey.slice(0, 120) : "",
+    title: typeof source.title === "string" ? source.title.slice(0, 120) : "",
+    titleKey: typeof source.titleKey === "string" ? source.titleKey.slice(0, 120) : "",
+    width: Number.isFinite(parsedWidth) ? clamp(Math.round(parsedWidth), minCardWidth, 900) : definition.defaultSize?.width || 300,
+    height: Number.isFinite(parsedHeight) ? clamp(Math.round(parsedHeight), minCardHeight, 700) : definition.defaultSize?.height || 220,
+    data: clone(data)
+  };
+}
+
+function normalizeCardPack(pack = {}, fallbackId = "pack") {
+  const source = pack && typeof pack === "object" ? pack : {};
+  const templates = Array.isArray(source.templates)
+    ? source.templates.slice(0, 40).map((template, index) => normalizeCardTemplate(template, index))
+    : [];
+
+  return {
+    id: normalizePackId(source.id, fallbackId),
+    name: typeof source.name === "string" ? source.name.slice(0, 80) : "",
+    nameKey: typeof source.nameKey === "string" ? source.nameKey.slice(0, 120) : "",
+    description: typeof source.description === "string" ? source.description.slice(0, 360) : "",
+    descriptionKey: typeof source.descriptionKey === "string" ? source.descriptionKey.slice(0, 120) : "",
+    author: typeof source.author === "string" && source.author.trim() ? source.author.trim().slice(0, 80) : "Desktop Board",
+    rating: Number.isFinite(Number(source.rating)) ? clamp(Number(source.rating), 0, 5) : 0,
+    downloads: Number.isFinite(Number(source.downloads)) ? Math.max(0, Math.round(Number(source.downloads))) : 0,
+    tags: Array.isArray(source.tags) ? source.tags.slice(0, 8).map((tag) => String(tag || "").trim().slice(0, 40)).filter(Boolean) : [],
+    installedAt: Number.isFinite(Number(source.installedAt)) ? Number(source.installedAt) : Date.now(),
+    source: typeof source.source === "string" ? source.source.slice(0, 40) : "local",
+    templates
+  };
+}
+
+function normalizeCardPacks(packs = []) {
+  if (!Array.isArray(packs)) {
+    return [];
+  }
+
+  const seen = new Set();
+  return packs
+    .slice(0, 30)
+    .map((pack, index) => normalizeCardPack(pack, `pack-${index + 1}`))
+    .filter((pack) => {
+      if (!pack.templates.length || seen.has(pack.id)) {
+        return false;
+      }
+      seen.add(pack.id);
+      return true;
+    });
+}
+
+function getBundledCardPack(packId) {
+  const normalizedId = normalizePackId(packId, "pack");
+  return getBundledCardCatalogPacks().find((pack) => pack.id === normalizedId) || null;
+}
+
+function mergeCardPackWithBundledUpdates(pack) {
+  const normalizedPack = normalizeCardPack(pack);
+  const bundledPack = getBundledCardPack(normalizedPack.id);
+  if (!bundledPack || normalizedPack.source !== "bundled") {
+    return normalizedPack;
+  }
+
+  const installedTemplates = new Map(normalizedPack.templates.map((template) => [template.id, template]));
+  const bundledTemplateIds = new Set(bundledPack.templates.map((template) => template.id));
+  return normalizeCardPack({
+    ...bundledPack,
+    ...normalizedPack,
+    templates: [
+      ...bundledPack.templates.map((template) => installedTemplates.get(template.id) || template),
+      ...normalizedPack.templates.filter((template) => !bundledTemplateIds.has(template.id))
+    ]
+  });
+}
+
+function hasCardPackTemplate(cardPacks, packId, templateId) {
+  const normalizedPackId = normalizePackId(packId, "pack");
+  const normalizedTemplateId = normalizePackId(templateId, "template");
+  return normalizeCardPacks(cardPacks).some((pack) => (
+    pack.id === normalizedPackId
+    && pack.templates.some((template) => template.id === normalizedTemplateId)
+  ));
+}
+
+function settingsUsesLegacyCodeCreateKind(settings = {}) {
+  return [settings.quickCreateKinds, settings.toolbarCreateKinds].some((kinds) => (
+    Array.isArray(kinds) && kinds.includes(legacyCodeCardKind)
+  ));
+}
+
+function normalizeSettingsCardPacks(settings = {}) {
+  const upgradedPacks = normalizeCardPacks(settings.cardPacks).map(mergeCardPackWithBundledUpdates);
+  if (
+    settingsUsesLegacyCodeCreateKind(settings)
+    && !hasCardPackTemplate(upgradedPacks, developerCardPackId, codeSnippetCardTemplateId)
+  ) {
+    const developerPack = getBundledCardPack(developerCardPackId);
+    if (developerPack) {
+      upgradedPacks.push(developerPack);
+    }
+  }
+  return normalizeCardPacks(upgradedPacks);
+}
+
+function migrateLegacyCodeCreateKinds(kinds, cardPacks) {
+  if (!Array.isArray(kinds)) {
+    return kinds;
+  }
+
+  const codeSnippetCreateId = getCardTemplateCreateId(developerCardPackId, codeSnippetCardTemplateId);
+  const canUseCodeSnippet = hasCardPackTemplate(cardPacks, developerCardPackId, codeSnippetCardTemplateId);
+  return kinds.map((kind) => (
+    kind === legacyCodeCardKind && canUseCodeSnippet ? codeSnippetCreateId : kind
+  ));
+}
+
+function normalizeCardPackPayload(payload = {}) {
+  const source = payload && typeof payload === "object" ? payload : {};
+  const packSource = source.type === "desktop-board-card-pack" && source.pack && typeof source.pack === "object"
+    ? source.pack
+    : source.pack || source;
+  const pack = normalizeCardPack({
+    ...packSource,
+    source: "imported",
+    installedAt: Date.now()
+  });
+  if (!pack.templates.length) {
+    throw new Error("Card pack has no templates");
+  }
+  return pack;
+}
+
+function getCardPackDisplayName(pack) {
+  return localizeTemplateValue(pack.name, pack.nameKey) || pack.id;
+}
+
+function getCardPackDescription(pack) {
+  return localizeTemplateValue(pack.description, pack.descriptionKey);
+}
+
+function getCardTemplateDisplayName(template) {
+  return localizeTemplateValue(template.name, template.nameKey) || t(getCardTypeDefinition(template.kind).labelKey);
+}
+
+function getCardTemplateDescription(template) {
+  return localizeTemplateValue(template.description, template.descriptionKey);
+}
+
+function getTemplateDataText(source, fieldName) {
+  return localizeTemplateValue(source?.[fieldName], source?.[`${fieldName}Key`]);
+}
+
+function materializeTemplateTasks(tasks = []) {
+  const source = Array.isArray(tasks) ? tasks : [];
+  return source.map((task) => ({
+    id: createId("task"),
+    text: getTemplateDataText(task, "text"),
+    textHtml: normalizeRichTextHtml(task?.textHtml, getTemplateDataText(task, "text")),
+    done: Boolean(task?.done)
+  }));
+}
+
+function materializeTemplateLinks(links = []) {
+  const source = Array.isArray(links) ? links : [];
+  return source.map((link) => ({
+    id: createId("link"),
+    title: getTemplateDataText(link, "title"),
+    url: typeof link?.url === "string" ? link.url.trim() : ""
+  }));
+}
+
+function materializeTemplateScheduleEntries(entries = []) {
+  const source = Array.isArray(entries) ? entries : [];
+  return source.map((entry) => createScheduleEntry({
+    id: createId("schedule-item"),
+    time: entry?.time,
+    note: getTemplateDataText(entry, "note"),
+    noteHtml: entry?.noteHtml
+  }));
+}
+
+function materializeTemplateTableColumns(columns = []) {
+  const source = Array.isArray(columns) ? columns : [];
+  return normalizeTableColumns(source.map((column) => ({
+    title: getTemplateDataText(column, "title")
+  })), Math.max(1, source.length || 3)).map((column) => ({
+    ...column,
+    id: createId("table-column")
+  }));
+}
+
+function materializeTemplateTableRows(rows = [], columnCount = 1) {
+  const source = Array.isArray(rows) ? rows : [];
+  return source.map((row) => {
+    const cells = Array.isArray(row?.cellsKeys)
+      ? row.cellsKeys.map((key) => t(key))
+      : Array.isArray(row?.cells)
+        ? row.cells.map((cell) => String(cell || ""))
+        : [];
+    return createTableRow({ id: createId("table-row"), cells }, columnCount);
+  });
+}
+
 function getVisibleQuickCreateDefinitions(kinds = state.settings?.quickCreateKinds) {
   const visibleKinds = new Set(normalizeQuickCreateKinds(kinds));
-  return cardTypeRegistry.filter((definition) => visibleKinds.has(definition.kind));
+  return getAllQuickCreateDefinitions().filter((definition) => visibleKinds.has(definition.kind));
 }
 
 function getVisibleToolbarCreateDefinitions(kinds = state.settings?.toolbarCreateKinds) {
   const visibleKinds = new Set(normalizeToolbarCreateKinds(kinds));
-  return getToolbarCardTypes().filter((definition) => visibleKinds.has(definition.kind));
+  return getAllToolbarCreateDefinitions().filter((definition) => visibleKinds.has(definition.kind));
 }
 
-function renderQuickCreateSettings() {
-  if (!quickCreateKindsGrid) {
-    return;
-  }
+function syncCreateSettingsGrid(grid, inputMap, definitions, selectedKinds) {
+  const definitionIds = new Set(definitions.map((definition) => definition.kind));
+  inputMap.forEach((item, kind) => {
+    if (!definitionIds.has(kind)) {
+      item.label?.remove();
+      inputMap.delete(kind);
+    }
+  });
 
-  if (quickCreateInputMap.size === 0) {
-    cardTypeRegistry.forEach((definition) => {
+  definitions.forEach((definition) => {
+    let item = inputMap.get(definition.kind);
+    if (!item) {
       const label = document.createElement("label");
       label.className = "settings-toggle-item";
 
@@ -3911,21 +5274,25 @@ function renderQuickCreateSettings() {
       text.className = "settings-toggle-item-label";
 
       label.append(input, text);
-      quickCreateKindsGrid.appendChild(label);
-      quickCreateInputMap.set(definition.kind, { input, text });
-    });
+      item = { label, input, text };
+      inputMap.set(definition.kind, item);
+    }
+
+    item.input.checked = selectedKinds.has(definition.kind);
+    item.input.setAttribute("aria-label", getCreateDefinitionLabel(definition));
+    item.text.textContent = getCreateDefinitionLabel(definition);
+    grid.appendChild(item.label);
+  });
+}
+
+function renderQuickCreateSettings() {
+  if (!quickCreateKindsGrid) {
+    return;
   }
 
+  const definitions = getAllQuickCreateDefinitions();
   const selectedKinds = new Set(normalizeQuickCreateKinds(state.settings.quickCreateKinds));
-  cardTypeRegistry.forEach((definition) => {
-    const item = quickCreateInputMap.get(definition.kind);
-    if (!item) {
-      return;
-    }
-    item.input.checked = selectedKinds.has(definition.kind);
-    item.input.setAttribute("aria-label", t(definition.labelKey));
-    item.text.textContent = t(definition.labelKey);
-  });
+  syncCreateSettingsGrid(quickCreateKindsGrid, quickCreateInputMap, definitions, selectedKinds);
 }
 
 function getSelectedQuickCreateKinds() {
@@ -3933,7 +5300,7 @@ function getSelectedQuickCreateKinds() {
     return normalizeQuickCreateKinds(state.settings?.quickCreateKinds);
   }
 
-  return cardTypeRegistry
+  return getAllQuickCreateDefinitions()
     .filter((definition) => quickCreateInputMap.get(definition.kind)?.input.checked)
     .map((definition) => definition.kind);
 }
@@ -3943,35 +5310,9 @@ function renderToolbarCreateSettings() {
     return;
   }
 
-  const toolbarDefinitions = getToolbarCardTypes();
-  if (toolbarCreateInputMap.size === 0) {
-    toolbarDefinitions.forEach((definition) => {
-      const label = document.createElement("label");
-      label.className = "settings-toggle-item";
-
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.value = definition.kind;
-
-      const text = document.createElement("span");
-      text.className = "settings-toggle-item-label";
-
-      label.append(input, text);
-      toolbarCreateKindsGrid.appendChild(label);
-      toolbarCreateInputMap.set(definition.kind, { input, text });
-    });
-  }
-
+  const toolbarDefinitions = getAllToolbarCreateDefinitions();
   const selectedKinds = new Set(normalizeToolbarCreateKinds(state.settings.toolbarCreateKinds));
-  toolbarDefinitions.forEach((definition) => {
-    const item = toolbarCreateInputMap.get(definition.kind);
-    if (!item) {
-      return;
-    }
-    item.input.checked = selectedKinds.has(definition.kind);
-    item.input.setAttribute("aria-label", t(definition.labelKey));
-    item.text.textContent = t(definition.labelKey);
-  });
+  syncCreateSettingsGrid(toolbarCreateKindsGrid, toolbarCreateInputMap, toolbarDefinitions, selectedKinds);
 }
 
 function getSelectedToolbarCreateKinds() {
@@ -3979,7 +5320,7 @@ function getSelectedToolbarCreateKinds() {
     return normalizeToolbarCreateKinds(state.settings?.toolbarCreateKinds);
   }
 
-  return getToolbarCardTypes()
+  return getAllToolbarCreateDefinitions()
     .filter((definition) => toolbarCreateInputMap.get(definition.kind)?.input.checked)
     .map((definition) => definition.kind);
 }
@@ -3991,6 +5332,26 @@ function applyToolbarCreateVisibility() {
       definition.toolbarButton.hidden = !visibleKinds.has(definition.kind);
     }
   });
+
+  if (toolbarTemplateGroup) {
+    toolbarTemplateGroup.replaceChildren();
+    getVisibleToolbarCreateDefinitions()
+      .filter((definition) => definition.createMode === "template")
+      .forEach((definition) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "icon-button toolbar-template-button";
+        button.innerHTML = definition.icon || getCardTypeDefinition("note").icon;
+        const label = getCreateDefinitionLabel(definition);
+        button.dataset.tooltip = label;
+        button.setAttribute("aria-label", label);
+        button.addEventListener("click", () => createCardFromTemplate(definition.template, null, {
+          packId: definition.packId,
+          templateId: definition.templateId
+        }));
+        toolbarTemplateGroup.appendChild(button);
+      });
+  }
 
   document.querySelectorAll(".tool-group").forEach((group) => {
     const hasVisibleButton = Array.from(group.querySelectorAll("button")).some((button) => !button.hidden);
@@ -4133,17 +5494,35 @@ async function applyImportedThemePayload(payload, statusMessage = t("themeImport
     throw new Error("Theme payload is empty");
   }
 
+  const installedTheme = normalizeInstalledTheme({
+    ...(payload?.catalog || {}),
+    name: payload?.theme?.name || payload?.scheme?.name || payload?.name,
+    source: payload?.catalog?.bundled ? "bundled" : "imported",
+    installedAt: Date.now(),
+    colorScheme: imported.colorScheme,
+    visualTheme: imported.visualTheme
+  });
+  await applyInstalledTheme(installedTheme, statusMessage);
+}
+
+async function applyInstalledTheme(theme, statusMessage = t("themeImported")) {
+  const normalizedTheme = normalizeInstalledTheme(theme);
   const nextSettings = {
-    ...state.settings
+    ...state.settings,
+    activeVisualThemeId: normalizedTheme.id,
+    installedThemes: [
+      ...getInstalledThemes().filter((item) => item.id !== normalizedTheme.id),
+      normalizedTheme
+    ]
   };
-  if (imported.colorScheme) {
-    nextSettings.backgroundColor = imported.colorScheme.backgroundColor;
-    nextSettings.backgroundOpacity = imported.colorScheme.backgroundOpacity;
-    nextSettings.connectionColor = imported.colorScheme.connectionColor;
-    nextSettings.colors = imported.colorScheme.colors;
+  if (normalizedTheme.colorScheme) {
+    nextSettings.backgroundColor = normalizedTheme.colorScheme.backgroundColor;
+    nextSettings.backgroundOpacity = normalizedTheme.colorScheme.backgroundOpacity;
+    nextSettings.connectionColor = normalizedTheme.colorScheme.connectionColor;
+    nextSettings.colors = normalizedTheme.colorScheme.colors;
   }
-  if (imported.visualTheme) {
-    nextSettings.visualTheme = imported.visualTheme;
+  if (normalizedTheme.visualTheme) {
+    nextSettings.visualTheme = normalizedTheme.visualTheme;
   }
 
   state.settings = normalizeSettings(nextSettings);
@@ -4167,13 +5546,14 @@ async function importThemeFromFile() {
   });
 
   if (!file) {
-    return;
+    return false;
   }
 
   try {
     const text = await file.text();
     const payload = JSON.parse(text);
     await applyImportedThemePayload(payload);
+    return true;
   } catch (error) {
     console.error("Failed to import theme:", error);
     state.settings = normalizeSettings({
@@ -4183,25 +5563,27 @@ async function importThemeFromFile() {
     applySettings();
     render();
     setStatusText(settingsStatus, t("themeImportFailed"), "error");
+    return false;
   }
 }
 
 async function importThemePackageFromDirectory() {
   if (!window.desktopBoard?.importThemePackage) {
     setStatusText(settingsStatus, t("themeImportFailed"), "error");
-    return;
+    return false;
   }
 
   try {
     const result = await window.desktopBoard.importThemePackage();
     if (!result?.payload) {
-      return;
+      return false;
     }
 
     await applyImportedThemePayload(
       result.payload,
       t("themePackageImported", { count: Number(result.importedAssetCount) || 0 })
     );
+    return true;
   } catch (error) {
     console.error("Failed to import theme package:", error);
     state.settings = normalizeSettings({
@@ -4211,6 +5593,1650 @@ async function importThemePackageFromDirectory() {
     applySettings();
     render();
     setStatusText(settingsStatus, t("themeImportFailed"), "error");
+    return false;
+  }
+}
+
+function setThemeCatalogStatus(message = "", tone = "") {
+  setStatusText(themeCatalogStatus, message, tone);
+}
+
+function getBundledThemeCatalogEntryName(entry) {
+  return t(entry.nameKey || entry.id);
+}
+
+function getBundledThemeCatalogEntryDescription(entry) {
+  return t(entry.descriptionKey || "");
+}
+
+function getBundledThemeCatalogColorScheme(entry) {
+  const schemeSource = builtInColorSchemes.find((scheme) => scheme.id === entry.colorSchemeId)
+    || builtInColorSchemes[0];
+  const visualTheme = normalizeVisualTheme({
+    ...entry.visualTheme,
+    name: getBundledThemeCatalogEntryName(entry)
+  });
+
+  return normalizeColorScheme({
+    ...schemeSource,
+    id: entry.id,
+    name: getBundledThemeCatalogEntryName(entry),
+    visualTheme
+  });
+}
+
+function getBundledThemeCatalogPayload(entry) {
+  const colorScheme = getBundledThemeCatalogColorScheme(entry);
+  const visualTheme = colorScheme.visualTheme || normalizeVisualTheme(entry.visualTheme);
+  const name = getBundledThemeCatalogEntryName(entry);
+
+  return {
+    type: "desktop-board-theme",
+    version: 1,
+    theme: {
+      name,
+      colorScheme,
+      visual: visualTheme
+    },
+    catalog: {
+      id: entry.id,
+      author: "Desktop Board",
+      rating: entry.rating,
+      bundled: true
+    }
+  };
+}
+
+function downloadJsonPayload(payload, fallbackName = "desktop-board-theme", extension = ".dbtheme.json") {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const rawName = String(payload?.theme?.name || payload?.pack?.name || fallbackName);
+  const safeName = rawName.replace(/[^\wа-яё-]+/gi, "-").replace(/^-+|-+$/g, "") || fallbackName;
+  link.href = url;
+  link.download = `${safeName}${extension}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function applyThemeCatalogTranslations() {
+  if (!themeCatalogModal) {
+    return;
+  }
+
+  setText("themeCatalogTitle", "themeCatalog");
+  if (themeCatalogHelp) {
+    themeCatalogHelp.textContent = t("themeCatalogHelp");
+  }
+  closeThemeCatalogButton?.setAttribute("aria-label", t("themeCatalogClose"));
+  if (themeCatalogImportFileButton) {
+    themeCatalogImportFileButton.textContent = t("importTheme");
+  }
+  if (themeCatalogImportPackageButton) {
+    themeCatalogImportPackageButton.textContent = t("importThemePackage");
+  }
+  if (themeCatalogUploadButton) {
+    themeCatalogUploadButton.textContent = t("themeCatalogUpload");
+  }
+  if (themeCatalogBrowseTab) {
+    themeCatalogBrowseTab.textContent = t("catalogBrowseTab");
+  }
+  if (themeCatalogInstalledTab) {
+    themeCatalogInstalledTab.textContent = t("catalogInstalledTab");
+  }
+  if (themeCatalogCloseFooterButton) {
+    themeCatalogCloseFooterButton.textContent = t("cancel");
+  }
+}
+
+function refreshThemeCatalogTabs() {
+  themeCatalogBrowseTab?.classList.toggle("is-active", themeCatalogActiveTab === "browse");
+  themeCatalogInstalledTab?.classList.toggle("is-active", themeCatalogActiveTab === "installed");
+}
+
+function renderThemeCatalogPreview(previewElement, entry) {
+  if (!previewElement) {
+    return;
+  }
+
+  const scheme = getBundledThemeCatalogColorScheme(entry);
+  const noteColors = scheme.colors.note || defaultSettings.colors.note;
+  const tasksColors = scheme.colors.tasks || defaultSettings.colors.tasks;
+  const groupColors = scheme.colors.group || defaultSettings.colors.group;
+  previewElement.style.setProperty("--catalog-bg", scheme.backgroundColor);
+  previewElement.style.setProperty("--catalog-line", scheme.connectionColor);
+  previewElement.style.setProperty("--catalog-note-header", noteColors.header);
+  previewElement.style.setProperty("--catalog-note-body", noteColors.body);
+  previewElement.style.setProperty("--catalog-task-header", tasksColors.header);
+  previewElement.style.setProperty("--catalog-task-body", tasksColors.body);
+  previewElement.style.setProperty("--catalog-group-header", groupColors.header);
+  previewElement.style.setProperty("--catalog-group-body", groupColors.body);
+}
+
+function renderThemeInstalledCatalog() {
+  if (!themeCatalogGrid) {
+    return;
+  }
+
+  themeCatalogGrid.replaceChildren();
+  const installedThemes = getInstalledThemes();
+  if (!installedThemes.length) {
+    const empty = document.createElement("div");
+    empty.className = "catalog-empty";
+    empty.textContent = t("themeCatalogInstalledEmpty");
+    themeCatalogGrid.appendChild(empty);
+    return;
+  }
+
+  installedThemes.forEach((theme) => {
+    const card = document.createElement("article");
+    card.className = "theme-catalog-card";
+
+    const preview = document.createElement("div");
+    preview.className = "theme-catalog-preview theme-catalog-preview-classic";
+    const scheme = theme.colorScheme || normalizeColorScheme({ visualTheme: theme.visualTheme });
+    renderThemeCatalogPreview(preview, {
+      previewKind: "classic",
+      visualTheme: theme.visualTheme,
+      colorSchemeId: scheme.id
+    });
+    preview.style.setProperty("--catalog-bg", scheme.backgroundColor);
+    preview.style.setProperty("--catalog-line", scheme.connectionColor);
+    preview.innerHTML = `
+      <div class="theme-catalog-preview-group"></div>
+      <div class="theme-catalog-preview-card theme-catalog-preview-card-a"><span></span><p></p></div>
+      <div class="theme-catalog-preview-card theme-catalog-preview-card-b"><span></span><p></p></div>
+      <svg class="theme-catalog-preview-connection" viewBox="0 0 180 120" aria-hidden="true">
+        <path d="M42 70 C78 36 108 104 144 58" />
+      </svg>
+    `;
+
+    const title = document.createElement("h3");
+    title.textContent = theme.name || t("themeCatalog");
+
+    const meta = document.createElement("div");
+    meta.className = "theme-catalog-meta";
+    const source = document.createElement("span");
+    source.textContent = theme.source === "bundled" ? t("themeCatalogBuiltIn") : t("cardCatalogInstalled");
+    const active = document.createElement("span");
+    active.textContent = state.settings.activeVisualThemeId === theme.id ? t("catalogActive") : theme.id;
+    meta.append(source, active);
+
+    const description = document.createElement("p");
+    description.className = "theme-catalog-description";
+    description.textContent = t("themeCatalogInstalledDescription");
+
+    const actions = document.createElement("div");
+    actions.className = "theme-catalog-actions";
+    const applyButton = document.createElement("button");
+    applyButton.type = "button";
+    applyButton.textContent = t("themeCatalogApply");
+    applyButton.addEventListener("click", () => {
+      void applyInstalledTheme(theme, t("themeCatalogApplied", { name: theme.name }));
+    });
+
+    const exportButton = document.createElement("button");
+    exportButton.type = "button";
+    exportButton.textContent = t("themeCatalogDownload");
+    exportButton.addEventListener("click", () => {
+      downloadJsonPayload({
+        type: "desktop-board-theme",
+        version: 1,
+        theme: {
+          name: theme.name,
+          colorScheme: theme.colorScheme,
+          visual: theme.visualTheme
+        },
+        catalog: {
+          id: theme.id
+        }
+      }, theme.id);
+    });
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.textContent = t("themeCatalogRemove");
+    removeButton.addEventListener("click", () => {
+      void removeInstalledTheme(theme.id);
+    });
+
+    actions.append(applyButton, exportButton, removeButton);
+    card.append(preview, title, meta, description, actions);
+    themeCatalogGrid.appendChild(card);
+  });
+}
+
+function renderThemeCatalog() {
+  if (!themeCatalogGrid) {
+    return;
+  }
+
+  refreshThemeCatalogTabs();
+  themeCatalogGrid.replaceChildren();
+  if (themeCatalogActiveTab === "installed") {
+    renderThemeInstalledCatalog();
+    return;
+  }
+
+  bundledThemeCatalog.forEach((entry) => {
+    const card = document.createElement("article");
+    card.className = "theme-catalog-card";
+
+    const preview = document.createElement("div");
+    preview.className = `theme-catalog-preview theme-catalog-preview-${entry.previewKind || "classic"}`;
+    renderThemeCatalogPreview(preview, entry);
+    preview.innerHTML = `
+      <div class="theme-catalog-preview-group"></div>
+      <div class="theme-catalog-preview-card theme-catalog-preview-card-a"><span></span><p></p></div>
+      <div class="theme-catalog-preview-card theme-catalog-preview-card-b"><span></span><p></p></div>
+      <svg class="theme-catalog-preview-connection" viewBox="0 0 180 120" aria-hidden="true">
+        <path d="M42 70 C78 36 108 104 144 58" />
+      </svg>
+    `;
+
+    const title = document.createElement("h3");
+    title.textContent = getBundledThemeCatalogEntryName(entry);
+
+    const meta = document.createElement("div");
+    meta.className = "theme-catalog-meta";
+    meta.innerHTML = `
+      <span>${t("themeCatalogRating", { rating: entry.rating.toFixed(1) })}</span>
+      <span>${t("themeCatalogDownloads", { count: entry.downloads })}</span>
+      <span>${t("themeCatalogBuiltIn")}</span>
+    `;
+
+    const description = document.createElement("p");
+    description.className = "theme-catalog-description";
+    description.textContent = getBundledThemeCatalogEntryDescription(entry);
+
+    const tags = document.createElement("div");
+    tags.className = "theme-catalog-tags";
+    (entry.tags || []).forEach((tagKey) => {
+      const tag = document.createElement("span");
+      tag.textContent = t(tagKey);
+      tags.appendChild(tag);
+    });
+
+    const media = document.createElement("div");
+    media.className = "theme-catalog-media";
+    media.innerHTML = `
+      <span>${t("themeCatalogScreenshots")}</span>
+      <span>${t("themeCatalogVideoPreview")}</span>
+    `;
+
+    const actions = document.createElement("div");
+    actions.className = "theme-catalog-actions";
+    const applyButton = document.createElement("button");
+    applyButton.type = "button";
+    applyButton.textContent = t("themeCatalogApply");
+    applyButton.addEventListener("click", () => {
+      void applyThemeCatalogEntry(entry);
+    });
+
+    const exportButton = document.createElement("button");
+    exportButton.type = "button";
+    exportButton.textContent = t("themeCatalogDownload");
+    exportButton.addEventListener("click", () => exportThemeCatalogEntry(entry));
+
+    actions.append(applyButton, exportButton);
+    card.append(preview, title, meta, description, tags, media, actions);
+    themeCatalogGrid.appendChild(card);
+  });
+}
+
+function openThemeCatalog() {
+  if (!themeCatalogModal) {
+    return;
+  }
+
+  closeContextMenu();
+  applyThemeCatalogTranslations();
+  renderThemeCatalog();
+  setThemeCatalogStatus("");
+  themeCatalogModal.hidden = false;
+}
+
+function closeThemeCatalog() {
+  if (themeCatalogModal) {
+    themeCatalogModal.hidden = true;
+  }
+  setThemeCatalogStatus("");
+}
+
+async function applyThemeCatalogEntry(entry) {
+  try {
+    const name = getBundledThemeCatalogEntryName(entry);
+    await applyImportedThemePayload(
+      getBundledThemeCatalogPayload(entry),
+      t("themeCatalogApplied", { name })
+    );
+    setThemeCatalogStatus(t("themeCatalogApplied", { name }), "success");
+    renderColorSchemePresets();
+  } catch (error) {
+    console.error("Failed to apply bundled theme:", error);
+    setThemeCatalogStatus(t("themeImportFailed"), "error");
+  }
+}
+
+function exportThemeCatalogEntry(entry) {
+  try {
+    const name = getBundledThemeCatalogEntryName(entry);
+    downloadJsonPayload(getBundledThemeCatalogPayload(entry), entry.id);
+    setThemeCatalogStatus(t("themeCatalogExported", { name }), "success");
+  } catch (error) {
+    console.error("Failed to export bundled theme:", error);
+    setThemeCatalogStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+function getDefaultThemeSettingsForRemoval() {
+  return {
+    backgroundColor: defaultSettings.backgroundColor,
+    backgroundOpacity: defaultSettings.backgroundOpacity,
+    connectionColor: defaultSettings.connectionColor,
+    colors: clone(defaultSettings.colors),
+    visualTheme: clone(defaultVisualTheme),
+    activeVisualThemeId: ""
+  };
+}
+
+function removeThemeFromCurrentState(themeId) {
+  const normalizedId = normalizePackId(themeId, "theme");
+  state.settings = normalizeSettings({
+    ...state.settings,
+    installedThemes: getInstalledThemes().filter((theme) => theme.id !== normalizedId),
+    ...(state.settings.activeVisualThemeId === normalizedId ? getDefaultThemeSettingsForRemoval() : {})
+  });
+  applyDefaultColorsToInheritedCards();
+  applyDefaultColorsToInheritedConnections();
+  applySettings();
+  applySystemTheme(currentSystemTheme);
+  render();
+}
+
+async function removeInstalledTheme(themeId) {
+  const normalizedId = normalizePackId(themeId, "theme");
+  if (!normalizedId) {
+    return;
+  }
+
+  const usage = window.desktopBoard?.scanCatalogUsage
+    ? await window.desktopBoard.scanCatalogUsage({ themeId: normalizedId, currentState: state })
+    : { themeBoards: state.settings.activeVisualThemeId === normalizedId ? [{ id: state.boardId, name: state.boardName }] : [] };
+  const usedCount = Number(usage?.themeBoards?.length || 0);
+  const message = usedCount > 0
+    ? t("themeRemoveUsedConfirm", { count: usedCount })
+    : t("themeRemoveConfirm");
+  if (!window.confirm(message)) {
+    return;
+  }
+
+  try {
+    if (window.desktopBoard?.applyCatalogRemoval) {
+      const result = await window.desktopBoard.applyCatalogRemoval({
+        themeId: normalizedId,
+        currentState: state,
+        defaultThemeSettings: getDefaultThemeSettingsForRemoval()
+      });
+      if (result?.state) {
+        applyLoadedBoardState(result.state, { persist: false, preserveViewport: true, preserveLocked: true });
+      } else {
+        removeThemeFromCurrentState(normalizedId);
+        await saveState({ skipHistory: true });
+      }
+    } else {
+      removeThemeFromCurrentState(normalizedId);
+      await saveState({ skipHistory: true });
+    }
+    renderThemeCatalog();
+    renderColorSchemePresets();
+    setThemeCatalogStatus(t("themeCatalogRemoved"), "success");
+  } catch (error) {
+    reportError("theme.remove", error);
+    setThemeCatalogStatus(t("themeCatalogRemoveFailed"), "error");
+  }
+}
+
+async function importThemeFromCatalogFile() {
+  const imported = await importThemeFromFile();
+  if (imported) {
+    setThemeCatalogStatus(t("themeImported"), "success");
+    themeCatalogActiveTab = "installed";
+    renderThemeCatalog();
+  }
+}
+
+async function importThemePackageFromCatalogDirectory() {
+  const imported = await importThemePackageFromDirectory();
+  if (imported) {
+    setThemeCatalogStatus(t("themePackageImportFinished"), "success");
+    themeCatalogActiveTab = "installed";
+    renderThemeCatalog();
+  }
+}
+
+function setCardCatalogStatus(message = "", tone = "") {
+  setStatusText(cardCatalogStatus, message, tone);
+}
+
+function getBundledCardCatalogPacks() {
+  return bundledCardCatalog.map((pack) => normalizeCardPack({
+    ...pack,
+    source: "bundled",
+    installedAt: 0
+  }));
+}
+
+function getInstalledCardPacks() {
+  return normalizeCardPacks(state.settings?.cardPacks);
+}
+
+function isCardPackInstalled(packId) {
+  return getInstalledCardPacks().some((pack) => pack.id === packId);
+}
+
+function getCardPackPayload(pack) {
+  const normalized = normalizeCardPack(pack);
+  return {
+    type: "desktop-board-card-pack",
+    version: 1,
+    pack: {
+      ...normalized,
+      installedAt: undefined
+    }
+  };
+}
+
+function applyCardCatalogTranslations() {
+  if (!cardCatalogModal) {
+    return;
+  }
+
+  setText("cardCatalogTitle", "cardCatalog");
+  if (cardCatalogHelp) {
+    cardCatalogHelp.textContent = t("cardCatalogHelp");
+  }
+  closeCardCatalogButton?.setAttribute("aria-label", t("cardCatalogClose"));
+  if (cardCatalogImportButton) {
+    cardCatalogImportButton.textContent = t("cardCatalogImport");
+  }
+  if (cardCatalogUploadButton) {
+    cardCatalogUploadButton.textContent = t("cardCatalogUpload");
+  }
+  if (cardCatalogBrowseTab) {
+    cardCatalogBrowseTab.textContent = t("catalogBrowseTab");
+  }
+  if (cardCatalogInstalledTab) {
+    cardCatalogInstalledTab.textContent = t("catalogInstalledTab");
+  }
+  if (cardCatalogCloseFooterButton) {
+    cardCatalogCloseFooterButton.textContent = t("cancel");
+  }
+}
+
+function refreshCardCatalogTabs() {
+  cardCatalogBrowseTab?.classList.toggle("is-active", cardCatalogActiveTab === "browse");
+  cardCatalogInstalledTab?.classList.toggle("is-active", cardCatalogActiveTab === "installed");
+}
+
+function getCardCatalogTemplateIcon(template) {
+  return getCardTypeDefinition(template.kind).icon || "";
+}
+
+function renderCardCatalogTemplateList(pack, container) {
+  const list = document.createElement("div");
+  list.className = "card-catalog-template-list";
+
+  pack.templates.forEach((template) => {
+    const item = document.createElement("div");
+    item.className = "card-catalog-template";
+
+    const icon = document.createElement("span");
+    icon.className = "card-catalog-template-icon";
+    icon.innerHTML = getCardCatalogTemplateIcon(template);
+
+    const text = document.createElement("div");
+    text.className = "card-catalog-template-text";
+    const title = document.createElement("strong");
+    title.textContent = getCardTemplateDisplayName(template);
+    const description = document.createElement("span");
+    description.textContent = getCardTemplateDescription(template) || t(getCardTypeDefinition(template.kind).labelKey);
+    text.append(title, description);
+
+    const createButton = document.createElement("button");
+    createButton.type = "button";
+    createButton.textContent = t("cardCatalogCreate");
+    createButton.addEventListener("click", () => {
+      createCardFromTemplate(template, null, { packId: pack.id, templateId: template.id });
+      setCardCatalogStatus(t("cardCatalogTemplateCreated", { name: getCardTemplateDisplayName(template) }), "success");
+    });
+
+    item.append(icon, text, createButton);
+    list.appendChild(item);
+  });
+
+  container.appendChild(list);
+}
+
+function renderCardCatalogPack(pack, { bundled = false } = {}) {
+  const card = document.createElement("article");
+  card.className = "card-catalog-card";
+  card.dataset.source = bundled ? "bundled" : "installed";
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "card-catalog-title-row";
+  const title = document.createElement("h3");
+  title.textContent = getCardPackDisplayName(pack);
+  const source = document.createElement("span");
+  source.textContent = bundled ? t("cardCatalogBuiltIn") : t("cardCatalogInstalled");
+  titleRow.append(title, source);
+
+  const meta = document.createElement("div");
+  meta.className = "card-catalog-meta";
+  [
+    t("cardCatalogAuthor", { author: pack.author }),
+    t("themeCatalogRating", { rating: pack.rating.toFixed(1) }),
+    t("themeCatalogDownloads", { count: pack.downloads }),
+    t("cardCatalogTemplateCount", { count: pack.templates.length })
+  ].forEach((textValue) => {
+    const item = document.createElement("span");
+    item.textContent = textValue;
+    meta.appendChild(item);
+  });
+
+  const description = document.createElement("p");
+  description.className = "card-catalog-description";
+  description.textContent = getCardPackDescription(pack);
+
+  const tags = document.createElement("div");
+  tags.className = "card-catalog-tags";
+  pack.tags.forEach((tagValue) => {
+    const tag = document.createElement("span");
+    tag.textContent = t(tagValue);
+    tags.appendChild(tag);
+  });
+
+  const actions = document.createElement("div");
+  actions.className = "card-catalog-actions";
+  const installed = isCardPackInstalled(pack.id);
+  const installButton = document.createElement("button");
+  installButton.type = "button";
+  installButton.textContent = installed ? t("cardCatalogInstalled") : t("cardCatalogInstall");
+  installButton.disabled = installed;
+  installButton.addEventListener("click", () => {
+    void installCardPack(pack);
+  });
+
+  const exportButton = document.createElement("button");
+  exportButton.type = "button";
+  exportButton.textContent = t("cardCatalogExport");
+  exportButton.addEventListener("click", () => exportCardPack(pack));
+
+  actions.append(installButton, exportButton);
+  if (!bundled) {
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.textContent = t("cardCatalogRemove");
+    removeButton.addEventListener("click", () => {
+      void removeCardPack(pack.id);
+    });
+    actions.appendChild(removeButton);
+  }
+
+  card.append(titleRow, meta, description, tags, actions);
+  renderCardCatalogTemplateList(pack, card);
+  return card;
+}
+
+function renderInstalledCardCatalog() {
+  if (!cardCatalogGrid) {
+    return;
+  }
+
+  cardCatalogGrid.replaceChildren();
+  const installedPacks = getInstalledCardPacks();
+  if (!installedPacks.length) {
+    const empty = document.createElement("div");
+    empty.className = "catalog-empty";
+    empty.textContent = t("cardCatalogInstalledEmpty");
+    cardCatalogGrid.appendChild(empty);
+    return;
+  }
+
+  installedPacks.forEach((pack) => {
+    cardCatalogGrid.appendChild(renderCardCatalogPack(pack, { bundled: false, installedView: true }));
+  });
+}
+
+function renderCardCatalog() {
+  if (!cardCatalogGrid) {
+    return;
+  }
+
+  refreshCardCatalogTabs();
+  cardCatalogGrid.replaceChildren();
+  if (cardCatalogActiveTab === "installed") {
+    renderInstalledCardCatalog();
+    return;
+  }
+
+  getBundledCardCatalogPacks().forEach((pack) => {
+    cardCatalogGrid.appendChild(renderCardCatalogPack(pack, { bundled: true }));
+  });
+}
+
+function openCardCatalog() {
+  if (!cardCatalogModal) {
+    return;
+  }
+
+  closeContextMenu();
+  applyCardCatalogTranslations();
+  renderCardCatalog();
+  setCardCatalogStatus("");
+  cardCatalogModal.hidden = false;
+}
+
+function closeCardCatalog() {
+  if (cardCatalogModal) {
+    cardCatalogModal.hidden = true;
+  }
+  setCardCatalogStatus("");
+}
+
+async function installCardPack(pack) {
+  const normalized = normalizeCardPack({
+    ...pack,
+    source: pack.source || "local",
+    installedAt: Date.now()
+  });
+  const nextPacks = [
+    ...getInstalledCardPacks().filter((item) => item.id !== normalized.id),
+    normalized
+  ];
+  const templateCreateIds = normalized.templates.map((template) => getCardTemplateCreateId(normalized.id, template.id));
+  state.settings = normalizeSettings({
+    ...state.settings,
+    cardPacks: nextPacks,
+    quickCreateKinds: normalizeQuickCreateKinds([
+      ...state.settings.quickCreateKinds.filter((kind) => !isCardTemplateCreateIdForPack(kind, normalized.id)),
+      ...templateCreateIds
+    ], nextPacks),
+    toolbarCreateKinds: normalizeToolbarCreateKinds([
+      ...state.settings.toolbarCreateKinds.filter((kind) => !isCardTemplateCreateIdForPack(kind, normalized.id)),
+      ...templateCreateIds
+    ], nextPacks)
+  });
+  await saveState({ skipHistory: true });
+  applyToolbarCreateVisibility();
+  renderQuickCreateSettings();
+  renderToolbarCreateSettings();
+  cardCatalogActiveTab = "installed";
+  renderCardCatalog();
+  setCardCatalogStatus(t("cardCatalogInstalledStatus", { name: getCardPackDisplayName(normalized) }), "success");
+}
+
+function removeCardPackFromStateSource(sourceState, packId) {
+  const normalizedPackId = normalizePackId(packId, "pack");
+  const removedCardIds = new Set(
+    (Array.isArray(sourceState.cards) ? sourceState.cards : [])
+      .filter((card) => card.sourceCardPackId === normalizedPackId)
+      .map((card) => card.id)
+  );
+  sourceState.settings = normalizeSettings({
+    ...sourceState.settings,
+    cardPacks: normalizeCardPacks(sourceState.settings?.cardPacks).filter((pack) => pack.id !== normalizedPackId),
+    quickCreateKinds: (sourceState.settings?.quickCreateKinds || []).filter((kind) => !isCardTemplateCreateIdForPack(kind, normalizedPackId)),
+    toolbarCreateKinds: (sourceState.settings?.toolbarCreateKinds || []).filter((kind) => !isCardTemplateCreateIdForPack(kind, normalizedPackId))
+  });
+  if (removedCardIds.size) {
+    sourceState.cards = sourceState.cards.filter((card) => !removedCardIds.has(card.id));
+    sourceState.connections = (Array.isArray(sourceState.connections) ? sourceState.connections : []).filter((connection) => {
+      const anchors = [connection.from, connection.to];
+      return anchors.every((anchor) => !(anchor?.type === "card" && removedCardIds.has(anchor.cardId)));
+    });
+    sourceState.cards.forEach((card) => {
+      if (Array.isArray(card.references)) {
+        card.references = card.references.filter((id) => !removedCardIds.has(id));
+      }
+      if (card.commentAttachment && removedCardIds.has(card.commentAttachment.cardId)) {
+        card.commentAttachment = null;
+      }
+    });
+  }
+  return sourceState;
+}
+
+async function removeCardPack(packId) {
+  const normalizedPackId = normalizePackId(packId, "pack");
+  const usage = window.desktopBoard?.scanCatalogUsage
+    ? await window.desktopBoard.scanCatalogUsage({ cardPackId: normalizedPackId, currentState: state })
+    : {
+      cardPackBoards: [{
+        id: state.boardId,
+        name: state.boardName,
+        cardCount: state.cards.filter((card) => card.sourceCardPackId === normalizedPackId).length
+      }].filter((item) => item.cardCount > 0)
+    };
+  const cardCount = Number(usage?.cardPackCardCount || 0);
+  const message = cardCount > 0
+    ? t("cardPackRemoveUsedConfirm", { count: cardCount })
+    : t("cardPackRemoveConfirm");
+  if (!window.confirm(message)) {
+    return;
+  }
+
+  try {
+    if (window.desktopBoard?.applyCatalogRemoval) {
+      const result = await window.desktopBoard.applyCatalogRemoval({
+        cardPackId: normalizedPackId,
+        currentState: state
+      });
+      if (result?.state) {
+        applyLoadedBoardState(result.state, { persist: false, preserveViewport: true, preserveLocked: true });
+      } else {
+        state = removeCardPackFromStateSource(state, normalizedPackId);
+        await saveState({ skipHistory: true });
+      }
+    } else {
+      state = removeCardPackFromStateSource(state, normalizedPackId);
+      await saveState({ skipHistory: true });
+    }
+    applyToolbarCreateVisibility();
+    renderQuickCreateSettings();
+    renderToolbarCreateSettings();
+    renderCardCatalog();
+    setCardCatalogStatus(t("cardCatalogRemoved"), "success");
+  } catch (error) {
+    reportError("cardPack.remove", error);
+    setCardCatalogStatus(t("cardCatalogRemoveFailed"), "error");
+  }
+}
+
+function exportCardPack(pack) {
+  downloadJsonPayload(getCardPackPayload(pack), pack.id, ".dbcardpack.json");
+  setCardCatalogStatus(t("cardCatalogExported", { name: getCardPackDisplayName(pack) }), "success");
+}
+
+async function importCardPackFromFile() {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,.dbcardpack,application/json";
+  const file = await new Promise((resolve) => {
+    input.addEventListener("change", () => resolve(input.files?.[0] || null), { once: true });
+    input.click();
+  });
+  if (!file) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(await file.text());
+    const pack = normalizeCardPackPayload(payload);
+    await installCardPack(pack);
+    cardCatalogActiveTab = "installed";
+    renderCardCatalog();
+    setCardCatalogStatus(t("cardCatalogImported", { name: getCardPackDisplayName(pack) }), "success");
+    return true;
+  } catch (error) {
+    console.error("Failed to import card pack:", error);
+    setCardCatalogStatus(t("cardCatalogImportFailed"), "error");
+    return false;
+  }
+}
+
+function applyThemeEditorTranslations() {
+  if (!themeEditorModal) {
+    return;
+  }
+
+  setText("themeEditorTitle", "themeEditorTitle");
+  setText("themeEditorNameLabel", "themeEditorName");
+  setText("themeEditorShapeTitle", "themeEditorShape");
+  setText("themeEditorCardBackgroundsTitle", "themeEditorCardBackgrounds");
+  setText("themeHeaderAssetLabel", "themeHeaderAsset");
+  setText("themeBodyAssetLabel", "themeBodyAsset");
+  setText("themeEditorCardBackgroundsHelp", "themeEditorCardBackgroundsHelp");
+  setText("themeAssetsJsonLabel", "themeAssetsJson");
+  setText("themePreviewTitle", "themePreview");
+  setText("themeEditorConnectionsTitle", "themeEditorConnections");
+  setText("themeEditorInteractiveTitle", "themeEditorInteractive");
+  setText("themeBuilderTitle", "themeBuilderTitle");
+  setText("themeBuilderHelp", "themeBuilderHelp");
+  setText("themeActorPresetLabel", "themeActorPreset");
+  setText("themeActorEnhancerLabel", "themeActorEnhancer");
+  setText("themeEffectPresetLabel", "themeEffectPreset");
+  setText("themeCardRadiusLabel", "themeCardRadius");
+  setText("themePanelRadiusLabel", "themePanelRadius");
+  setText("themeButtonRadiusLabel", "themeButtonRadius");
+  setText("themeCardBorderWidthLabel", "themeCardBorderWidth");
+  setText("themeCardHeaderHeightLabel", "themeCardHeaderHeight");
+  setText("themeGroupHeaderHeightLabel", "themeGroupHeaderHeight");
+  setText("themeIconScaleLabel", "themeIconScale");
+  setText("themeShadowLabel", "themeShadow");
+  setText("themeStrokeWidthLabel", "themeStrokeWidth");
+  setText("themeSelectedStrokeWidthLabel", "themeSelectedStrokeWidth");
+  setText("themeDraftStrokeWidthLabel", "themeDraftStrokeWidth");
+  setText("themeOutlineWidthLabel", "themeOutlineWidth");
+  setText("themeWaypointRadiusLabel", "themeWaypointRadius");
+  setText("themeMarkerScaleLabel", "themeMarkerScale");
+  setText("themeLineStyleLabel", "themeLineStyle");
+  setText("themeInteractiveEnabledLabel", "themeInteractiveEnabled");
+  setText("themeInteractiveFpsLabel", "themeInteractiveFps");
+  setText("themeBackgroundTypeLabel", "themeBackgroundType");
+  setText("themeBackgroundColorLabel", "themeBackgroundColor");
+  setText("themeBackgroundOpacityLabel", "themeBackgroundOpacity");
+  setText("themeParticleColorLabel", "themeParticleColor");
+  setText("themeParticleCountLabel", "themeParticleCount");
+  setText("themeActorsJsonLabel", "themeActorsJson");
+  setText("themeReactionsJsonLabel", "themeReactionsJson");
+  setText("themeCardEffectsJsonLabel", "themeCardEffectsJson");
+  setText("themeEditorInteractiveHelp", "themeEditorInteractiveHelp");
+
+  closeThemeEditorButton?.setAttribute("aria-label", t("themeEditorTitle"));
+  if (themeEditorLoadCurrentButton) {
+    themeEditorLoadCurrentButton.textContent = t("themeEditorLoadCurrent");
+  }
+  if (themeEditorLoadDefaultButton) {
+    themeEditorLoadDefaultButton.textContent = t("themeEditorLoadDefault");
+  }
+  if (themePickHeaderAssetButton) {
+    themePickHeaderAssetButton.textContent = t("themePickAsset");
+  }
+  if (themePickBodyAssetButton) {
+    themePickBodyAssetButton.textContent = t("themePickAsset");
+  }
+  if (themeClearHeaderAssetButton) {
+    themeClearHeaderAssetButton.textContent = t("themeClearAsset");
+  }
+  if (themeClearBodyAssetButton) {
+    themeClearBodyAssetButton.textContent = t("themeClearAsset");
+  }
+  if (themeAddActorPresetButton) {
+    themeAddActorPresetButton.textContent = t("themeAddActorPreset");
+  }
+  if (themeApplyActorEnhancerButton) {
+    themeApplyActorEnhancerButton.textContent = t("themeApplyActorEnhancer");
+  }
+  if (themeApplyEffectPresetButton) {
+    themeApplyEffectPresetButton.textContent = t("themeApplyEffectPreset");
+  }
+  if (themeFormatJsonButton) {
+    themeFormatJsonButton.textContent = t("themeFormatJson");
+  }
+  if (themeValidateJsonButton) {
+    themeValidateJsonButton.textContent = t("themeValidateJson");
+  }
+  if (themeEditorApplyButton) {
+    themeEditorApplyButton.textContent = t("apply");
+  }
+  if (themeEditorExportButton) {
+    themeEditorExportButton.textContent = t("exportColorScheme");
+  }
+  if (themeEditorCloseFooterButton) {
+    themeEditorCloseFooterButton.textContent = t("cancel");
+  }
+}
+
+function setThemeEditorStatus(message = "", tone = "") {
+  setStatusText(themeEditorStatus, message, tone);
+}
+
+function setThemeEditorInputValue(input, value) {
+  if (input) {
+    input.value = String(value ?? "");
+  }
+}
+
+function setThemeEditorNumberInput(input, value) {
+  if (input) {
+    input.value = String(value ?? 0);
+  }
+}
+
+function setThemeAssetInput(input, asset = "") {
+  if (!input) {
+    return;
+  }
+
+  const safeAsset = normalizeThemeAssetPath(asset);
+  input.dataset.asset = safeAsset;
+  input.value = safeAsset
+    ? (safeAsset.startsWith("data:image/") ? "embedded image" : safeAsset)
+    : "";
+}
+
+function updateThemeAssetsJsonDefaultAsset(section, asset = "") {
+  if (!themeAssetsJsonInput || !["cardHeaders", "cardBodies"].includes(section)) {
+    return;
+  }
+
+  try {
+    const assets = getThemeEditorAssetsJson();
+    const group = assets[section] && typeof assets[section] === "object" && !Array.isArray(assets[section])
+      ? { ...assets[section] }
+      : {};
+    if (asset) {
+      group.default = asset;
+    } else {
+      delete group.default;
+    }
+    assets[section] = group;
+    setThemeEditorJsonInput(themeAssetsJsonInput, assets);
+  } catch {
+    // Leave the user's broken JSON untouched; validation will report it.
+  }
+}
+
+function fillThemeEditorFromTheme(theme = getVisualTheme(), statusKey = "") {
+  if (!themeEditorModal) {
+    return;
+  }
+
+  const normalized = normalizeVisualTheme(theme);
+  themeEditorWorkingTheme = clone(normalized);
+  const { tokens, connections, interactiveBackground } = normalized;
+  const background = interactiveBackground.background || defaultVisualTheme.interactiveBackground.background;
+
+  setThemeEditorInputValue(themeEditorNameInput, normalized.name || defaultVisualTheme.name);
+  setThemeEditorNumberInput(themeCardRadiusInput, tokens.cardRadius);
+  setThemeEditorNumberInput(themePanelRadiusInput, tokens.panelRadius);
+  setThemeEditorNumberInput(themeButtonRadiusInput, tokens.buttonRadius);
+  setThemeEditorNumberInput(themeCardBorderWidthInput, tokens.cardBorderWidth);
+  setThemeEditorNumberInput(themeCardHeaderHeightInput, tokens.cardHeaderHeight);
+  setThemeEditorNumberInput(themeGroupHeaderHeightInput, tokens.groupHeaderHeight);
+  setThemeEditorNumberInput(themeIconScaleInput, tokens.iconScale);
+  setThemeEditorInputValue(themeShadowInput, tokens.shadow);
+  setThemeAssetInput(themeHeaderAssetInput, normalized.assets?.cardHeaders?.default || "");
+  setThemeAssetInput(themeBodyAssetInput, normalized.assets?.cardBodies?.default || "");
+  setThemeEditorJsonInput(themeAssetsJsonInput, normalized.assets || defaultVisualTheme.assets);
+
+  setThemeEditorNumberInput(themeStrokeWidthInput, connections.strokeWidth);
+  setThemeEditorNumberInput(themeSelectedStrokeWidthInput, connections.selectedStrokeWidth);
+  setThemeEditorNumberInput(themeDraftStrokeWidthInput, connections.draftStrokeWidth);
+  setThemeEditorNumberInput(themeOutlineWidthInput, connections.outlineWidth);
+  setThemeEditorNumberInput(themeWaypointRadiusInput, connections.waypointRadius);
+  setThemeEditorNumberInput(themeMarkerScaleInput, connections.markerScale);
+  setThemeEditorInputValue(themeLineStyleInput, connections.lineStyle);
+
+  if (themeInteractiveEnabledInput) {
+    themeInteractiveEnabledInput.checked = interactiveBackground.enabled === true;
+  }
+  setThemeEditorNumberInput(themeInteractiveFpsInput, interactiveBackground.fps);
+  setThemeEditorInputValue(themeBackgroundTypeInput, background.type || "none");
+  setThemeEditorInputValue(themeBackgroundColorInput, isHexColor(background.color) ? background.color : defaultSettings.backgroundColor);
+  setThemeEditorNumberInput(themeBackgroundOpacityInput, Number.isFinite(Number(background.opacity)) ? background.opacity : 1);
+  setThemeEditorInputValue(themeParticleColorInput, isHexColor(background.particleColor) ? background.particleColor : getDefaultConnectionColor(defaultSettings.backgroundColor));
+  setThemeEditorNumberInput(themeParticleCountInput, Number.isFinite(Number(background.particleCount)) ? background.particleCount : 60);
+  setThemeEditorJsonInput(themeActorsJsonInput, interactiveBackground.actors || []);
+  setThemeEditorJsonInput(themeReactionsJsonInput, interactiveBackground.reactions || []);
+  setThemeEditorJsonInput(themeCardEffectsJsonInput, interactiveBackground.cardEffects || defaultVisualTheme.interactiveBackground.cardEffects);
+
+  if (statusKey) {
+    setThemeEditorStatus(t(statusKey), "success");
+  } else {
+    setThemeEditorStatus("");
+  }
+  updateThemeEditorPreview();
+  updateThemeBuilderSummary();
+}
+
+function parseThemeEditorJson(input, fallback) {
+  const text = String(input?.value || "").trim();
+  if (!text) {
+    return fallback;
+  }
+  return JSON.parse(text);
+}
+
+function setThemeEditorJsonInput(input, value) {
+  setThemeEditorInputValue(input, JSON.stringify(value, null, 2));
+}
+
+function getThemeEditorActorsJson() {
+  const actors = parseThemeEditorJson(themeActorsJsonInput, []);
+  return Array.isArray(actors) ? actors : [];
+}
+
+function getThemeEditorReactionsJson() {
+  const reactions = parseThemeEditorJson(themeReactionsJsonInput, []);
+  return Array.isArray(reactions) ? reactions : [];
+}
+
+function getThemeEditorAssetsJson() {
+  const assets = parseThemeEditorJson(themeAssetsJsonInput, {});
+  return assets && typeof assets === "object" && !Array.isArray(assets) ? assets : {};
+}
+
+function getThemeEditorCardEffectsJson() {
+  const effects = parseThemeEditorJson(themeCardEffectsJsonInput, defaultVisualTheme.interactiveBackground.cardEffects);
+  return effects && typeof effects === "object" && !Array.isArray(effects)
+    ? effects
+    : defaultVisualTheme.interactiveBackground.cardEffects;
+}
+
+function countThemeAssetEntries(assets = {}) {
+  if (!assets || typeof assets !== "object" || Array.isArray(assets)) {
+    return 0;
+  }
+
+  return Object.values(assets).reduce((total, value) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return total + Object.values(value).filter(Boolean).length;
+    }
+    return total + (value ? 1 : 0);
+  }, 0);
+}
+
+function updateThemeBuilderSummary() {
+  if (!themeBuilderSummary) {
+    return;
+  }
+
+  try {
+    const actors = getThemeEditorActorsJson();
+    const reactions = getThemeEditorReactionsJson();
+    const assets = getThemeEditorAssetsJson();
+    themeBuilderSummary.textContent = t("themeBuilderSummary", {
+      actors: actors.length,
+      reactions: reactions.length,
+      assets: countThemeAssetEntries(assets)
+    });
+  } catch {
+    themeBuilderSummary.textContent = t("themeEditorInvalidJson");
+  }
+}
+
+function createUniqueThemeActorId(baseId, actors = []) {
+  const safeBase = String(baseId || "actor").trim().replace(/[^\w-]/g, "").slice(0, 48) || "actor";
+  const used = new Set(actors.map((actor) => actor?.id).filter(Boolean));
+  if (!used.has(safeBase)) {
+    return safeBase;
+  }
+  for (let index = 2; index <= 99; index += 1) {
+    const candidate = `${safeBase}-${index}`;
+    if (!used.has(candidate)) {
+      return candidate;
+    }
+  }
+  return `${safeBase}-${Date.now().toString(36).slice(-4)}`;
+}
+
+function getThemeActorTransitionPreset() {
+  return {
+    enabled: true,
+    maxJumpDistance: 420,
+    jumpDurationMs: 650,
+    jumpArcHeight: 90,
+    climbDurationMs: 700,
+    dropDurationMs: 520,
+    cardToConnectionDistance: 180,
+    connectionToCardDistance: 180,
+    animations: {
+      jumpStart: "jumpStart",
+      jumpAir: "jumpAir",
+      land: "land",
+      climbUp: "climbUp",
+      dropDown: "dropDown"
+    }
+  };
+}
+
+function getThemeActorReactionPreset(includeTransitions = false) {
+  return {
+    default: "idle",
+    moving: "walk",
+    mouseNear: "walk",
+    cardRest: "rest",
+    notice: "notice",
+    hunt: "hunt",
+    rest: "rest",
+    return: "walk",
+    ...(includeTransitions
+      ? {
+        jump: "jumpAir",
+        jumpStart: "jumpStart",
+        jumpAir: "jumpAir",
+        land: "land",
+        climbUp: "climbUp",
+        dropDown: "dropDown"
+      }
+      : {})
+  };
+}
+
+function createThemeActorPreset(preset, actors = []) {
+  if (preset === "orbitSprite") {
+    return {
+      id: createUniqueThemeActorId("orbit-sprite", actors),
+      sprite: "",
+      behavior: "orbitCard",
+      count: 3,
+      width: 42,
+      height: 42,
+      speed: 34,
+      layer: "overlay",
+      color: "#7aa884",
+      opacity: 0.75,
+      reactions: {
+        default: "idle",
+        orbit: "walk",
+        moving: "walk"
+      }
+    };
+  }
+
+  if (preset === "growAroundCard") {
+    return {
+      id: createUniqueThemeActorId("card-growth", actors),
+      sprite: "",
+      behavior: "growAroundCard",
+      count: 2,
+      width: 90,
+      height: 90,
+      speed: 24,
+      layer: "background",
+      color: "#7aa884",
+      opacity: 0.42,
+      reactions: {
+        default: "idle"
+      }
+    };
+  }
+
+  if (preset === "ambientWander") {
+    return {
+      id: createUniqueThemeActorId("ambient", actors),
+      sprite: "",
+      behavior: "wander",
+      count: 10,
+      width: 18,
+      height: 18,
+      speed: 22,
+      layer: "background",
+      color: "#7aa884",
+      opacity: 0.45,
+      reactions: {
+        default: "idle",
+        moving: "idle"
+      }
+    };
+  }
+
+  const id = createUniqueThemeActorId("surface-pet", actors);
+  return {
+    id,
+    sprite: "",
+    behavior: "surfaceWanderAndMouseHunt",
+    count: 2,
+    width: 72,
+    height: 56,
+    speed: 58,
+    layer: "overlay",
+    color: "#7aa884",
+    surfaces: {
+      cards: true,
+      connections: true,
+      board: true,
+      connectionSnapDistance: 24
+    },
+    rest: {
+      enabled: true,
+      target: "cardEdge",
+      intervalMs: [12000, 45000],
+      durationMs: [5000, 18000],
+      edge: "auto",
+      offsetX: 0,
+      offsetY: -8,
+      animation: "rest"
+    },
+    mouse: {
+      noticeRadius: 220,
+      huntRadius: 160,
+      noticeDelayMs: 600,
+      loseInterestRadius: 300,
+      huntSpeedMultiplier: 1.35,
+      animations: {
+        notice: "notice",
+        hunt: "hunt"
+      }
+    },
+    transitions: getThemeActorTransitionPreset(),
+    animations: {
+      idle: { type: "gif", asset: "petIdle" },
+      walk: { type: "image", asset: "petWalk", flipByDirection: true },
+      notice: { type: "gif", asset: "petNotice" },
+      hunt: { type: "image", asset: "petHunt", flipByDirection: true },
+      rest: { type: "gif", asset: "petRest", offsetY: 10 },
+      jumpStart: { type: "gif", asset: "petJumpStart" },
+      jumpAir: { type: "gif", asset: "petJumpAir" },
+      land: { type: "gif", asset: "petLand" },
+      climbUp: { type: "gif", asset: "petClimbUp" },
+      dropDown: { type: "gif", asset: "petDropDown" }
+    },
+    reactions: getThemeActorReactionPreset(true),
+    interactions: [
+      {
+        type: "avoidActors",
+        target: "any",
+        radius: 48,
+        strength: 0.6
+      },
+      {
+        type: "greetActor",
+        target: "sameKind",
+        radius: 42,
+        cooldownMs: 12000,
+        durationMs: [900, 1600],
+        selfAnimation: "notice",
+        otherAnimation: "notice"
+      }
+    ]
+  };
+}
+
+function addThemeActorPreset() {
+  try {
+    const actors = getThemeEditorActorsJson();
+    actors.push(createThemeActorPreset(themeActorPresetInput?.value || "surfacePet", actors));
+    setThemeEditorJsonInput(themeActorsJsonInput, actors);
+    if (themeInteractiveEnabledInput) {
+      themeInteractiveEnabledInput.checked = true;
+    }
+    setThemeEditorStatus(t("themeBuilderActorAdded"), "success");
+    updateThemeEditorPreview();
+  } catch (error) {
+    console.error("Failed to add actor preset:", error);
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+function applyThemeActorEnhancer() {
+  try {
+    const actors = getThemeEditorActorsJson();
+    const actor = actors[actors.length - 1];
+    if (!actor) {
+      setThemeEditorStatus(t("themeBuilderNoActor"), "error");
+      return;
+    }
+
+    const enhancer = themeActorEnhancerInput?.value || "transitions";
+    if (enhancer === "transitions") {
+      actor.transitions = getThemeActorTransitionPreset();
+      actor.reactions = {
+        ...(actor.reactions || {}),
+        ...getThemeActorReactionPreset(true)
+      };
+    } else if (enhancer === "mouseHunt") {
+      actor.behavior = "surfaceWanderAndMouseHunt";
+      actor.surfaces = {
+        cards: true,
+        connections: true,
+        board: true,
+        connectionSnapDistance: 24,
+        ...(actor.surfaces || {})
+      };
+      actor.mouse = {
+        noticeRadius: 220,
+        huntRadius: 160,
+        noticeDelayMs: 600,
+        loseInterestRadius: 300,
+        huntSpeedMultiplier: 1.35,
+        animations: {
+          notice: "notice",
+          hunt: "hunt"
+        },
+        ...(actor.mouse || {})
+      };
+      actor.reactions = {
+        ...(actor.reactions || {}),
+        ...getThemeActorReactionPreset(false)
+      };
+    } else if (enhancer === "rest") {
+      actor.rest = {
+        enabled: true,
+        target: "cardEdge",
+        intervalMs: [12000, 45000],
+        durationMs: [5000, 18000],
+        edge: "auto",
+        offsetX: 0,
+        offsetY: -8,
+        animation: "rest",
+        ...(actor.rest || {})
+      };
+      actor.reactions = {
+        ...(actor.reactions || {}),
+        cardRest: "rest",
+        rest: "rest"
+      };
+    } else if (enhancer === "interactions") {
+      const existing = Array.isArray(actor.interactions) ? actor.interactions : [];
+      actor.interactions = [
+        ...existing,
+        {
+          type: "avoidActors",
+          target: "any",
+          radius: 48,
+          strength: 0.6
+        },
+        {
+          type: "followActor",
+          target: "sameKind",
+          distance: 86,
+          chance: 0.15,
+          durationMs: [4000, 12000]
+        }
+      ].slice(0, 12);
+    }
+
+    setThemeEditorJsonInput(themeActorsJsonInput, actors);
+    setThemeEditorStatus(t("themeBuilderEnhancerApplied"), "success");
+    updateThemeEditorPreview();
+  } catch (error) {
+    console.error("Failed to apply actor enhancer:", error);
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+function applyThemeEffectPreset() {
+  try {
+    const preset = themeEffectPresetInput?.value || "portalLifecycle";
+    const effects = getThemeEditorCardEffectsJson();
+    const reactions = getThemeEditorReactionsJson();
+
+    if (preset === "particlesLifecycle") {
+      effects.create = {
+        enabled: true,
+        type: "particleBurst",
+        anchor: "card.center",
+        durationMs: 900,
+        color: "#7aa884",
+        count: 44,
+        radius: 150,
+        spread: 180
+      };
+      effects.delete = {
+        enabled: true,
+        type: "particleBurst",
+        anchor: "card.center",
+        durationMs: 900,
+        color: "#d25b5b",
+        count: 36,
+        radius: 130,
+        spread: 160
+      };
+    } else if (preset === "hoverGlow") {
+      reactions.push({
+        when: "cardHovered",
+        do: {
+          effect: "glow",
+          anchor: "card.center",
+          durationMs: 600,
+          color: "#7aa884",
+          opacity: 0.42,
+          radius: 160
+        },
+        cooldownMs: 300
+      });
+    } else {
+      effects.create = {
+        enabled: true,
+        type: "portal",
+        anchor: "card.center",
+        delayMs: 0,
+        durationMs: 800,
+        color: "#7aa884",
+        opacity: 0.75,
+        radius: 130
+      };
+      effects.delete = {
+        enabled: true,
+        type: "portal",
+        anchor: "card.center",
+        delayMs: 0,
+        durationMs: 800,
+        color: "#d25b5b",
+        opacity: 0.75,
+        radius: 130
+      };
+    }
+
+    setThemeEditorJsonInput(themeCardEffectsJsonInput, effects);
+    setThemeEditorJsonInput(themeReactionsJsonInput, reactions);
+    if (themeInteractiveEnabledInput) {
+      themeInteractiveEnabledInput.checked = true;
+    }
+    setThemeEditorStatus(t("themeBuilderEffectApplied"), "success");
+    updateThemeEditorPreview();
+  } catch (error) {
+    console.error("Failed to apply theme effect preset:", error);
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+function formatThemeEditorJson() {
+  try {
+    setThemeEditorJsonInput(themeAssetsJsonInput, getThemeEditorAssetsJson());
+    setThemeEditorJsonInput(themeActorsJsonInput, getThemeEditorActorsJson());
+    setThemeEditorJsonInput(themeReactionsJsonInput, getThemeEditorReactionsJson());
+    setThemeEditorJsonInput(themeCardEffectsJsonInput, getThemeEditorCardEffectsJson());
+    setThemeEditorStatus(t("themeBuilderJsonFormatted"), "success");
+    updateThemeEditorPreview();
+  } catch (error) {
+    console.error("Failed to format theme editor JSON:", error);
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+function validateThemeEditorTheme() {
+  try {
+    const theme = getVisualThemeFromEditor();
+    setThemeEditorStatus(t("themeBuilderValid", {
+      actors: theme.interactiveBackground.actors.length,
+      reactions: theme.interactiveBackground.reactions.length,
+      assets: countThemeAssetEntries(theme.assets)
+    }), "success");
+    updateThemeBuilderSummary();
+  } catch (error) {
+    console.error("Failed to validate edited theme:", error);
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+function getThemeEditorNumber(input, fallback) {
+  const number = Number(input?.value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function getVisualThemeFromEditor() {
+  const base = themeEditorWorkingTheme ? clone(themeEditorWorkingTheme) : getVisualTheme();
+  const baseInteractive = base.interactiveBackground || defaultVisualTheme.interactiveBackground;
+  const baseBackground = baseInteractive.background || defaultVisualTheme.interactiveBackground.background;
+  const assetsFromEditor = {
+    ...(base.assets || {}),
+    ...getThemeEditorAssetsJson()
+  };
+  const actors = getThemeEditorActorsJson();
+  const reactions = getThemeEditorReactionsJson();
+  const cardEffects = getThemeEditorCardEffectsJson();
+
+  return normalizeVisualTheme({
+    ...base,
+    name: themeEditorNameInput?.value?.trim() || t("exportedColorSchemeName"),
+    assets: {
+      ...assetsFromEditor,
+      cardHeaders: {
+        ...(assetsFromEditor.cardHeaders || {}),
+        default: themeHeaderAssetInput?.dataset.asset || assetsFromEditor.cardHeaders?.default || ""
+      },
+      cardBodies: {
+        ...(assetsFromEditor.cardBodies || {}),
+        default: themeBodyAssetInput?.dataset.asset || assetsFromEditor.cardBodies?.default || ""
+      }
+    },
+    tokens: {
+      cardRadius: getThemeEditorNumber(themeCardRadiusInput, base.tokens.cardRadius),
+      panelRadius: getThemeEditorNumber(themePanelRadiusInput, base.tokens.panelRadius),
+      buttonRadius: getThemeEditorNumber(themeButtonRadiusInput, base.tokens.buttonRadius),
+      cardBorderWidth: getThemeEditorNumber(themeCardBorderWidthInput, base.tokens.cardBorderWidth),
+      cardHeaderHeight: getThemeEditorNumber(themeCardHeaderHeightInput, base.tokens.cardHeaderHeight),
+      groupHeaderHeight: getThemeEditorNumber(themeGroupHeaderHeightInput, base.tokens.groupHeaderHeight),
+      iconScale: getThemeEditorNumber(themeIconScaleInput, base.tokens.iconScale),
+      shadow: themeShadowInput?.value || base.tokens.shadow
+    },
+    connections: {
+      strokeWidth: getThemeEditorNumber(themeStrokeWidthInput, base.connections.strokeWidth),
+      selectedStrokeWidth: getThemeEditorNumber(themeSelectedStrokeWidthInput, base.connections.selectedStrokeWidth),
+      draftStrokeWidth: getThemeEditorNumber(themeDraftStrokeWidthInput, base.connections.draftStrokeWidth),
+      outlineWidth: getThemeEditorNumber(themeOutlineWidthInput, base.connections.outlineWidth),
+      waypointRadius: getThemeEditorNumber(themeWaypointRadiusInput, base.connections.waypointRadius),
+      markerScale: getThemeEditorNumber(themeMarkerScaleInput, base.connections.markerScale),
+      lineStyle: themeLineStyleInput?.value || base.connections.lineStyle
+    },
+    interactiveBackground: {
+      ...baseInteractive,
+      enabled: themeInteractiveEnabledInput?.checked === true,
+      fps: getThemeEditorNumber(themeInteractiveFpsInput, baseInteractive.fps),
+      background: {
+        ...baseBackground,
+        type: themeBackgroundTypeInput?.value || baseBackground.type || "none",
+        color: themeBackgroundColorInput?.value || baseBackground.color || defaultSettings.backgroundColor,
+        opacity: getThemeEditorNumber(themeBackgroundOpacityInput, baseBackground.opacity ?? 1),
+        particleColor: themeParticleColorInput?.value || baseBackground.particleColor || getDefaultConnectionColor(defaultSettings.backgroundColor),
+        particleCount: getThemeEditorNumber(themeParticleCountInput, baseBackground.particleCount ?? 60)
+      },
+      actors,
+      reactions,
+      cardEffects
+    }
+  });
+}
+
+function updateThemeEditorPreview() {
+  if (!themePreviewCard) {
+    return;
+  }
+
+  try {
+    const theme = getVisualThemeFromEditor();
+    const noteColors = getDefaultCardColors("note");
+    const buttonPalette = getCardButtonPalette(noteColors.body);
+    themePreviewCard.style.setProperty("--theme-card-radius", `${theme.tokens.cardRadius}px`);
+    themePreviewCard.style.setProperty("--theme-card-border-width", `${theme.tokens.cardBorderWidth}px`);
+    themePreviewCard.style.setProperty("--theme-card-header-height", `${theme.tokens.cardHeaderHeight}px`);
+    themePreviewCard.style.setProperty("--theme-card-icon-scale", String(theme.tokens.iconScale));
+    themePreviewCard.style.setProperty("--shadow", getThemeShadowValue(theme.tokens.shadow));
+    themePreviewCard.style.setProperty("--card-header-color", noteColors.header);
+    themePreviewCard.style.setProperty("--card-body-color", noteColors.body);
+    themePreviewCard.style.setProperty("--card-header-text", getReadableTextColor(noteColors.header));
+    themePreviewCard.style.setProperty("--card-body-text", getReadableTextColor(noteColors.body));
+    themePreviewCard.style.setProperty("--card-button-bg", buttonPalette.background);
+    themePreviewCard.style.setProperty("--card-button-hover-bg", buttonPalette.hoverBackground);
+    themePreviewCard.style.setProperty("--card-button-border", buttonPalette.border);
+    themePreviewCard.style.setProperty("--card-button-text", getReadableTextColor(buttonPalette.background));
+    const headerAsset = theme.assets?.cardHeaders?.default || "";
+    const bodyAsset = theme.assets?.cardBodies?.default || "";
+    themePreviewCard.style.setProperty("--card-header-image", headerAsset ? `url("${headerAsset}")` : "none");
+    themePreviewCard.style.setProperty("--card-body-image", bodyAsset ? `url("${bodyAsset}")` : "none");
+    if (themeEditorStatus?.dataset.tone === "error") {
+      setThemeEditorStatus("");
+    }
+    updateThemeBuilderSummary();
+  } catch {
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+async function pickThemeSurfaceAsset(targetInput) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".svg,.png,.webp,.gif,image/svg+xml,image/png,image/webp,image/gif";
+  const file = await new Promise((resolve) => {
+    input.addEventListener("change", () => resolve(input.files?.[0] || null), { once: true });
+    input.click();
+  });
+  if (!file) {
+    return;
+  }
+
+  const asset = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result || "")), { once: true });
+    reader.addEventListener("error", () => reject(reader.error || new Error("Failed to read file")), { once: true });
+    reader.readAsDataURL(file);
+  });
+  setThemeAssetInput(targetInput, asset);
+  if (targetInput === themeHeaderAssetInput) {
+    updateThemeAssetsJsonDefaultAsset("cardHeaders", targetInput.dataset.asset || "");
+  } else if (targetInput === themeBodyAssetInput) {
+    updateThemeAssetsJsonDefaultAsset("cardBodies", targetInput.dataset.asset || "");
+  }
+  updateThemeEditorPreview();
+}
+
+function openThemeEditor() {
+  closeContextMenu();
+  fillThemeEditorFromTheme(getVisualTheme());
+  applyThemeEditorTranslations();
+  themeEditorModal.hidden = false;
+  requestAnimationFrame(() => themeEditorNameInput?.focus());
+}
+
+function closeThemeEditor() {
+  if (themeEditorModal) {
+    themeEditorModal.hidden = true;
+  }
+  setThemeEditorStatus("");
+}
+
+async function applyThemeEditorTheme() {
+  try {
+    const visualTheme = getVisualThemeFromEditor();
+    state.settings = normalizeSettings({
+      ...state.settings,
+      visualTheme
+    });
+    themeEditorWorkingTheme = clone(visualTheme);
+    applySettings();
+    render();
+    await saveState({ skipHistory: true });
+    setThemeEditorStatus(t("themeEditorApplied"), "success");
+    setStatusText(settingsStatus, t("themeEditorApplied"), "success");
+  } catch (error) {
+    console.error("Failed to apply edited theme:", error);
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
+  }
+}
+
+function exportThemeEditorTheme() {
+  try {
+    const visualTheme = getVisualThemeFromEditor();
+    const scheme = getColorSchemeFromInputs(visualTheme.name || t("exportedColorSchemeName"));
+    const payload = {
+      type: "desktop-board-theme",
+      version: 1,
+      theme: {
+        name: visualTheme.name,
+        colorScheme: scheme,
+        visual: visualTheme
+      }
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeName = visualTheme.name.replace(/[^\wа-яё-]+/gi, "-").replace(/^-+|-+$/g, "") || "desktop-board-theme";
+    link.href = url;
+    link.download = `${safeName}.dbtheme.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setThemeEditorStatus(t("themeEditorExported"), "success");
+  } catch (error) {
+    console.error("Failed to export edited theme:", error);
+    setThemeEditorStatus(t("themeEditorInvalidJson"), "error");
   }
 }
 
@@ -4271,9 +7297,13 @@ function normalizeSettings(settings = {}) {
   const allowedThemeModes = ["system", "light", "dark"];
   const allowedLanguageModes = ["system", "ru", "en"];
   const allowedTimeFormats = ["24h", "12h"];
+  const allowedInteractiveBackgroundQualities = ["off", "low", "normal"];
   const themeMode = allowedThemeModes.includes(settings.themeMode) ? settings.themeMode : defaultSettings.themeMode;
   const languageMode = allowedLanguageModes.includes(settings.languageMode) ? settings.languageMode : defaultSettings.languageMode;
   const timeFormat = allowedTimeFormats.includes(settings.timeFormat) ? settings.timeFormat : defaultSettings.timeFormat;
+  const interactiveBackgroundQuality = allowedInteractiveBackgroundQualities.includes(settings.interactiveBackgroundQuality)
+    ? settings.interactiveBackgroundQuality
+    : defaultSettings.interactiveBackgroundQuality;
   const backgroundColor = isHexColor(settings.backgroundColor) ? settings.backgroundColor : defaultSettings.backgroundColor;
   const parsedBackgroundOpacity = Number(settings.backgroundOpacity);
   const backgroundOpacity = Number.isFinite(parsedBackgroundOpacity)
@@ -4281,11 +7311,20 @@ function normalizeSettings(settings = {}) {
     : defaultSettings.backgroundOpacity;
   const richTextFontFamily = normalizeRichTextDefaultFontFamily(settings.richTextFontFamily);
   const richTextFontSize = normalizeRichTextDefaultFontSize(settings.richTextFontSize);
+  const cardPacks = normalizeSettingsCardPacks(settings);
+  const quickCreateKinds = migrateLegacyCodeCreateKinds(settings.quickCreateKinds, cardPacks);
+  const toolbarCreateKinds = migrateLegacyCodeCreateKinds(settings.toolbarCreateKinds, cardPacks);
+  const installedThemes = normalizeInstalledThemes(settings.installedThemes);
+  const activeVisualThemeId = installedThemes.some((theme) => theme.id === settings.activeVisualThemeId)
+    ? settings.activeVisualThemeId
+    : "";
   const legacyColorSources = {
     bookmark: sourceColors.bookmark || sourceColors.note,
     progress: sourceColors.progress || sourceColors.tasks,
     timer: sourceColors.timer || sourceColors.schedule,
     reminder: sourceColors.reminder || sourceColors.timer || sourceColors.schedule,
+    clock: sourceColors.clock || sourceColors.timer || sourceColors.schedule,
+    weather: sourceColors.weather || sourceColors.schedule,
     image: sourceColors.image || sourceColors.media,
     video: sourceColors.video || sourceColors.media,
     audio: sourceColors.audio || sourceColors.media,
@@ -4307,14 +7346,18 @@ function normalizeSettings(settings = {}) {
     timeFormat,
     backgroundColor,
     backgroundOpacity,
+    interactiveBackgroundQuality,
     connectionColor: isHexColor(settings.connectionColor) ? settings.connectionColor : getDefaultConnectionColor(backgroundColor),
     richTextFontFamily,
     richTextFontSize,
     visualTheme: normalizeVisualTheme(settings.visualTheme),
+    activeVisualThemeId,
+    installedThemes,
     snapToGrid: settings.snapToGrid !== false,
     historyEnabled: settings.historyEnabled !== false,
-    quickCreateKinds: normalizeQuickCreateKinds(settings.quickCreateKinds),
-    toolbarCreateKinds: normalizeToolbarCreateKinds(settings.toolbarCreateKinds),
+    quickCreateKinds: normalizeQuickCreateKinds(quickCreateKinds, cardPacks),
+    toolbarCreateKinds: normalizeToolbarCreateKinds(toolbarCreateKinds, cardPacks),
+    cardPacks,
     colorSchemes: normalizeColorSchemes(settings.colorSchemes),
     colors
   };
@@ -4373,6 +7416,9 @@ function normalizeThemeEnum(value, allowed, fallback) {
 }
 
 function normalizeThemeAssetPath(value) {
+  if (themeValidation.sanitizeThemeAssetPath) {
+    return themeValidation.sanitizeThemeAssetPath(value);
+  }
   if (typeof value !== "string") {
     return "";
   }
@@ -4381,31 +7427,52 @@ function normalizeThemeAssetPath(value) {
   if (/^data:image\/(png|webp|gif|svg\+xml);base64,/i.test(path)) {
     return path.length <= 700000 ? path : "";
   }
-  if (!path || path.includes("..") || /^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith("/")) {
+  if (
+    !path
+    || !path.startsWith("assets/")
+    || path.includes("..")
+    || /^[a-z][a-z0-9+.-]*:/i.test(path)
+    || path.startsWith("/")
+    || !/\.(svg|png|webp|gif)$/i.test(path)
+  ) {
     return "";
   }
 
   return path.slice(0, 240);
 }
 
-function normalizeThemeAssets(assets = {}) {
-  const sourceIcons = assets && typeof assets === "object" && assets.icons && typeof assets.icons === "object"
-    ? assets.icons
-    : {};
-  const icons = {};
-  Object.entries(sourceIcons).forEach(([kind, path]) => {
-    if (!cardTypeMap.has(kind)) {
+function normalizeThemeAssetMap(source = {}, allowedKeys = null) {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    return {};
+  }
+
+  const output = {};
+  Object.entries(source).slice(0, 80).forEach(([key, path]) => {
+    const safeKey = String(key || "").trim().replace(/[^\w-]/g, "").slice(0, 80);
+    if (!safeKey || (allowedKeys && !allowedKeys.has(safeKey))) {
       return;
     }
     const safePath = normalizeThemeAssetPath(path);
     if (safePath) {
-      icons[kind] = safePath;
+      output[safeKey] = safePath;
     }
   });
+  return output;
+}
+
+function normalizeThemeAssets(assets = {}) {
+  const sourceIcons = assets && typeof assets === "object" && assets.icons && typeof assets.icons === "object"
+    ? assets.icons
+    : {};
+  const icons = normalizeThemeAssetMap(sourceIcons, new Set(cardTypeRegistry.map((definition) => definition.kind)));
 
   const connection = assets && typeof assets === "object" ? assets.connection : null;
   return {
     icons,
+    actors: normalizeThemeAssetMap(assets?.actors),
+    backgrounds: normalizeThemeAssetMap(assets?.backgrounds),
+    cardHeaders: normalizeThemeAssetMap(assets?.cardHeaders, new Set(["default", ...cardTypeRegistry.map((definition) => definition.kind)])),
+    cardBodies: normalizeThemeAssetMap(assets?.cardBodies, new Set(["default", ...cardTypeRegistry.map((definition) => definition.kind)])),
     connection: connection && typeof connection === "object"
       ? {
         straight: normalizeThemeAssetPath(connection.straight),
@@ -4414,6 +7481,254 @@ function normalizeThemeAssets(assets = {}) {
         end: normalizeThemeAssetPath(connection.end)
       }
       : null
+  };
+}
+
+function normalizeInteractiveBackgroundSurface(background = {}) {
+  const source = background && typeof background === "object" ? background : {};
+  const type = normalizeThemeEnum(source.type, ["none", "solid", "gradient", "image", "particles"], "none");
+  const colors = Array.isArray(source.colors)
+    ? source.colors.filter(isHexColor).slice(0, 4)
+    : [];
+  const color = isHexColor(source.color) ? source.color : defaultSettings.backgroundColor;
+  const fallbackParticleColor = getDefaultConnectionColor(color);
+
+  return {
+    type,
+    color,
+    colors,
+    asset: typeof source.asset === "string" ? source.asset.trim().replace(/[^\w-]/g, "").slice(0, 80) : "",
+    opacity: normalizeThemeNumber(source.opacity, 1, 0, 1, 2),
+    particleColor: isHexColor(source.particleColor) ? source.particleColor : fallbackParticleColor,
+    particleCount: normalizeThemeNumber(source.particleCount, 60, 0, 240)
+  };
+}
+
+function normalizeInteractiveBackgroundActor(actor = {}, index = 0) {
+  const source = actor && typeof actor === "object" ? actor : {};
+  const id = typeof source.id === "string" && source.id.trim()
+    ? source.id.trim().replace(/[^\w-]/g, "").slice(0, 80)
+    : `actor-${index + 1}`;
+  const sprite = typeof source.sprite === "string" ? source.sprite.trim().replace(/[^\w-]/g, "").slice(0, 80) : "";
+  const color = isHexColor(source.color) ? source.color : "#7aa884";
+  const sourceAnimations = source.animations && typeof source.animations === "object" && !Array.isArray(source.animations)
+    ? source.animations
+    : {};
+  const animations = {};
+  Object.entries(sourceAnimations).slice(0, 16).forEach(([pose, animation]) => {
+    const safePose = String(pose || "").trim().replace(/[^\w-]/g, "").slice(0, 40);
+    const normalized = normalizeInteractiveBackgroundAnimation(animation);
+    if (safePose && normalized) {
+      animations[safePose] = normalized;
+    }
+  });
+  const sourceReactions = source.reactions && typeof source.reactions === "object" && !Array.isArray(source.reactions)
+    ? source.reactions
+    : {};
+  const reactions = themeValidation.normalizeReactionMap
+    ? themeValidation.normalizeReactionMap(sourceReactions)
+    : {};
+  if (!themeValidation.normalizeReactionMap) {
+    ["default", "moving", "mouseNear", "cardRest", "orbit", "appear", "disappear", "notice", "hunt", "rest", "return", "jump", "jumpStart", "jumpAir", "land", "climbUp", "dropDown"].forEach((key) => {
+      const pose = typeof sourceReactions[key] === "string"
+        ? sourceReactions[key].trim().replace(/[^\w-]/g, "").slice(0, 40)
+        : "";
+      if (pose) {
+        reactions[key] = pose;
+      }
+    });
+  }
+  const surfaceOptions = themeValidation.normalizeSurfaceActorOptions
+    ? themeValidation.normalizeSurfaceActorOptions(source)
+    : {
+      surfaces: {
+        cards: true,
+        connections: true,
+        board: true,
+        cardArea: "perimeter",
+        connectionSnapDistance: 24
+      },
+      rest: {
+        enabled: false,
+        target: "cardEdge",
+        intervalMs: [12000, 45000],
+        durationMs: [5000, 18000],
+        edge: "auto",
+        offsetX: 0,
+        offsetY: -8,
+        animation: "rest"
+      },
+      mouse: {
+        noticeRadius: 220,
+        huntRadius: 160,
+        noticeDelayMs: 600,
+        loseInterestRadius: 300,
+        huntSpeedMultiplier: 1.35,
+        animations: {
+          notice: "notice",
+          hunt: "hunt"
+        }
+      }
+    };
+  const transitions = themeValidation.normalizeActorSurfaceTransitions
+    ? themeValidation.normalizeActorSurfaceTransitions(source.transitions)
+    : {
+      enabled: false,
+      maxJumpDistance: 420,
+      jumpDurationMs: 650,
+      jumpArcHeight: 90,
+      climbDurationMs: 700,
+      dropDurationMs: 520,
+      connectionToCardDistance: 180,
+      cardToConnectionDistance: 180,
+      animations: {
+        jumpStart: "jumpStart",
+        jumpAir: "jumpAir",
+        land: "land",
+        climbUp: "climbUp",
+        dropDown: "dropDown"
+      }
+    };
+
+  return {
+    id,
+    sprite,
+    animations,
+    reactions,
+    layer: normalizeThemeEnum(source.layer, ["background", "overlay"], "overlay"),
+    behavior: normalizeThemeEnum(
+      source.behavior,
+      ["wander", "followMouse", "wanderAndFollowMouse", "restOnCard", "orbitCard", "growAroundCard", "surfaceWanderAndMouseHunt"],
+      "wander"
+    ),
+    surfaces: surfaceOptions.surfaces,
+    rest: surfaceOptions.rest,
+    mouse: surfaceOptions.mouse,
+    transitions,
+    interactions: normalizeInteractiveActorInteractions(source.interactions),
+    count: normalizeThemeNumber(source.count, 1, 0, 24),
+    width: normalizeThemeNumber(source.width, 48, 12, 240),
+    height: normalizeThemeNumber(source.height, 48, 12, 240),
+    speed: normalizeThemeNumber(source.speed, 40, 0, 260),
+    opacity: normalizeThemeNumber(source.opacity, 1, 0, 1, 2),
+    color,
+    tint: isHexColor(source.tint) ? source.tint : "",
+    mouseInterestRadius: normalizeThemeNumber(source.mouseInterestRadius, 160, 0, 900),
+    canRestOnCards: source.canRestOnCards !== false
+  };
+}
+
+function normalizeInteractiveBackgroundAnimation(animation = {}) {
+  if (themeValidation.normalizeActorAnimation) {
+    return themeValidation.normalizeActorAnimation(animation);
+  }
+  const source = animation && typeof animation === "object" ? animation : {};
+  const type = normalizeThemeEnum(source.type, ["gif", "image", "spritesheet"], "image");
+  const asset = typeof source.asset === "string" ? source.asset.trim().replace(/[^\w-]/g, "").slice(0, 80) : "";
+  if (!asset) {
+    return null;
+  }
+
+  return {
+    type,
+    asset,
+    frames: normalizeThemeNumber(source.frames, 1, 1, 240),
+    fps: normalizeThemeNumber(source.fps, 12, 1, 60),
+    columns: normalizeThemeNumber(source.columns, 0, 0, 64),
+    frameWidth: normalizeThemeNumber(source.frameWidth, 0, 0, 4096),
+    frameHeight: normalizeThemeNumber(source.frameHeight, 0, 0, 4096),
+    loop: source.loop !== false,
+    flipByDirection: source.flipByDirection === true,
+    offsetX: normalizeThemeNumber(source.offsetX, 0, -240, 240),
+    offsetY: normalizeThemeNumber(source.offsetY, 0, -240, 240),
+    scale: normalizeThemeNumber(source.scale, 1, 0.1, 4, 2),
+    opacity: normalizeThemeNumber(source.opacity, 1, 0, 1, 2)
+  };
+}
+
+function normalizeInteractiveActorInteractions(interactions = []) {
+  if (themeValidation.normalizeActorInteractions) {
+    return themeValidation.normalizeActorInteractions(interactions);
+  }
+  return [];
+}
+
+function normalizeInteractiveBackgroundCardEffect(effect = {}, fallback = {}) {
+  const source = effect && typeof effect === "object" ? effect : {};
+  const type = normalizeThemeEnum(source.type, ["none", "portal", "fade", "scale", "slide", "particleBurst", "ripple", "glow", "pulse"], "none");
+  return {
+    enabled: source.enabled === true && type !== "none",
+    type,
+    delayMs: normalizeThemeNumber(source.delayMs, fallback.delayMs || 0, 0, interactiveBackgroundMaxCardEffectDelayMs),
+    durationMs: normalizeThemeNumber(source.durationMs, fallback.durationMs || 600, 120, interactiveBackgroundMaxCardEffectDelayMs),
+    color: isHexColor(source.color) ? source.color : fallback.color || "#7aa884",
+    opacity: normalizeThemeNumber(source.opacity, fallback.opacity ?? 1, 0, 1, 2),
+    count: normalizeThemeNumber(source.count, fallback.count || 24, 1, 120),
+    radius: normalizeThemeNumber(source.radius, fallback.radius || 120, 8, 420),
+    spread: normalizeThemeNumber(source.spread, fallback.spread || 140, 0, 480),
+    asset: typeof source.asset === "string" ? source.asset.trim().replace(/[^\w-]/g, "").slice(0, 80) : "",
+    animation: typeof source.animation === "string" ? source.animation.trim().replace(/[^\w-]/g, "").slice(0, 80) : ""
+  };
+}
+
+function normalizeInteractiveBackgroundReactions(reactions = []) {
+  if (themeValidation.normalizeThemeEventReactions) {
+    return themeValidation.normalizeThemeEventReactions(reactions);
+  }
+  if (!Array.isArray(reactions)) {
+    return [];
+  }
+
+  return reactions
+    .slice(0, 64)
+    .map((reaction, index) => {
+      const source = reaction && typeof reaction === "object" && !Array.isArray(reaction) ? reaction : {};
+      const when = normalizeThemeEnum(
+        source.when,
+        ["cardCreated", "cardDeleted", "cardMoved", "cardResized", "cardSelected", "cardDeselected", "cardHovered", "cardContentChanged", "cardGrouped", "cardUngrouped", "taskChecked", "taskUnchecked", "timerFinished", "reminderTriggered", "fileAttached", "urlLoaded"],
+        ""
+      );
+      const effect = themeValidation.normalizeThemeEffect
+        ? themeValidation.normalizeThemeEffect(source.do || source.effect || {})
+        : null;
+      if (!when || !effect?.enabled) {
+        return null;
+      }
+      return {
+        id: typeof source.id === "string" && source.id.trim() ? source.id.trim().replace(/[^\w-]/g, "").slice(0, 80) : `reaction-${index + 1}`,
+        when,
+        if: {
+          cardKinds: [],
+          tags: [],
+          cardIds: []
+        },
+        do: effect,
+        cooldownMs: normalizeThemeNumber(source.cooldownMs, 350, 0, 60000)
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeInteractiveBackground(config = {}) {
+  const source = config && typeof config === "object" ? config : {};
+  const actors = Array.isArray(source.actors)
+    ? source.actors.slice(0, 24).map((actor, index) => normalizeInteractiveBackgroundActor(actor, index))
+    : [];
+  const fallbackEffects = defaultVisualTheme.interactiveBackground.cardEffects;
+  const sourceEffects = source.cardEffects && typeof source.cardEffects === "object" && !Array.isArray(source.cardEffects)
+    ? source.cardEffects
+    : {};
+
+  return {
+    enabled: source.enabled === true,
+    fps: normalizeThemeNumber(source.fps, defaultVisualTheme.interactiveBackground.fps, 10, 60),
+    background: normalizeInteractiveBackgroundSurface(source.background),
+    actors,
+    reactions: normalizeInteractiveBackgroundReactions(source.reactions),
+    cardEffects: {
+      create: normalizeInteractiveBackgroundCardEffect(sourceEffects.create, fallbackEffects.create),
+      delete: normalizeInteractiveBackgroundCardEffect(sourceEffects.delete, fallbackEffects.delete)
+    }
   };
 }
 
@@ -4448,7 +7763,8 @@ function normalizeVisualTheme(theme = {}) {
       markerScale: normalizeThemeNumber(sourceConnections.markerScale, fallbackConnections.markerScale, 0.5, 2.5, 2),
       lineStyle: normalizeThemeEnum(sourceConnections.lineStyle, ["solid", "dashed", "dotted"], fallbackConnections.lineStyle)
     },
-    assets: normalizeThemeAssets(source.assets)
+    assets: normalizeThemeAssets(source.assets),
+    interactiveBackground: normalizeInteractiveBackground(source.interactiveBackground)
   };
 }
 
@@ -4488,6 +7804,50 @@ function normalizeThemePackage(payload = {}) {
     colorScheme,
     visualTheme: normalizeVisualTheme(visualSource)
   };
+}
+
+function normalizeInstalledTheme(theme = {}, fallbackId = "theme") {
+  const source = theme && typeof theme === "object" ? theme : {};
+  const payload = normalizeThemePackage(source.payload || source);
+  const visualTheme = payload.visualTheme || normalizeVisualTheme(source.visualTheme || source.visual);
+  const colorScheme = payload.colorScheme || (source.colorScheme ? normalizeColorScheme(source.colorScheme) : null);
+  const name = typeof source.name === "string" && source.name.trim()
+    ? source.name.trim().slice(0, 80)
+    : visualTheme?.name || colorScheme?.name || "Theme";
+  const rawId = typeof source.id === "string" && source.id.trim()
+    ? source.id
+    : source.catalog?.id || colorScheme?.id || name;
+
+  return {
+    id: normalizePackId(rawId, fallbackId),
+    name,
+    source: typeof source.source === "string" ? source.source.slice(0, 40) : "imported",
+    installedAt: Number.isFinite(Number(source.installedAt)) ? Number(source.installedAt) : Date.now(),
+    colorScheme,
+    visualTheme
+  };
+}
+
+function normalizeInstalledThemes(themes = []) {
+  if (!Array.isArray(themes)) {
+    return [];
+  }
+
+  const seen = new Set();
+  return themes
+    .slice(0, 60)
+    .map((theme, index) => normalizeInstalledTheme(theme, `theme-${index + 1}`))
+    .filter((theme) => {
+      if (!theme.id || seen.has(theme.id)) {
+        return false;
+      }
+      seen.add(theme.id);
+      return true;
+    });
+}
+
+function getInstalledThemes() {
+  return normalizeInstalledThemes(state.settings?.installedThemes);
 }
 
 function getVisualTheme() {
@@ -4687,6 +8047,14 @@ function normalizeCard(card, settings) {
     normalized.textHtml = normalizeRichTextHtml(normalized.textHtml, fallbackText);
     normalized.text = richTextHtmlToPlainText(normalized.textHtml);
     Object.assign(normalized, normalizeReminderFields(normalized));
+  }
+
+  if (normalized.kind === "clock") {
+    Object.assign(normalized, normalizeClockFields(normalized));
+  }
+
+  if (normalized.kind === "weather") {
+    Object.assign(normalized, normalizeWeatherFields(normalized));
   }
 
   if (normalized.kind === "image" || normalized.kind === "video" || normalized.kind === "audio" || normalized.kind === "file") {
@@ -4939,6 +8307,18 @@ function getAuditComparableCard(card = {}) {
         reminderPlaySound: card.reminderPlaySound === true,
         reminderRepeatUntilAcknowledged: card.reminderRepeatUntilAcknowledged !== false,
         reminderRepeatIntervalMinutes: normalizeReminderRepeatIntervalMinutes(card.reminderRepeatIntervalMinutes)
+      };
+    case "clock":
+      return {
+        ...base,
+        clockTimeZone: normalizeClockTimeZone(card.clockTimeZone),
+        clockShowSeconds: card.clockShowSeconds !== false
+      };
+    case "weather":
+      return {
+        ...base,
+        weatherLocation: normalizeWeatherLocation(card.weatherLocation),
+        weatherUnits: normalizeWeatherUnits(card.weatherUnits)
       };
     case "image":
     case "video":
@@ -6005,6 +9385,9 @@ function applySettings() {
   if (backgroundOpacityValue) {
     backgroundOpacityValue.textContent = `${backgroundTransparency}%`;
   }
+  if (interactiveBackgroundQualityInput) {
+    interactiveBackgroundQualityInput.value = state.settings.interactiveBackgroundQuality || defaultSettings.interactiveBackgroundQuality;
+  }
   connectionColorInput.value = state.settings.connectionColor;
   if (richTextFontFamilyInput) {
     richTextFontFamilyInput.value = normalizeRichTextDefaultFontFamily(state.settings.richTextFontFamily);
@@ -6040,6 +9423,7 @@ function applySettings() {
   renderQuickCreateSettings();
   renderToolbarCreateSettings();
   renderColorSchemePresets();
+  syncInteractiveBackgroundEngine();
   applyTranslations();
 }
 
@@ -6064,6 +9448,8 @@ function applyTranslations() {
   setText("timeFormatLabel", "timeFormat");
   setText("backgroundColorLabel", "backgroundColor");
   setText("backgroundOpacityLabel", "backgroundOpacity");
+  setText("interactiveBackgroundQualityLabel", "interactiveBackgroundQuality");
+  setText("interactiveBackgroundHelp", "interactiveBackgroundHelp");
   setText("connectionColorLabel", "connectionColor");
   setText("storagePathLabel", "storagePath");
   setText("storagePathHelp", "storagePathHelp");
@@ -6082,6 +9468,8 @@ function applyTranslations() {
   setText("newElementColorsTitle", "newElementColors");
   setText("quickCreateTitle", "quickCreateMenu");
   setText("quickCreateHelp", "quickCreateHelp");
+  setText("cardCatalogSettingsLabel", "cardCatalogSettings");
+  setText("cardCatalogSettingsHelp", "cardCatalogSettingsHelp");
   setText("toolbarCreateTitle", "toolbarCreateMenu");
   setText("toolbarCreateHelp", "toolbarCreateHelp");
   setText("richTextFontFamilyLabel", "richTextFontFamily");
@@ -6102,6 +9490,8 @@ function applyTranslations() {
     ["progressColorRuleLabel", "progress"],
     ["timerColorRuleLabel", "timer"],
     ["reminderColorRuleLabel", "reminder"],
+    ["clockColorRuleLabel", "clock"],
+    ["weatherColorRuleLabel", "weather"],
     ["imageColorRuleLabel", "image"],
     ["videoColorRuleLabel", "video"],
     ["audioColorRuleLabel", "audio"],
@@ -6124,6 +9514,9 @@ function applyTranslations() {
   setSelectOptionText(languageModeInput, "en", "english");
   setSelectOptionText(timeFormatInput, "24h", "timeFormat24");
   setSelectOptionText(timeFormatInput, "12h", "timeFormat12");
+  setSelectOptionText(interactiveBackgroundQualityInput, "off", "interactiveBackgroundOff");
+  setSelectOptionText(interactiveBackgroundQualityInput, "low", "interactiveBackgroundLow");
+  setSelectOptionText(interactiveBackgroundQualityInput, "normal", "interactiveBackgroundNormal");
   setSelectOptionText(windowModeInput, "normal", "windowModeNormal");
   setSelectOptionText(windowModeInput, "wallpaper-view", "windowModeWallpaperView");
   setSelectOptionText(windowModeInput, "widget-mode", "windowModeWidgetMode");
@@ -6172,6 +9565,19 @@ function applyTranslations() {
   if (importThemePackageButton) {
     importThemePackageButton.textContent = t("importThemePackage");
   }
+  if (openThemeCatalogButton) {
+    openThemeCatalogButton.textContent = t("themeCatalog");
+  }
+  if (openCardCatalogButton) {
+    openCardCatalogButton.textContent = t("cardCatalog");
+  }
+  if (openThemeEditorButton) {
+    openThemeEditorButton.textContent = t("themeEditor");
+  }
+  applyThemeCatalogTranslations();
+  applyCardCatalogTranslations();
+  applyThemeEditorTranslations();
+  applyToolbarCreateVisibility();
   if (checkUpdatesButton) {
     checkUpdatesButton.textContent = t("checkUpdates");
   }
@@ -6436,6 +9842,14 @@ function getCardTextParts(card) {
 
   if (card.kind === "timer") {
     parts.push(String(card.timerDurationMinutes || defaultTimerDurationMinutes));
+  }
+
+  if (card.kind === "clock") {
+    parts.push(card.clockTimeZone || getSystemTimeZone());
+  }
+
+  if (card.kind === "weather") {
+    parts.push(card.weatherLocation || "", card.weatherDescription || "");
   }
 
   if (card.kind === "code") {
@@ -7302,6 +10716,1916 @@ function screenToWorld(clientX, clientY) {
   };
 }
 
+function worldToScreen(worldX, worldY) {
+  const layout = getActiveDisplayLayout();
+  return {
+    x: layout.primaryBounds.x + state.viewport.x + (worldX * state.viewport.zoom),
+    y: layout.primaryBounds.y + state.viewport.y + (worldY * state.viewport.zoom)
+  };
+}
+
+function getVisibleWorldBounds(padding = 0) {
+  const topLeft = screenToWorld(-padding, -padding);
+  const bottomRight = screenToWorld(window.innerWidth + padding, window.innerHeight + padding);
+  return {
+    left: Math.min(topLeft.x, bottomRight.x),
+    top: Math.min(topLeft.y, bottomRight.y),
+    right: Math.max(topLeft.x, bottomRight.x),
+    bottom: Math.max(topLeft.y, bottomRight.y)
+  };
+}
+
+function ensureInteractiveBackgroundLayers() {
+  if (!board || !workspace) {
+    return false;
+  }
+
+  if (!interactiveBackgroundState.baseCanvas) {
+    const baseCanvas = document.createElement("canvas");
+    baseCanvas.className = "interactive-background-canvas interactive-background-base";
+    baseCanvas.setAttribute("aria-hidden", "true");
+    board.insertBefore(baseCanvas, workspace);
+    interactiveBackgroundState.baseCanvas = baseCanvas;
+    interactiveBackgroundState.baseContext = baseCanvas.getContext("2d");
+  }
+
+  if (!interactiveBackgroundState.overlayCanvas) {
+    const overlayCanvas = document.createElement("canvas");
+    overlayCanvas.className = "interactive-background-canvas interactive-background-overlay";
+    overlayCanvas.setAttribute("aria-hidden", "true");
+    board.insertBefore(overlayCanvas, selectionBox || workspace.nextSibling);
+    interactiveBackgroundState.overlayCanvas = overlayCanvas;
+    interactiveBackgroundState.overlayContext = overlayCanvas.getContext("2d");
+  }
+
+  return Boolean(interactiveBackgroundState.baseContext && interactiveBackgroundState.overlayContext);
+}
+
+function resizeInteractiveBackgroundCanvas(canvas) {
+  if (!canvas) {
+    return { width: 0, height: 0, dpr: 1 };
+  }
+
+  const rect = board.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, interactiveBackgroundMaxDpr);
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  canvas.style.width = `${rect.width}px`;
+  canvas.style.height = `${rect.height}px`;
+
+  return { width: rect.width, height: rect.height, dpr };
+}
+
+function getInteractiveBackgroundQualityProfile() {
+  const quality = state.settings?.interactiveBackgroundQuality || defaultSettings.interactiveBackgroundQuality;
+  return interactiveBackgroundQualityProfiles[quality] || interactiveBackgroundQualityProfiles.off;
+}
+
+function getInteractiveBackgroundConfig() {
+  try {
+    return getVisualTheme().interactiveBackground || defaultVisualTheme.interactiveBackground;
+  } catch {
+    return defaultVisualTheme.interactiveBackground;
+  }
+}
+
+function isInteractiveBackgroundEnabled() {
+  if (isOverlayWindow || document.hidden) {
+    return false;
+  }
+
+  const config = getInteractiveBackgroundConfig();
+  const profile = getInteractiveBackgroundQualityProfile();
+  return Boolean(config.enabled && profile.fps > 0);
+}
+
+function getInteractiveBackgroundConfigKey(config = getInteractiveBackgroundConfig()) {
+  return JSON.stringify({
+    quality: state.settings?.interactiveBackgroundQuality || defaultSettings.interactiveBackgroundQuality,
+    background: config.background,
+    actors: config.actors,
+    reactions: config.reactions,
+    cardEffects: config.cardEffects,
+    fps: config.fps
+  });
+}
+
+function setInteractiveBackgroundLayersVisible(visible) {
+  [interactiveBackgroundState.baseCanvas, interactiveBackgroundState.overlayCanvas].forEach((canvas) => {
+    if (canvas) {
+      canvas.hidden = !visible;
+    }
+  });
+}
+
+function stopInteractiveBackgroundEngine() {
+  if (interactiveBackgroundState.raf) {
+    cancelAnimationFrame(interactiveBackgroundState.raf);
+    interactiveBackgroundState.raf = 0;
+  }
+  interactiveBackgroundState.lastFrameAt = 0;
+  setInteractiveBackgroundLayersVisible(false);
+}
+
+function resolveInteractiveBackgroundAsset(ref, collection) {
+  if (!ref) {
+    return "";
+  }
+
+  const asset = getVisualTheme().assets?.[collection]?.[ref] || "";
+  return typeof asset === "string" && asset.startsWith("data:image/") ? asset : "";
+}
+
+function getInteractiveBackgroundImage(ref, collection) {
+  const source = resolveInteractiveBackgroundAsset(ref, collection);
+  if (!source) {
+    return null;
+  }
+
+  if (!interactiveBackgroundState.images.has(source)) {
+    const image = new Image();
+    const record = { image, loaded: false };
+    image.onload = () => {
+      record.loaded = true;
+    };
+    image.onerror = () => {
+      record.loaded = false;
+    };
+    image.src = source;
+    interactiveBackgroundState.images.set(source, record);
+  }
+
+  return interactiveBackgroundState.images.get(source);
+}
+
+function createInteractiveBackgroundActor(definition, index) {
+  const bounds = getVisibleWorldBounds(240);
+  const width = Math.max(1, bounds.right - bounds.left);
+  const height = Math.max(1, bounds.bottom - bounds.top);
+  const angle = Math.random() * Math.PI * 2;
+  const speed = definition.speed || 30;
+  const now = performance.now();
+
+  const actor = {
+    id: `${definition.id}-${index}`,
+    definition,
+    x: bounds.left + (Math.random() * width),
+    y: bounds.top + (Math.random() * height),
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    direction: "right",
+    pose: "idle",
+    poseStartedAt: now,
+    animationMemory: {
+      randomSets: {}
+    },
+    interactionMemory: {
+      follow: null,
+      gather: null,
+      cooldowns: new Map()
+    },
+    forcedPose: "",
+    forcedPoseUntil: 0,
+    transition: null,
+    phase: Math.random() * Math.PI * 2,
+    targetCardId: "",
+    pauseUntil: 0,
+    surfaceState: "idle",
+    surfaceStateStartedAt: now,
+    surfaceRoute: null,
+    surfaceRouteIndex: 0,
+    surfaceDirection: 1,
+    surfaceTarget: null,
+    nextConnectionSnapAt: 0,
+    returnTarget: null,
+    restTarget: null,
+    restUntil: 0,
+    nextRestAt: now + getRandomRangeValue(definition.rest?.intervalMs, 16000)
+  };
+  if (definition.behavior === "surfaceWanderAndMouseHunt") {
+    pickInteractiveActorSurfaceRoute(actor);
+  }
+  return actor;
+}
+
+function resetInteractiveBackgroundScene(config = getInteractiveBackgroundConfig(), profile = getInteractiveBackgroundQualityProfile()) {
+  const actors = [];
+  config.actors.forEach((definition) => {
+    for (let index = 0; index < definition.count && actors.length < profile.maxActors; index += 1) {
+      actors.push(createInteractiveBackgroundActor(definition, index));
+    }
+  });
+
+  interactiveBackgroundState.actors = actors;
+  interactiveBackgroundState.particles = [];
+  interactiveBackgroundState.reactionCooldowns.clear();
+  interactiveBackgroundState.images.clear();
+}
+
+function isThemeCardEffectEnabled(action) {
+  if (!isInteractiveBackgroundEnabled()) {
+    return false;
+  }
+
+  const effect = getInteractiveBackgroundConfig().cardEffects?.[action];
+  return Boolean(effect?.enabled);
+}
+
+function getThemeCardEffect(action) {
+  return getInteractiveBackgroundConfig().cardEffects?.[action] || defaultVisualTheme.interactiveBackground.cardEffects[action];
+}
+
+function snapshotThemeEffectCard(card) {
+  if (!card) {
+    const center = getVisibleWorldCenter();
+    return {
+      id: "",
+      kind: "",
+      tags: [],
+      x: center.x - 60,
+      y: center.y - 40,
+      width: 120,
+      height: 80
+    };
+  }
+
+  return {
+    id: card.id,
+    kind: card.kind,
+    tags: Array.isArray(card.tags) ? [...card.tags] : [],
+    x: card.x,
+    y: card.y,
+    width: card.width,
+    height: card.height
+  };
+}
+
+function resolveThemeEffectAnchor(anchor, card) {
+  const safeAnchor = anchor || "card.center";
+  if (safeAnchor === "board.cursor" && interactiveBackgroundState.mouse.active) {
+    return {
+      x: interactiveBackgroundState.mouse.worldX,
+      y: interactiveBackgroundState.mouse.worldY
+    };
+  }
+  if (safeAnchor === "board.visibleCenter") {
+    return getVisibleWorldCenter();
+  }
+
+  const target = card || snapshotThemeEffectCard(null);
+  const left = target.x;
+  const top = target.y;
+  const right = target.x + target.width;
+  const bottom = target.y + target.height;
+  const centerX = target.x + target.width / 2;
+  const centerY = target.y + target.height / 2;
+  switch (safeAnchor) {
+    case "card.top":
+      return { x: centerX, y: top };
+    case "card.right":
+      return { x: right, y: centerY };
+    case "card.bottom":
+      return { x: centerX, y: bottom };
+    case "card.left":
+      return { x: left, y: centerY };
+    case "card.topLeft":
+      return { x: left, y: top };
+    case "card.topRight":
+      return { x: right, y: top };
+    case "card.bottomRight":
+      return { x: right, y: bottom };
+    case "card.bottomLeft":
+      return { x: left, y: bottom };
+    case "card":
+    case "card.center":
+    default:
+      return { x: centerX, y: centerY };
+  }
+}
+
+function createThemeEffectParticles(effect) {
+  const count = clamp(Math.round(effect.count || 24), 1, 120);
+  const spread = Math.max(0, effect.spread || 140);
+  return Array.from({ length: count }, () => ({
+    angle: Math.random() * Math.PI * 2,
+    distance: spread * (0.35 + Math.random() * 0.65),
+    radius: 1.5 + Math.random() * 3.5,
+    phase: Math.random() * Math.PI * 2,
+    alpha: 0.45 + Math.random() * 0.55
+  }));
+}
+
+function queueInteractiveVisualEffect(action, card, effect, options = {}) {
+  if (!effect?.enabled || !isInteractiveBackgroundEnabled()) {
+    return;
+  }
+
+  const cardSnapshot = snapshotThemeEffectCard(card);
+  const visualDelayMs = options.visualDelayMs ?? effect.delayMs ?? 0;
+  interactiveBackgroundState.cardEffects.push({
+    id: createId(`theme-effect-${action}`),
+    action,
+    effect,
+    card: cardSnapshot,
+    anchor: resolveThemeEffectAnchor(effect.anchor, cardSnapshot),
+    startedAt: performance.now() + visualDelayMs,
+    delayMs: options.delayMs ?? effect.delayMs ?? 0,
+    visualDelayMs,
+    durationMs: effect.durationMs,
+    particles: effect.type === "particleBurst" ? createThemeEffectParticles(effect) : []
+  });
+  syncInteractiveBackgroundEngine();
+}
+
+function queueInteractiveCardEffect(action, card, options = {}) {
+  const effect = getThemeCardEffect(action);
+  queueInteractiveVisualEffect(action, card, effect, {
+    ...options,
+    visualDelayMs: 0
+  });
+}
+
+function emitThemeInteractionEvent(eventName, payload = {}) {
+  if (!isInteractiveBackgroundEnabled()) {
+    return;
+  }
+
+  const config = getInteractiveBackgroundConfig();
+  const reactions = Array.isArray(config.reactions) ? config.reactions : [];
+  if (reactions.length === 0) {
+    return;
+  }
+
+  const card = payload.card ? snapshotThemeEffectCard(payload.card) : null;
+  const event = { name: eventName, card };
+  const now = performance.now();
+  reactions.forEach((reaction, index) => {
+    const matches = themeValidation.doesThemeReactionMatch
+      ? themeValidation.doesThemeReactionMatch(reaction, event)
+      : reaction.when === eventName;
+    if (!matches) {
+      return;
+    }
+
+    const cooldownKey = `${eventName}:${reaction.id || index}:${card?.id || "board"}`;
+    const lastTriggeredAt = interactiveBackgroundState.reactionCooldowns.get(cooldownKey) || 0;
+    if (reaction.cooldownMs > 0 && now - lastTriggeredAt < reaction.cooldownMs) {
+      return;
+    }
+
+    interactiveBackgroundState.reactionCooldowns.set(cooldownKey, now);
+    queueInteractiveVisualEffect(eventName, card, reaction.do, {
+      visualDelayMs: reaction.do.delayMs
+    });
+  });
+}
+
+function pruneInteractiveCardEffects(now) {
+  interactiveBackgroundState.cardEffects = interactiveBackgroundState.cardEffects.filter((entry) => {
+    const totalDuration = Math.max(entry.delayMs || 0, entry.durationMs || 0) + 120;
+    return now - entry.startedAt <= totalDuration;
+  });
+}
+
+function syncInteractiveBackgroundEngine() {
+  if (!isInteractiveBackgroundEnabled()) {
+    stopInteractiveBackgroundEngine();
+    return;
+  }
+
+  if (!ensureInteractiveBackgroundLayers()) {
+    stopInteractiveBackgroundEngine();
+    return;
+  }
+
+  const config = getInteractiveBackgroundConfig();
+  const profile = getInteractiveBackgroundQualityProfile();
+  const configKey = getInteractiveBackgroundConfigKey(config);
+  if (configKey !== interactiveBackgroundState.lastConfigKey) {
+    interactiveBackgroundState.lastConfigKey = configKey;
+    resetInteractiveBackgroundScene(config, profile);
+  }
+
+  setInteractiveBackgroundLayersVisible(true);
+  if (!interactiveBackgroundState.raf) {
+    interactiveBackgroundState.raf = requestAnimationFrame(drawInteractiveBackgroundFrame);
+  }
+}
+
+function getInteractiveBackgroundGeometryKey() {
+  return JSON.stringify({
+    cards: state.cards.map((card) => [
+      card.id,
+      card.kind,
+      Math.round(card.x),
+      Math.round(card.y),
+      Math.round(card.width),
+      Math.round(card.height)
+    ]),
+    connections: state.connections.map((connection) => [
+      connection.id,
+      connection.pathStyle,
+      connection.from,
+      connection.to,
+      connection.points
+    ])
+  });
+}
+
+function createInteractiveCardRoute(card, area = "perimeter") {
+  const inset = 4;
+  const tokens = getVisualTheme().tokens || defaultVisualTheme.tokens;
+  const headerHeight = card.kind === "group" ? tokens.groupHeaderHeight : tokens.cardHeaderHeight;
+  const safeHeaderBottom = clamp(card.y + Math.max(8, headerHeight) - inset, card.y + inset, card.y + card.height - inset);
+  if (area === "header") {
+    const y = card.y + Math.max(inset, Math.min(headerHeight * 0.5, card.height - inset));
+    return {
+      id: `card-header:${card.id}`,
+      type: "card",
+      cardId: card.id,
+      cardArea: "header",
+      points: [
+        { x: card.x + inset, y },
+        { x: card.x + card.width - inset, y }
+      ]
+    };
+  }
+  if (area === "body") {
+    return {
+      id: `card-body:${card.id}`,
+      type: "card",
+      cardId: card.id,
+      cardArea: "body",
+      points: [
+        { x: card.x + inset, y: safeHeaderBottom },
+        { x: card.x + card.width - inset, y: safeHeaderBottom },
+        { x: card.x + card.width - inset, y: card.y + card.height - inset },
+        { x: card.x + inset, y: card.y + card.height - inset },
+        { x: card.x + inset, y: safeHeaderBottom }
+      ]
+    };
+  }
+  return {
+    id: `card:${card.id}`,
+    type: "card",
+    cardId: card.id,
+    points: [
+      { x: card.x + inset, y: card.y + inset },
+      { x: card.x + card.width - inset, y: card.y + inset },
+      { x: card.x + card.width - inset, y: card.y + card.height - inset },
+      { x: card.x + inset, y: card.y + card.height - inset },
+      { x: card.x + inset, y: card.y + inset }
+    ]
+  };
+}
+
+function createInteractiveConnectionRoute(connection) {
+  const points = getConnectionRouteGeometry(connection)?.points || [];
+  if (points.length < 2) {
+    return null;
+  }
+
+  return {
+    id: `connection:${connection.id}`,
+    type: "connection",
+    connectionId: connection.id,
+    points: points.map((point) => ({ x: point.x, y: point.y }))
+  };
+}
+
+function rebuildInteractiveBackgroundGeometry() {
+  const cards = state.cards
+    .filter((card) => card && card.width > 0 && card.height > 0)
+    .map((card) => ({
+      id: card.id,
+      kind: card.kind,
+      x: card.x,
+      y: card.y,
+      width: card.width,
+      height: card.height
+    }));
+  const cardRoutes = cards.map((card) => createInteractiveCardRoute(card));
+  const connectionRoutes = state.connections
+    .map((connection) => createInteractiveConnectionRoute(connection))
+    .filter(Boolean);
+
+  interactiveBackgroundState.geometry = {
+    key: getInteractiveBackgroundGeometryKey(),
+    version: interactiveBackgroundState.geometry.version + 1,
+    cards,
+    cardRoutes,
+    connectionRoutes
+  };
+  return interactiveBackgroundState.geometry;
+}
+
+function getInteractiveBackgroundGeometry() {
+  const key = getInteractiveBackgroundGeometryKey();
+  if (interactiveBackgroundState.geometry.key !== key) {
+    return rebuildInteractiveBackgroundGeometry();
+  }
+  return interactiveBackgroundState.geometry;
+}
+
+function getRandomRangeValue(range, fallback = 0) {
+  if (!Array.isArray(range) || range.length < 2) {
+    return fallback;
+  }
+  const min = Number(range[0]);
+  const max = Number(range[1]);
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return fallback;
+  }
+  return min + Math.random() * Math.max(0, max - min);
+}
+
+function pickRandomItem(items) {
+  return items.length ? items[Math.floor(Math.random() * items.length)] : null;
+}
+
+function getInteractiveSurfaceRouteType(route) {
+  return route?.type || "board";
+}
+
+function getInteractiveSurfaceTransitionKind(fromRoute, toRoute) {
+  const fromType = getInteractiveSurfaceRouteType(fromRoute);
+  const toType = getInteractiveSurfaceRouteType(toRoute);
+  if (fromType === "card" && toType === "connection") {
+    return "dropDown";
+  }
+  if (fromType === "connection" && toType === "card") {
+    return "climbUp";
+  }
+  if (fromType === "card" && toType === "board") {
+    return "dropDown";
+  }
+  if (fromType === "board" && toType === "card") {
+    return "climbUp";
+  }
+  return "jump";
+}
+
+function getInteractiveSurfaceTransitionDistanceLimit(transitions, fromRoute, toRoute, kind) {
+  const fromType = getInteractiveSurfaceRouteType(fromRoute);
+  const toType = getInteractiveSurfaceRouteType(toRoute);
+  if (fromType === "card" && toType === "connection") {
+    return transitions.cardToConnectionDistance;
+  }
+  if (fromType === "connection" && toType === "card") {
+    return transitions.connectionToCardDistance;
+  }
+  if (kind === "climbUp" || kind === "dropDown") {
+    return Math.max(transitions.cardToConnectionDistance, transitions.connectionToCardDistance);
+  }
+  return transitions.maxJumpDistance;
+}
+
+function getInteractiveSurfaceTransitionDuration(transitions, kind) {
+  if (kind === "climbUp") {
+    return transitions.climbDurationMs;
+  }
+  if (kind === "dropDown") {
+    return transitions.dropDurationMs;
+  }
+  return transitions.jumpDurationMs;
+}
+
+function maybeStartInteractiveActorSurfaceTransition(actor, fromRoute, toRoute, fromPoint, toPoint) {
+  const transitions = actor.definition.transitions || {};
+  if (!transitions.enabled || !fromRoute || !toPoint || actor.transition) {
+    return false;
+  }
+
+  const routeChanged = fromRoute?.id !== toRoute?.id || getInteractiveSurfaceRouteType(fromRoute) !== getInteractiveSurfaceRouteType(toRoute);
+  if (!routeChanged) {
+    return false;
+  }
+
+  const from = {
+    x: Number.isFinite(actor.x) ? actor.x : fromPoint?.x || 0,
+    y: Number.isFinite(actor.y) ? actor.y : fromPoint?.y || 0
+  };
+  const to = {
+    x: toPoint.x,
+    y: toPoint.y
+  };
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const kind = getInteractiveSurfaceTransitionKind(fromRoute, toRoute);
+  const distanceLimit = getInteractiveSurfaceTransitionDistanceLimit(transitions, fromRoute, toRoute, kind);
+  if (!Number.isFinite(distance) || distance > distanceLimit) {
+    return false;
+  }
+
+  actor.transition = {
+    kind,
+    from,
+    to,
+    startedAt: performance.now(),
+    durationMs: getInteractiveSurfaceTransitionDuration(transitions, kind),
+    arcHeight: kind === "jump" ? transitions.jumpArcHeight : Math.min(transitions.jumpArcHeight, 60),
+    animations: transitions.animations || {}
+  };
+  return true;
+}
+
+function getRandomVisibleWorldPoint(padding = 160) {
+  const bounds = getVisibleWorldBounds(padding);
+  return {
+    x: bounds.left + Math.random() * Math.max(1, bounds.right - bounds.left),
+    y: bounds.top + Math.random() * Math.max(1, bounds.bottom - bounds.top)
+  };
+}
+
+function getInteractiveActorAvailableRoutes(actor) {
+  const geometry = getInteractiveBackgroundGeometry();
+  const surfaces = actor.definition.surfaces || {};
+  const cardArea = ["perimeter", "header", "body"].includes(surfaces.cardArea) ? surfaces.cardArea : "perimeter";
+  return [
+    ...(surfaces.cards === false ? [] : geometry.cards.map((card) => createInteractiveCardRoute(card, cardArea))),
+    ...(surfaces.connections === false ? [] : geometry.connectionRoutes)
+  ].filter((route) => route.points.length >= 2);
+}
+
+function pickInteractiveActorSurfaceRoute(actor) {
+  const previousRoute = actor.surfaceRoute;
+  const previousTarget = actor.surfaceTarget ? { ...actor.surfaceTarget } : { x: actor.x, y: actor.y };
+  const route = pickRandomItem(getInteractiveActorAvailableRoutes(actor));
+  if (!route) {
+    actor.surfaceRoute = null;
+    actor.surfaceRouteIndex = 0;
+    actor.surfaceDirection = 1;
+    actor.surfaceTarget = getRandomVisibleWorldPoint();
+    maybeStartInteractiveActorSurfaceTransition(actor, previousRoute, actor.surfaceRoute, previousTarget, actor.surfaceTarget);
+    return actor.surfaceTarget;
+  }
+
+  const direction = Math.random() < 0.5 ? -1 : 1;
+  const index = Math.floor(Math.random() * route.points.length);
+  actor.surfaceRoute = route;
+  actor.surfaceRouteIndex = index;
+  actor.surfaceDirection = direction;
+  actor.surfaceTarget = route.points[index];
+  maybeStartInteractiveActorSurfaceTransition(actor, previousRoute, actor.surfaceRoute, previousTarget, actor.surfaceTarget);
+  return actor.surfaceTarget;
+}
+
+function advanceInteractiveActorSurfaceTarget(actor) {
+  const route = actor.surfaceRoute;
+  const surfaces = actor.definition.surfaces || {};
+  const previousRoute = actor.surfaceRoute;
+  const previousTarget = actor.surfaceTarget ? { ...actor.surfaceTarget } : { x: actor.x, y: actor.y };
+  if (!route || !route.points?.length) {
+    if (surfaces.board === false) {
+      return pickInteractiveActorSurfaceRoute(actor);
+    }
+    actor.surfaceTarget = getRandomVisibleWorldPoint();
+    maybeStartInteractiveActorSurfaceTransition(actor, previousRoute, actor.surfaceRoute, previousTarget, actor.surfaceTarget);
+    return actor.surfaceTarget;
+  }
+
+  actor.surfaceRouteIndex += actor.surfaceDirection || 1;
+  if (actor.surfaceRouteIndex < 0 || actor.surfaceRouteIndex >= route.points.length) {
+    if (route.type === "card") {
+      actor.surfaceDirection *= -1;
+      actor.surfaceRouteIndex = clamp(actor.surfaceRouteIndex, 0, route.points.length - 1);
+    } else {
+      return pickInteractiveActorSurfaceRoute(actor);
+    }
+  }
+
+  actor.surfaceTarget = route.points[actor.surfaceRouteIndex];
+  maybeStartInteractiveActorSurfaceTransition(actor, previousRoute, actor.surfaceRoute, previousTarget, actor.surfaceTarget);
+  return actor.surfaceTarget;
+}
+
+function chooseInteractiveCardEdge(card, actor, configuredEdge = "auto") {
+  if (configuredEdge !== "auto") {
+    return configuredEdge;
+  }
+  const edges = ["top", "right", "bottom", "left"];
+  const seed = Math.abs(Math.sin(actor.phase + Date.now() / 1000));
+  return edges[Math.floor(seed * edges.length) % edges.length];
+}
+
+function getInteractiveBackgroundCardEdgeTarget(actor) {
+  const geometry = getInteractiveBackgroundGeometry();
+  const cards = geometry.cards.filter((card) => card.kind !== "group");
+  const card = pickRandomItem(cards.length ? cards : geometry.cards);
+  if (!card) {
+    return null;
+  }
+
+  const rest = actor.definition.rest;
+  const edge = chooseInteractiveCardEdge(card, actor, rest.edge);
+  const tValue = 0.2 + Math.random() * 0.6;
+  let x = card.x + card.width * tValue;
+  let y = card.y;
+
+  if (edge === "right") {
+    x = card.x + card.width;
+    y = card.y + card.height * tValue;
+  } else if (edge === "bottom") {
+    x = card.x + card.width * tValue;
+    y = card.y + card.height;
+  } else if (edge === "left") {
+    x = card.x;
+    y = card.y + card.height * tValue;
+  }
+
+  return {
+    x: x + rest.offsetX,
+    y: y + rest.offsetY,
+    cardId: card.id,
+    edge
+  };
+}
+
+function projectPointOnSegment(point, start, end) {
+  const lengthSquared = (end.x - start.x) ** 2 + (end.y - start.y) ** 2;
+  if (lengthSquared <= 0.0001) {
+    return {
+      x: start.x,
+      y: start.y,
+      ratio: 0,
+      distance: Math.hypot(point.x - start.x, point.y - start.y)
+    };
+  }
+
+  const ratio = clamp(
+    ((point.x - start.x) * (end.x - start.x) + (point.y - start.y) * (end.y - start.y)) / lengthSquared,
+    0,
+    1
+  );
+  const projection = {
+    x: start.x + (end.x - start.x) * ratio,
+    y: start.y + (end.y - start.y) * ratio
+  };
+  return {
+    ...projection,
+    ratio,
+    distance: Math.hypot(point.x - projection.x, point.y - projection.y)
+  };
+}
+
+function snapInteractiveActorToConnectionRoute(actor, now) {
+  const surfaces = actor.definition.surfaces || {};
+  const snapDistance = Number(surfaces.connectionSnapDistance) || 0;
+  if (surfaces.connections === false || snapDistance <= 0 || now < actor.nextConnectionSnapAt) {
+    return false;
+  }
+
+  actor.nextConnectionSnapAt = now + 800;
+  const geometry = getInteractiveBackgroundGeometry();
+  let best = null;
+  geometry.connectionRoutes.forEach((route) => {
+    for (let index = 0; index < route.points.length - 1; index += 1) {
+      const projection = projectPointOnSegment(actor, route.points[index], route.points[index + 1]);
+      if (projection.distance <= snapDistance && (!best || projection.distance < best.distance)) {
+        best = { route, index, projection };
+      }
+    }
+  });
+
+  if (!best) {
+    return false;
+  }
+
+  const previousRoute = actor.surfaceRoute;
+  const previousTarget = actor.surfaceTarget ? { ...actor.surfaceTarget } : { x: actor.x, y: actor.y };
+  actor.surfaceRoute = best.route;
+  actor.surfaceRouteIndex = best.projection.ratio > 0.5 ? best.index + 1 : best.index;
+  actor.surfaceDirection = best.projection.ratio > 0.5 ? 1 : -1;
+  actor.surfaceTarget = { x: best.projection.x, y: best.projection.y };
+  maybeStartInteractiveActorSurfaceTransition(actor, previousRoute, actor.surfaceRoute, previousTarget, actor.surfaceTarget);
+  return true;
+}
+
+function getInteractiveBackgroundCards() {
+  return state.cards.filter((card) => card && card.kind !== "group" && card.width > 0 && card.height > 0);
+}
+
+function pickInteractiveBackgroundCard() {
+  const cards = getInteractiveBackgroundCards();
+  return cards.length ? cards[Math.floor(Math.random() * cards.length)] : null;
+}
+
+function getInteractiveBackgroundCardById(id) {
+  return state.cards.find((card) => card.id === id) || null;
+}
+
+function getInteractiveBackgroundCardTarget(actor, edge = "top") {
+  let card = getInteractiveBackgroundCardById(actor.targetCardId);
+  if (!card) {
+    card = pickInteractiveBackgroundCard();
+    actor.targetCardId = card?.id || "";
+  }
+  if (!card) {
+    return null;
+  }
+
+  if (edge === "center") {
+    return {
+      x: card.x + (card.width / 2),
+      y: card.y + (card.height / 2),
+      card
+    };
+  }
+
+  return {
+    x: card.x + clamp(card.width * (0.2 + ((actor.phase % 1) * 0.6)), 0, card.width),
+    y: card.y - (actor.definition.height * 0.24),
+    card
+  };
+}
+
+function getInteractiveActorPose(actor, key, fallback = "idle") {
+  const reactions = actor.definition.reactions || {};
+  if (reactions[key]) {
+    return reactions[key];
+  }
+  const fallbackKeys = Array.isArray(fallback) ? fallback : [fallback];
+  for (const fallbackKey of fallbackKeys) {
+    if (reactions[fallbackKey]) {
+      return reactions[fallbackKey];
+    }
+  }
+  return fallbackKeys[0] || "idle";
+}
+
+function setInteractiveActorPose(actor, pose, now) {
+  const nextPose = pose || "idle";
+  if (actor.pose === nextPose) {
+    return;
+  }
+
+  actor.pose = nextPose;
+  actor.poseStartedAt = now;
+}
+
+function updateInteractiveActorDirection(actor, previousX, previousY = actor.y) {
+  const deltaX = actor.x - previousX;
+  const deltaY = actor.y - previousY;
+  if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 0.001) {
+    actor.direction = deltaX < 0 ? "left" : "right";
+  } else if (Math.abs(deltaY) > 0.001) {
+    actor.direction = deltaY < 0 ? "up" : "down";
+  }
+}
+
+function moveInteractiveActorToward(actor, target, dt, speed) {
+  const previousX = actor.x;
+  const previousY = actor.y;
+  const dx = target.x - actor.x;
+  const dy = target.y - actor.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance < 1) {
+    return true;
+  }
+
+  const step = Math.min(distance, Math.max(0, speed) * dt);
+  actor.x += (dx / distance) * step;
+  actor.y += (dy / distance) * step;
+  updateInteractiveActorDirection(actor, previousX, previousY);
+  return distance <= Math.max(4, step + 2);
+}
+
+function updateInteractiveBackgroundWander(actor, dt) {
+  const previousX = actor.x;
+  const previousY = actor.y;
+  const bounds = getVisibleWorldBounds(420);
+  actor.x += actor.vx * dt;
+  actor.y += actor.vy * dt;
+  updateInteractiveActorDirection(actor, previousX, previousY);
+
+  if (actor.x < bounds.left || actor.x > bounds.right) {
+    actor.vx *= -1;
+    actor.x = clamp(actor.x, bounds.left, bounds.right);
+  }
+  if (actor.y < bounds.top || actor.y > bounds.bottom) {
+    actor.vy *= -1;
+    actor.y = clamp(actor.y, bounds.top, bounds.bottom);
+  }
+
+  if (Math.random() < dt * 0.18) {
+    const angle = Math.atan2(actor.vy, actor.vx) + ((Math.random() - 0.5) * 0.8);
+    const speed = actor.definition.speed || 30;
+    actor.vx = Math.cos(angle) * speed;
+    actor.vy = Math.sin(angle) * speed;
+  }
+}
+
+function getInteractiveActorTransitionPose(actor, progress) {
+  const transition = actor.transition || {};
+  const animations = transition.animations || {};
+  if (transition.kind === "climbUp") {
+    return getInteractiveActorPose(actor, "climbUp", [animations.climbUp || "climbUp", "jump", "moving", "default", "walk"]);
+  }
+  if (transition.kind === "dropDown") {
+    return getInteractiveActorPose(actor, "dropDown", [animations.dropDown || "dropDown", "jump", "moving", "default", "walk"]);
+  }
+  if (progress < 0.2) {
+    return getInteractiveActorPose(actor, "jumpStart", [animations.jumpStart || "jumpStart", "jump", "moving", "default", "walk"]);
+  }
+  if (progress > 0.82) {
+    return getInteractiveActorPose(actor, "land", [animations.land || "land", "jump", "moving", "default", "walk"]);
+  }
+  return getInteractiveActorPose(actor, "jumpAir", [animations.jumpAir || "jumpAir", "jump", "moving", "default", "walk"]);
+}
+
+function updateInteractiveActorSurfaceTransition(actor, now) {
+  const transition = actor.transition;
+  if (!transition) {
+    return false;
+  }
+
+  const duration = Math.max(120, transition.durationMs || 650);
+  const progress = clamp((now - transition.startedAt) / duration, 0, 1);
+  const previousX = actor.x;
+  const previousY = actor.y;
+  actor.x = transition.from.x + (transition.to.x - transition.from.x) * progress;
+  actor.y = transition.from.y + (transition.to.y - transition.from.y) * progress;
+  if (transition.kind === "jump") {
+    actor.y -= Math.sin(progress * Math.PI) * transition.arcHeight;
+  } else if (transition.kind === "climbUp") {
+    actor.y -= Math.sin(progress * Math.PI) * transition.arcHeight * 0.35;
+  } else if (transition.kind === "dropDown") {
+    actor.y += Math.sin(progress * Math.PI) * transition.arcHeight * 0.25;
+  }
+  updateInteractiveActorDirection(actor, previousX, previousY);
+  setInteractiveActorPose(actor, getInteractiveActorTransitionPose(actor, progress), now);
+
+  if (progress >= 1) {
+    actor.x = transition.to.x;
+    actor.y = transition.to.y;
+    actor.transition = null;
+  }
+  return true;
+}
+
+function getInteractiveActorDistance(a, b) {
+  return Math.hypot((a?.x || 0) - (b?.x || 0), (a?.y || 0) - (b?.y || 0));
+}
+
+function getInteractiveActorInteractionKey(interaction, suffix = "") {
+  return `${interaction.id || interaction.type}${suffix ? `:${suffix}` : ""}`;
+}
+
+function isInteractiveInteractionCoolingDown(actor, interaction, now, suffix = "") {
+  const key = getInteractiveActorInteractionKey(interaction, suffix);
+  const lastAt = actor.interactionMemory?.cooldowns?.get(key) || 0;
+  return interaction.cooldownMs > 0 && now - lastAt < interaction.cooldownMs;
+}
+
+function setInteractiveInteractionCooldown(actor, interaction, now, suffix = "") {
+  const key = getInteractiveActorInteractionKey(interaction, suffix);
+  actor.interactionMemory?.cooldowns?.set(key, now);
+}
+
+function findInteractiveActorById(id) {
+  if (!id) {
+    return null;
+  }
+  return interactiveBackgroundState.actors.find((actor) => actor.id === id) || null;
+}
+
+function getInteractiveActorCandidates(actor, interaction) {
+  const target = interaction.target || "sameKind";
+  return interactiveBackgroundState.actors.filter((candidate) => {
+    if (candidate === actor) {
+      return false;
+    }
+    if (target === "any") {
+      return true;
+    }
+    if (target === "sameKind") {
+      return candidate.definition.id === actor.definition.id;
+    }
+    return candidate.id === target || candidate.definition.id === target;
+  });
+}
+
+function pickInteractiveActorCandidate(actor, interaction) {
+  const candidates = getInteractiveActorCandidates(actor, interaction);
+  return pickRandomItem(candidates);
+}
+
+function isInteractiveActorMousePriority(actor, now) {
+  if (!interactiveBackgroundState.mouse.active || now - interactiveBackgroundState.mouse.lastMoveAt > 6000) {
+    return false;
+  }
+  const distance = Math.hypot(interactiveBackgroundState.mouse.worldX - actor.x, interactiveBackgroundState.mouse.worldY - actor.y);
+  const radius = actor.definition.mouse?.noticeRadius || actor.definition.mouseInterestRadius || 0;
+  return radius > 0 && distance <= radius;
+}
+
+function applyInteractiveActorAvoidance(actor, interaction, dt) {
+  const radius = Math.max(1, interaction.radius || 48);
+  const strength = Math.max(0, interaction.strength || 0.6);
+  if (strength <= 0) {
+    return;
+  }
+
+  const previousX = actor.x;
+  const previousY = actor.y;
+  getInteractiveActorCandidates(actor, { ...interaction, target: interaction.target || "any" }).forEach((other) => {
+    const dx = actor.x - other.x;
+    const dy = actor.y - other.y;
+    const distance = Math.max(0.001, Math.hypot(dx, dy));
+    if (distance >= radius) {
+      return;
+    }
+    const push = ((radius - distance) / radius) * strength * 70 * dt;
+    actor.x += (dx / distance) * push;
+    actor.y += (dy / distance) * push;
+  });
+  updateInteractiveActorDirection(actor, previousX, previousY);
+}
+
+function setInteractiveActorForcedPose(actor, pose, until, now) {
+  actor.forcedPose = pose || "";
+  actor.forcedPoseUntil = until || 0;
+  if (actor.forcedPose && until > now) {
+    setInteractiveActorPose(actor, actor.forcedPose, now);
+  }
+}
+
+function tryInteractiveActorGreeting(actor, interaction, now) {
+  if (isInteractiveInteractionCoolingDown(actor, interaction, now)) {
+    return false;
+  }
+
+  const candidates = getInteractiveActorCandidates(actor, interaction)
+    .filter((candidate) => getInteractiveActorDistance(actor, candidate) <= interaction.radius)
+    .filter((candidate) => !isInteractiveInteractionCoolingDown(candidate, interaction, now, actor.id));
+  const other = pickRandomItem(candidates);
+  if (!other) {
+    return false;
+  }
+
+  const duration = getRandomRangeValue(interaction.durationMs, 1200);
+  const until = now + Math.min(duration, 6000);
+  setInteractiveActorForcedPose(actor, interaction.selfAnimation, until, now);
+  setInteractiveActorForcedPose(other, interaction.otherAnimation, until, now);
+  setInteractiveInteractionCooldown(actor, interaction, now);
+  setInteractiveInteractionCooldown(other, interaction, now, actor.id);
+  return true;
+}
+
+function updateInteractiveActorFollow(actor, interaction, dt, now) {
+  const memory = actor.interactionMemory;
+  let follow = memory.follow;
+  let target = follow && follow.until > now ? findInteractiveActorById(follow.targetActorId) : null;
+  if (!target && Math.random() < interaction.chance * dt && !isInteractiveInteractionCoolingDown(actor, interaction, now)) {
+    target = pickInteractiveActorCandidate(actor, interaction);
+    if (target) {
+      follow = {
+        targetActorId: target.id,
+        until: now + getRandomRangeValue(interaction.durationMs, 6000)
+      };
+      memory.follow = follow;
+      setInteractiveInteractionCooldown(actor, interaction, now);
+    }
+  }
+
+  if (!target) {
+    if (follow) {
+      memory.follow = null;
+    }
+    return false;
+  }
+
+  const distance = getInteractiveActorDistance(actor, target);
+  if (distance > interaction.distance) {
+    moveInteractiveActorToward(actor, target, dt, actor.definition.speed * 1.1);
+    setInteractiveActorPose(actor, getInteractiveActorPose(actor, "moving", ["default", "walk"]), now);
+  } else {
+    setInteractiveActorPose(actor, getInteractiveActorPose(actor, "default", "idle"), now);
+  }
+  return true;
+}
+
+function getInteractiveCardAnchorPoint(card, anchor = "card.center", actorIndex = 0, spacing = 48) {
+  const safeCard = card || pickInteractiveBackgroundCard();
+  if (!safeCard) {
+    return getRandomVisibleWorldPoint();
+  }
+  const offset = (actorIndex % 5 - 2) * spacing;
+  const centerX = safeCard.x + safeCard.width / 2;
+  const centerY = safeCard.y + safeCard.height / 2;
+  if (anchor === "card.top") {
+    return { x: centerX + offset, y: safeCard.y - spacing * 0.45 };
+  }
+  if (anchor === "card.right") {
+    return { x: safeCard.x + safeCard.width + spacing * 0.45, y: centerY + offset };
+  }
+  if (anchor === "card.bottom") {
+    return { x: centerX + offset, y: safeCard.y + safeCard.height + spacing * 0.45 };
+  }
+  if (anchor === "card.left") {
+    return { x: safeCard.x - spacing * 0.45, y: centerY + offset };
+  }
+  return {
+    x: centerX + Math.cos(actorIndex) * spacing,
+    y: centerY + Math.sin(actorIndex) * spacing
+  };
+}
+
+function updateInteractiveActorGather(actor, interaction, dt, now) {
+  const memory = actor.interactionMemory;
+  let gather = memory.gather;
+  if (!gather || gather.until <= now || !state.cards.some((card) => card.id === gather.cardId)) {
+    if (Math.random() >= interaction.chance * dt || isInteractiveInteractionCoolingDown(actor, interaction, now)) {
+      return false;
+    }
+    const card = pickInteractiveBackgroundCard();
+    if (!card) {
+      return false;
+    }
+    gather = {
+      cardId: card.id,
+      actorIndex: Math.floor(Math.random() * interaction.maxGathered),
+      until: now + getRandomRangeValue(interaction.durationMs, 8000)
+    };
+    memory.gather = gather;
+    setInteractiveInteractionCooldown(actor, interaction, now);
+  }
+
+  const card = getInteractiveBackgroundCardById(gather.cardId);
+  if (!card) {
+    memory.gather = null;
+    return false;
+  }
+  const target = getInteractiveCardAnchorPoint(card, interaction.anchor, gather.actorIndex, interaction.spacing);
+  moveInteractiveActorToward(actor, target, dt, actor.definition.speed);
+  setInteractiveActorPose(actor, getInteractiveActorPose(actor, "moving", ["default", "walk"]), now);
+  return true;
+}
+
+function updateInteractiveActorInteractions(actor, dt, now) {
+  if (actor.forcedPose && actor.forcedPoseUntil > now) {
+    setInteractiveActorPose(actor, actor.forcedPose, now);
+    return true;
+  }
+  if (actor.forcedPoseUntil && actor.forcedPoseUntil <= now) {
+    actor.forcedPose = "";
+    actor.forcedPoseUntil = 0;
+  }
+
+  const interactions = Array.isArray(actor.definition.interactions) ? actor.definition.interactions : [];
+  if (!interactions.length) {
+    return false;
+  }
+
+  interactions
+    .filter((interaction) => interaction.type === "avoidActors")
+    .forEach((interaction) => applyInteractiveActorAvoidance(actor, interaction, dt));
+
+  if (isInteractiveActorMousePriority(actor, now)) {
+    return false;
+  }
+
+  for (const interaction of interactions) {
+    if (interaction.type === "greetActor" && tryInteractiveActorGreeting(actor, interaction, now)) {
+      return true;
+    }
+    if (interaction.type === "followActor" && updateInteractiveActorFollow(actor, interaction, dt, now)) {
+      return true;
+    }
+    if (interaction.type === "gatherAroundCard" && updateInteractiveActorGather(actor, interaction, dt, now)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function setInteractiveActorSurfaceState(actor, stateName, now) {
+  if (actor.surfaceState === stateName) {
+    return;
+  }
+  actor.surfaceState = stateName;
+  actor.surfaceStateStartedAt = now;
+}
+
+function getInteractiveActorMouseHuntState(actor, mouseDistance, now, mouseIsFresh) {
+  const mouse = actor.definition.mouse || {};
+  if (themeValidation.getMouseHuntState) {
+    return themeValidation.getMouseHuntState(
+      actor.surfaceState,
+      mouseDistance,
+      now,
+      actor.surfaceStateStartedAt || now,
+      mouse,
+      mouseIsFresh
+    );
+  }
+
+  if (!mouseIsFresh || mouseDistance > mouse.loseInterestRadius) {
+    return actor.surfaceState === "notice" || actor.surfaceState === "hunt" ? "return" : actor.surfaceState;
+  }
+  if (mouseDistance <= mouse.huntRadius && actor.surfaceState === "notice" && now - actor.surfaceStateStartedAt >= mouse.noticeDelayMs) {
+    return "hunt";
+  }
+  if (mouseDistance <= mouse.noticeRadius) {
+    return actor.surfaceState === "hunt" ? "hunt" : "notice";
+  }
+  return actor.surfaceState === "notice" || actor.surfaceState === "hunt" ? "return" : actor.surfaceState;
+}
+
+function updateInteractiveSurfaceActorRest(actor, dt, now) {
+  const rest = actor.definition.rest;
+  if (!rest?.enabled) {
+    return false;
+  }
+
+  if (actor.surfaceState === "rest" && actor.restTarget && now <= actor.restUntil) {
+    actor.x = actor.restTarget.x;
+    actor.y = actor.restTarget.y;
+    setInteractiveActorPose(actor, getInteractiveActorPose(actor, "rest", [rest.animation, "cardRest", "default", "idle"]), now);
+    return true;
+  }
+
+  if (actor.surfaceState === "rest" && now > actor.restUntil) {
+    actor.restTarget = null;
+    actor.nextRestAt = now + getRandomRangeValue(rest.intervalMs, 16000);
+    setInteractiveActorSurfaceState(actor, "idle", now);
+  }
+
+  if (actor.surfaceState === "restTravel" && actor.restTarget) {
+    const arrived = moveInteractiveActorToward(actor, actor.restTarget, dt, actor.definition.speed);
+    if (arrived) {
+      actor.restUntil = now + getRandomRangeValue(rest.durationMs, 8000);
+      setInteractiveActorSurfaceState(actor, "rest", now);
+      setInteractiveActorPose(actor, getInteractiveActorPose(actor, "rest", [rest.animation, "cardRest", "default", "idle"]), now);
+    } else {
+      setInteractiveActorPose(actor, getInteractiveActorPose(actor, "moving", ["return", "default", "walk"]), now);
+    }
+    return true;
+  }
+
+  if (now >= actor.nextRestAt) {
+    const target = getInteractiveBackgroundCardEdgeTarget(actor);
+    if (target) {
+      actor.restTarget = target;
+      actor.returnTarget = actor.surfaceTarget || target;
+      setInteractiveActorSurfaceState(actor, "restTravel", now);
+      return true;
+    }
+    actor.nextRestAt = now + getRandomRangeValue(rest.intervalMs, 16000);
+  }
+
+  return false;
+}
+
+function updateInteractiveSurfaceActorMovement(actor, dt, now) {
+  snapInteractiveActorToConnectionRoute(actor, now);
+  const target = actor.surfaceTarget || pickInteractiveActorSurfaceRoute(actor);
+  const arrived = target
+    ? moveInteractiveActorToward(actor, target, dt, actor.definition.speed)
+    : false;
+  if (arrived) {
+    advanceInteractiveActorSurfaceTarget(actor);
+  }
+  setInteractiveActorPose(actor, getInteractiveActorPose(actor, "moving", ["default", "walk"]), now);
+}
+
+function updateInteractiveSurfaceActor(actor, dt, now) {
+  const mouseIsFresh = interactiveBackgroundState.mouse.active && now - interactiveBackgroundState.mouse.lastMoveAt < 6000;
+  const mouseDistance = mouseIsFresh
+    ? Math.hypot(interactiveBackgroundState.mouse.worldX - actor.x, interactiveBackgroundState.mouse.worldY - actor.y)
+    : Number.POSITIVE_INFINITY;
+  const mouseState = getInteractiveActorMouseHuntState(actor, mouseDistance, now, mouseIsFresh);
+
+  if (mouseState === "notice" || mouseState === "hunt" || mouseState === "return") {
+    if (actor.surfaceState !== mouseState) {
+      actor.returnTarget = actor.surfaceTarget || actor.restTarget || getRandomVisibleWorldPoint();
+      setInteractiveActorSurfaceState(actor, mouseState, now);
+    }
+  }
+
+  if (actor.surfaceState === "notice") {
+    setInteractiveActorPose(
+      actor,
+      getInteractiveActorPose(actor, "notice", [actor.definition.mouse?.animations?.notice || "notice", "mouseNear", "moving", "default", "idle"]),
+      now
+    );
+    return;
+  }
+
+  if (actor.surfaceState === "hunt") {
+    moveInteractiveActorToward(
+      actor,
+      { x: interactiveBackgroundState.mouse.worldX, y: interactiveBackgroundState.mouse.worldY },
+      dt,
+      actor.definition.speed * (actor.definition.mouse?.huntSpeedMultiplier || 1.35)
+    );
+    setInteractiveActorPose(
+      actor,
+      getInteractiveActorPose(actor, "hunt", [actor.definition.mouse?.animations?.hunt || "hunt", "mouseNear", "moving", "default", "walk"]),
+      now
+    );
+    return;
+  }
+
+  if (actor.surfaceState === "return") {
+    const target = actor.returnTarget || actor.surfaceTarget || pickInteractiveActorSurfaceRoute(actor);
+    const arrived = target ? moveInteractiveActorToward(actor, target, dt, actor.definition.speed) : true;
+    setInteractiveActorPose(actor, getInteractiveActorPose(actor, "return", ["moving", "default", "walk"]), now);
+    if (arrived) {
+      actor.returnTarget = null;
+      setInteractiveActorSurfaceState(actor, "idle", now);
+    }
+    return;
+  }
+
+  if (updateInteractiveSurfaceActorRest(actor, dt, now)) {
+    return;
+  }
+
+  updateInteractiveSurfaceActorMovement(actor, dt, now);
+}
+
+function updateInteractiveBackgroundActor(actor, dt, now) {
+  const definition = actor.definition;
+  actor.phase += dt * 0.4;
+
+  if (updateInteractiveActorSurfaceTransition(actor, now)) {
+    return;
+  }
+
+  if (updateInteractiveActorInteractions(actor, dt, now)) {
+    return;
+  }
+
+  if (definition.behavior === "surfaceWanderAndMouseHunt") {
+    updateInteractiveSurfaceActor(actor, dt, now);
+    return;
+  }
+
+  if (definition.behavior === "growAroundCard") {
+    if (!getInteractiveBackgroundCardById(actor.targetCardId)) {
+      const card = pickInteractiveBackgroundCard();
+      actor.targetCardId = card?.id || "";
+    }
+    setInteractiveActorPose(actor, getInteractiveActorPose(actor, "default"), now);
+    return;
+  }
+
+  if (definition.behavior === "orbitCard") {
+    const target = getInteractiveBackgroundCardTarget(actor, "center");
+    if (target) {
+      const radius = Math.max(target.card.width, target.card.height) * 0.58;
+      const orbitSpeed = Math.max(0.08, definition.speed / 180);
+      const previousX = actor.x;
+      const previousY = actor.y;
+      actor.phase += dt * orbitSpeed;
+      actor.x = target.x + Math.cos(actor.phase) * radius;
+      actor.y = target.y + Math.sin(actor.phase) * radius;
+      updateInteractiveActorDirection(actor, previousX, previousY);
+      setInteractiveActorPose(actor, getInteractiveActorPose(actor, "orbit", getInteractiveActorPose(actor, "moving", "walk")), now);
+      return;
+    }
+  }
+
+  const mouseIsFresh = interactiveBackgroundState.mouse.active && now - interactiveBackgroundState.mouse.lastMoveAt < 6000;
+  const mouseDistance = mouseIsFresh
+    ? Math.hypot(interactiveBackgroundState.mouse.worldX - actor.x, interactiveBackgroundState.mouse.worldY - actor.y)
+    : Number.POSITIVE_INFINITY;
+  const shouldFollowMouse = (
+    definition.behavior === "followMouse"
+    || definition.behavior === "wanderAndFollowMouse"
+  ) && mouseDistance <= definition.mouseInterestRadius;
+
+  if (shouldFollowMouse) {
+    moveInteractiveActorToward(
+      actor,
+      { x: interactiveBackgroundState.mouse.worldX, y: interactiveBackgroundState.mouse.worldY },
+      dt,
+      definition.speed * 1.65
+    );
+    setInteractiveActorPose(actor, getInteractiveActorPose(actor, "mouseNear", getInteractiveActorPose(actor, "moving", "walk")), now);
+    return;
+  }
+
+  if (definition.behavior === "restOnCard" || (definition.behavior === "wanderAndFollowMouse" && definition.canRestOnCards)) {
+    const target = getInteractiveBackgroundCardTarget(actor);
+    if (target && actor.pauseUntil > now) {
+      actor.x = target.x;
+      actor.y = target.y;
+      setInteractiveActorPose(actor, getInteractiveActorPose(actor, "cardRest", "rest"), now);
+      return;
+    }
+    if (target) {
+      const arrived = moveInteractiveActorToward(actor, target, dt, definition.speed);
+      if (arrived) {
+        actor.pauseUntil = now + 1800 + Math.random() * 4200;
+        setInteractiveActorPose(actor, getInteractiveActorPose(actor, "cardRest", "rest"), now);
+      } else {
+        setInteractiveActorPose(actor, getInteractiveActorPose(actor, "moving", "walk"), now);
+      }
+      return;
+    }
+  }
+
+  updateInteractiveBackgroundWander(actor, dt);
+  setInteractiveActorPose(actor, getInteractiveActorPose(actor, "moving", "walk"), now);
+}
+
+function drawInteractiveBackgroundImage(context, imageRecord, x, y, width, height, opacity = 1) {
+  if (!imageRecord?.loaded) {
+    return false;
+  }
+
+  context.save();
+  context.globalAlpha *= opacity;
+  context.drawImage(imageRecord.image, x, y, width, height);
+  context.restore();
+  return true;
+}
+
+function drawInteractiveBackgroundRoundedRect(context, x, y, width, height, radius) {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+  if (typeof context.roundRect === "function") {
+    context.roundRect(x, y, width, height, safeRadius);
+    return;
+  }
+
+  context.moveTo(x + safeRadius, y);
+  context.lineTo(x + width - safeRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  context.lineTo(x + width, y + height - safeRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  context.lineTo(x + safeRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  context.lineTo(x, y + safeRadius);
+  context.quadraticCurveTo(x, y, x + safeRadius, y);
+}
+
+function mergeInteractiveAnimationVisual(baseAnimation, wrapperAnimation) {
+  if (!baseAnimation || !wrapperAnimation) {
+    return baseAnimation;
+  }
+  return {
+    ...baseAnimation,
+    offsetX: (baseAnimation.offsetX || 0) + (wrapperAnimation.offsetX || 0),
+    offsetY: (baseAnimation.offsetY || 0) + (wrapperAnimation.offsetY || 0),
+    scale: (baseAnimation.scale || 1) * (wrapperAnimation.scale || 1),
+    opacity: (baseAnimation.opacity ?? 1) * (wrapperAnimation.opacity ?? 1)
+  };
+}
+
+function resolveInteractiveActorAnimationByPose(actor, pose, now, depth = 0, wrapperAnimation = null) {
+  const animations = actor.definition.animations || {};
+  const animation = animations[pose]
+    || animations.idle
+    || animations.default
+    || Object.values(animations)[0]
+    || null;
+  return resolveInteractiveActorAnimation(actor, animation, pose, now, depth, wrapperAnimation);
+}
+
+function resolveInteractiveActorAnimation(actor, animation, pose, now, depth = 0, wrapperAnimation = null) {
+  if (!animation || depth > 6) {
+    return mergeInteractiveAnimationVisual(animation, wrapperAnimation);
+  }
+
+  if (animation.type === "randomSet") {
+    const items = Array.isArray(animation.items) ? animation.items : [];
+    if (!items.length) {
+      return null;
+    }
+    const key = pose || actor.pose || "default";
+    const memory = actor.animationMemory?.randomSets || {};
+    const previous = memory[key];
+    if (!previous || now >= previous.nextAt || !items.includes(previous.pose)) {
+      const nextPose = items[Math.floor(Math.random() * items.length)];
+      memory[key] = {
+        pose: nextPose,
+        nextAt: now + getRandomRangeValue(animation.intervalMs, 6000)
+      };
+      actor.animationMemory.randomSets = memory;
+    }
+    return resolveInteractiveActorAnimationByPose(actor, memory[key].pose, now, depth + 1, mergeInteractiveAnimationVisual(animation, wrapperAnimation));
+  }
+
+  if (animation.type === "sequence") {
+    const steps = Array.isArray(animation.steps) ? animation.steps : [];
+    if (!steps.length) {
+      return null;
+    }
+    const elapsed = Math.max(0, now - (actor.poseStartedAt || now));
+    let cursor = 0;
+    for (const step of steps) {
+      const duration = Math.max(80, step.durationMs || 800);
+      if (step.loop || elapsed <= cursor + duration) {
+        return resolveInteractiveActorAnimationByPose(actor, step.animation, now, depth + 1, mergeInteractiveAnimationVisual(animation, wrapperAnimation));
+      }
+      cursor += duration;
+    }
+    const lastStep = steps[steps.length - 1];
+    return resolveInteractiveActorAnimationByPose(actor, lastStep.animation, now, depth + 1, mergeInteractiveAnimationVisual(animation, wrapperAnimation));
+  }
+
+  if (animation.type === "directional") {
+    const directionalPose = animation[actor.direction]
+      || animation.default
+      || animation.right
+      || animation.left
+      || animation.down
+      || animation.up;
+    return directionalPose
+      ? resolveInteractiveActorAnimationByPose(actor, directionalPose, now, depth + 1, mergeInteractiveAnimationVisual(animation, wrapperAnimation))
+      : null;
+  }
+
+  if (animation.type === "oneShot") {
+    const elapsed = Math.max(0, now - (actor.poseStartedAt || now));
+    const nextPose = elapsed <= animation.durationMs ? animation.animation : animation.fallback;
+    return resolveInteractiveActorAnimationByPose(actor, nextPose, now, depth + 1, mergeInteractiveAnimationVisual(animation, wrapperAnimation));
+  }
+
+  return mergeInteractiveAnimationVisual(animation, wrapperAnimation);
+}
+
+function getInteractiveActorAnimation(actor, now = performance.now()) {
+  return resolveInteractiveActorAnimationByPose(actor, actor.pose, now);
+}
+
+function drawInteractiveActorAnimation(context, actor, animation, x, y, width, height, now) {
+  if (!animation) {
+    return false;
+  }
+
+  const imageRecord = getInteractiveBackgroundImage(animation.asset, "actors");
+  if (!imageRecord?.loaded) {
+    return false;
+  }
+
+  context.save();
+  context.globalAlpha *= animation.opacity ?? 1;
+  const scale = animation.scale || 1;
+  const drawWidth = width * scale;
+  const drawHeight = height * scale;
+  let drawX = x + (width - drawWidth) / 2 + (animation.offsetX || 0) * state.viewport.zoom;
+  let drawY = y + (height - drawHeight) / 2 + (animation.offsetY || 0) * state.viewport.zoom;
+  if (animation.flipByDirection && actor.direction === "left") {
+    context.translate(drawX + drawWidth, drawY);
+    context.scale(-1, 1);
+    drawX = 0;
+    drawY = 0;
+  }
+
+  if (animation.type === "spritesheet" && animation.frames > 1) {
+    const elapsed = Math.max(0, now - (actor.poseStartedAt || now));
+    const rawFrame = Math.floor((elapsed / 1000) * animation.fps);
+    const frameIndex = animation.loop ? rawFrame % animation.frames : Math.min(animation.frames - 1, rawFrame);
+    const columns = animation.columns || animation.frames;
+    const frameWidth = animation.frameWidth || Math.floor(imageRecord.image.width / columns);
+    const frameHeight = animation.frameHeight || imageRecord.image.height;
+    const sourceX = (frameIndex % columns) * frameWidth;
+    const sourceY = Math.floor(frameIndex / columns) * frameHeight;
+    context.drawImage(imageRecord.image, sourceX, sourceY, frameWidth, frameHeight, drawX, drawY, drawWidth, drawHeight);
+  } else {
+    context.drawImage(imageRecord.image, drawX, drawY, drawWidth, drawHeight);
+  }
+
+  context.restore();
+  return true;
+}
+
+function drawInteractiveBackgroundActor(context, actor) {
+  const definition = actor.definition;
+  const screen = worldToScreen(actor.x, actor.y);
+  const width = definition.width * state.viewport.zoom;
+  const height = definition.height * state.viewport.zoom;
+
+  if (
+    screen.x + width < -80
+    || screen.y + height < -80
+    || screen.x - width > window.innerWidth + 80
+    || screen.y - height > window.innerHeight + 80
+  ) {
+    return;
+  }
+
+  const sprite = getInteractiveBackgroundImage(definition.sprite, "actors");
+  const x = screen.x - width / 2;
+  const y = screen.y - height / 2;
+  context.save();
+  context.globalAlpha = definition.opacity;
+  const now = performance.now();
+  if (drawInteractiveActorAnimation(context, actor, getInteractiveActorAnimation(actor, now), x, y, width, height, now)) {
+    // The active animation handled drawing.
+  } else if (sprite?.loaded) {
+    context.drawImage(sprite.image, x, y, width, height);
+  } else {
+    context.fillStyle = definition.color;
+    context.beginPath();
+    drawInteractiveBackgroundRoundedRect(context, x, y, width, height, Math.min(width, height) * 0.32);
+    context.fill();
+  }
+  context.restore();
+}
+
+function drawInteractiveBackgroundDecoration(context, actor) {
+  const target = getInteractiveBackgroundCardTarget(actor, "center");
+  if (!target) {
+    return;
+  }
+
+  const card = target.card;
+  const topLeft = worldToScreen(card.x - 10, card.y - 10);
+  const width = (card.width + 20) * state.viewport.zoom;
+  const height = (card.height + 20) * state.viewport.zoom;
+
+  context.save();
+  context.globalAlpha = actor.definition.opacity * 0.62;
+  context.strokeStyle = actor.definition.color;
+  context.lineWidth = Math.max(2, 3 * state.viewport.zoom);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.beginPath();
+  drawInteractiveBackgroundRoundedRect(context, topLeft.x, topLeft.y, width, height, Math.min(24, 12 * state.viewport.zoom));
+  context.stroke();
+
+  const branchCount = 4;
+  for (let index = 0; index < branchCount; index += 1) {
+    const tValue = (index + 1) / (branchCount + 1);
+    const x = topLeft.x + width * tValue;
+    const y = topLeft.y + (index % 2 === 0 ? height : 0);
+    context.beginPath();
+    context.moveTo(x, y);
+    context.quadraticCurveTo(
+      x + Math.sin(actor.phase + index) * 22 * state.viewport.zoom,
+      y + (index % 2 === 0 ? 22 : -22) * state.viewport.zoom,
+      x + Math.cos(actor.phase + index) * 38 * state.viewport.zoom,
+      y + (index % 2 === 0 ? 36 : -36) * state.viewport.zoom
+    );
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawInteractiveCardEffect(context, entry, now) {
+  const elapsed = Math.max(0, now - entry.startedAt);
+  if (now < entry.startedAt) {
+    return;
+  }
+  const duration = Math.max(120, entry.durationMs || 600);
+  const progress = clamp(elapsed / duration, 0, 1);
+  const card = entry.card;
+  const cardCenter = worldToScreen(card.x + card.width / 2, card.y + card.height / 2);
+  const anchorWorld = entry.anchor || {
+    x: card.x + card.width / 2,
+    y: card.y + card.height / 2
+  };
+  const anchor = worldToScreen(anchorWorld.x, anchorWorld.y);
+  const width = card.width * state.viewport.zoom;
+  const height = card.height * state.viewport.zoom;
+  const radius = Math.max(width, height) * (0.18 + progress * 0.48);
+  const color = entry.effect.color || "#7aa884";
+  const opacity = clamp(Number(entry.effect.opacity ?? 1), 0, 1);
+
+  context.save();
+  context.globalAlpha = (1 - (progress * 0.65)) * opacity;
+  context.strokeStyle = color;
+  context.fillStyle = color;
+  context.lineWidth = Math.max(2, 4 * state.viewport.zoom);
+  context.lineCap = "round";
+
+  if (entry.effect.type === "portal") {
+    for (let index = 0; index < 3; index += 1) {
+      const ringProgress = (progress + index * 0.18) % 1;
+      context.globalAlpha = (1 - ringProgress) * 0.62 * opacity;
+      context.beginPath();
+      context.ellipse(
+        anchor.x,
+        anchor.y,
+        radius * (0.55 + ringProgress),
+        radius * (0.18 + ringProgress * 0.12),
+        (now / 420) + index,
+        0,
+        Math.PI * 2
+      );
+      context.stroke();
+    }
+  } else if (entry.effect.type === "fade") {
+    context.globalAlpha = (entry.action === "create" ? progress * 0.42 : (1 - progress) * 0.42) * opacity;
+    context.fillRect(cardCenter.x - width / 2, cardCenter.y - height / 2, width, height);
+  } else if (entry.effect.type === "slide") {
+    const offset = (entry.action === "create" ? 1 - progress : progress) * 42 * state.viewport.zoom;
+    context.globalAlpha = 0.42 * opacity;
+    context.beginPath();
+    drawInteractiveBackgroundRoundedRect(context, cardCenter.x - width / 2, cardCenter.y - height / 2 + offset, width, height, 8 * state.viewport.zoom);
+    context.stroke();
+  } else if (entry.effect.type === "scale") {
+    const scale = entry.action === "create" ? progress : 1 - progress;
+    context.globalAlpha = 0.5 * opacity;
+    context.beginPath();
+    drawInteractiveBackgroundRoundedRect(
+      context,
+      cardCenter.x - (width * scale) / 2,
+      cardCenter.y - (height * scale) / 2,
+      width * scale,
+      height * scale,
+      8 * state.viewport.zoom
+    );
+    context.stroke();
+  } else if (entry.effect.type === "ripple") {
+    context.globalAlpha = (1 - progress) * 0.58 * opacity;
+    context.lineWidth = Math.max(1, 3 * state.viewport.zoom);
+    context.beginPath();
+    context.arc(anchor.x, anchor.y, Math.max(4, entry.effect.radius * state.viewport.zoom * progress), 0, Math.PI * 2);
+    context.stroke();
+  } else if (entry.effect.type === "glow") {
+    const glowAlpha = (0.22 + Math.sin(progress * Math.PI) * 0.34) * opacity;
+    context.globalAlpha = glowAlpha;
+    context.shadowColor = color;
+    context.shadowBlur = Math.max(12, 28 * state.viewport.zoom);
+    context.lineWidth = Math.max(2, 3 * state.viewport.zoom);
+    context.beginPath();
+    drawInteractiveBackgroundRoundedRect(context, cardCenter.x - width / 2, cardCenter.y - height / 2, width, height, 8 * state.viewport.zoom);
+    context.stroke();
+  } else if (entry.effect.type === "pulse") {
+    const pulse = Math.sin(progress * Math.PI);
+    const grow = 1 + pulse * 0.08;
+    context.globalAlpha = (1 - progress * 0.5) * 0.48 * opacity;
+    context.beginPath();
+    drawInteractiveBackgroundRoundedRect(
+      context,
+      cardCenter.x - (width * grow) / 2,
+      cardCenter.y - (height * grow) / 2,
+      width * grow,
+      height * grow,
+      8 * state.viewport.zoom
+    );
+    context.stroke();
+  } else if (entry.effect.type === "particleBurst") {
+    const particles = Array.isArray(entry.particles) ? entry.particles : [];
+    particles.forEach((particle) => {
+      const distance = particle.distance * state.viewport.zoom * progress;
+      const wobble = Math.sin((progress * Math.PI * 2) + particle.phase) * 5 * state.viewport.zoom;
+      const x = anchor.x + Math.cos(particle.angle) * distance + Math.cos(particle.angle + Math.PI / 2) * wobble;
+      const y = anchor.y + Math.sin(particle.angle) * distance + Math.sin(particle.angle + Math.PI / 2) * wobble;
+      context.globalAlpha = (1 - progress) * particle.alpha * opacity;
+      context.beginPath();
+      context.arc(x, y, particle.radius * state.viewport.zoom, 0, Math.PI * 2);
+      context.fill();
+    });
+  }
+
+  if (entry.effect.asset) {
+    const imageRecord = getInteractiveBackgroundImage(entry.effect.asset, "actors");
+    const imageSize = Math.max(48, Math.min(width, height) * 0.42);
+    drawInteractiveBackgroundImage(context, imageRecord, anchor.x - imageSize / 2, anchor.y - imageSize / 2, imageSize, imageSize, (1 - progress * 0.2) * opacity);
+  }
+
+  context.restore();
+}
+
+function ensureInteractiveBackgroundParticles(count) {
+  if (interactiveBackgroundState.particles.length === count) {
+    return;
+  }
+
+  const bounds = getVisibleWorldBounds(320);
+  interactiveBackgroundState.particles = Array.from({ length: count }, () => ({
+    x: bounds.left + Math.random() * Math.max(1, bounds.right - bounds.left),
+    y: bounds.top + Math.random() * Math.max(1, bounds.bottom - bounds.top),
+    radius: 1.2 + Math.random() * 2.4,
+    drift: 4 + Math.random() * 20,
+    phase: Math.random() * Math.PI * 2
+  }));
+}
+
+function drawInteractiveBackgroundSurface(context, config, profile, now) {
+  const background = config.background || defaultVisualTheme.interactiveBackground.background;
+  const opacity = clamp(Number(background.opacity), 0, 1);
+  if (background.type === "none" || opacity <= 0) {
+    return;
+  }
+
+  context.save();
+  context.globalAlpha = opacity;
+
+  if (background.type === "solid") {
+    context.fillStyle = background.color;
+    context.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  } else if (background.type === "gradient") {
+    const colors = background.colors.length ? background.colors : [background.color, getDefaultConnectionColor(background.color)];
+    const gradient = context.createLinearGradient(0, 0, window.innerWidth, window.innerHeight);
+    colors.forEach((color, index) => {
+      gradient.addColorStop(colors.length === 1 ? 0 : index / (colors.length - 1), color);
+    });
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  } else if (background.type === "image") {
+    const imageRecord = getInteractiveBackgroundImage(background.asset, "backgrounds");
+    if (imageRecord?.loaded) {
+      const imageRatio = imageRecord.image.width / Math.max(1, imageRecord.image.height);
+      const canvasRatio = window.innerWidth / Math.max(1, window.innerHeight);
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      if (imageRatio > canvasRatio) {
+        width = height * imageRatio;
+      } else {
+        height = width / imageRatio;
+      }
+      context.drawImage(imageRecord.image, (window.innerWidth - width) / 2, (window.innerHeight - height) / 2, width, height);
+    }
+  } else if (background.type === "particles") {
+    const count = Math.round(background.particleCount * profile.particleScale);
+    ensureInteractiveBackgroundParticles(count);
+    const bounds = getVisibleWorldBounds(360);
+    context.fillStyle = background.particleColor;
+    interactiveBackgroundState.particles.forEach((particle) => {
+      particle.y += Math.sin((now / 1000) + particle.phase) * 0.012 * particle.drift;
+      if (particle.x < bounds.left || particle.x > bounds.right || particle.y < bounds.top || particle.y > bounds.bottom) {
+        particle.x = bounds.left + Math.random() * Math.max(1, bounds.right - bounds.left);
+        particle.y = bounds.top + Math.random() * Math.max(1, bounds.bottom - bounds.top);
+      }
+      const screen = worldToScreen(particle.x, particle.y);
+      context.beginPath();
+      context.arc(screen.x, screen.y, particle.radius * state.viewport.zoom, 0, Math.PI * 2);
+      context.fill();
+    });
+  }
+
+  context.restore();
+}
+
+function clearInteractiveBackgroundCanvas(context, metrics) {
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, metrics.width * metrics.dpr, metrics.height * metrics.dpr);
+  context.setTransform(metrics.dpr, 0, 0, metrics.dpr, 0, 0);
+}
+
+function drawInteractiveBackgroundFrame(timestamp) {
+  interactiveBackgroundState.raf = 0;
+  if (!isInteractiveBackgroundEnabled()) {
+    stopInteractiveBackgroundEngine();
+    return;
+  }
+
+  if (!ensureInteractiveBackgroundLayers()) {
+    stopInteractiveBackgroundEngine();
+    return;
+  }
+
+  const config = getInteractiveBackgroundConfig();
+  const profile = getInteractiveBackgroundQualityProfile();
+  const targetFps = Math.min(config.fps, profile.fps);
+  const minFrameDelta = 1000 / Math.max(1, targetFps);
+  if (interactiveBackgroundState.lastFrameAt && timestamp - interactiveBackgroundState.lastFrameAt < minFrameDelta) {
+    interactiveBackgroundState.raf = requestAnimationFrame(drawInteractiveBackgroundFrame);
+    return;
+  }
+
+  const previousFrameAt = interactiveBackgroundState.lastFrameAt || timestamp;
+  const dt = clamp((timestamp - previousFrameAt) / 1000, 0.001, 0.08);
+  interactiveBackgroundState.lastFrameAt = timestamp;
+
+  const baseMetrics = resizeInteractiveBackgroundCanvas(interactiveBackgroundState.baseCanvas);
+  const overlayMetrics = resizeInteractiveBackgroundCanvas(interactiveBackgroundState.overlayCanvas);
+  const baseContext = interactiveBackgroundState.baseContext;
+  const overlayContext = interactiveBackgroundState.overlayContext;
+
+  clearInteractiveBackgroundCanvas(baseContext, baseMetrics);
+  clearInteractiveBackgroundCanvas(overlayContext, overlayMetrics);
+  drawInteractiveBackgroundSurface(baseContext, config, profile, timestamp);
+  pruneInteractiveCardEffects(timestamp);
+
+  interactiveBackgroundState.actors.forEach((actor) => {
+    updateInteractiveBackgroundActor(actor, dt, timestamp);
+    const context = actor.definition.layer === "background" ? baseContext : overlayContext;
+    if (actor.definition.behavior === "growAroundCard") {
+      drawInteractiveBackgroundDecoration(context, actor);
+    } else {
+      drawInteractiveBackgroundActor(context, actor);
+    }
+  });
+  interactiveBackgroundState.cardEffects.forEach((entry) => drawInteractiveCardEffect(overlayContext, entry, timestamp));
+
+  interactiveBackgroundState.raf = requestAnimationFrame(drawInteractiveBackgroundFrame);
+}
+
+function updateInteractiveBackgroundPointer(event) {
+  if (!event) {
+    return;
+  }
+
+  const point = screenToWorld(event.clientX, event.clientY);
+  interactiveBackgroundState.mouse.worldX = point.x;
+  interactiveBackgroundState.mouse.worldY = point.y;
+  interactiveBackgroundState.mouse.active = true;
+  interactiveBackgroundState.mouse.lastMoveAt = performance.now();
+}
+
 function getVisibleWorldCenter() {
   const displayCenter = getPrimaryDisplayClientCenter();
   return screenToWorld(displayCenter.x, displayCenter.y);
@@ -7613,6 +12937,7 @@ function render() {
       workspace.appendChild(renderCard(card));
     });
 
+  syncInteractiveBackgroundEngine();
   refreshVisibleTimerCards();
   refreshVisibleReminderCards();
   liveWebContentModeKey = getLiveWebContentModeKey();
@@ -7932,6 +13257,12 @@ function getThemeCardIconAsset(kind) {
   return typeof asset === "string" && asset.startsWith("data:image/") ? asset : "";
 }
 
+function getThemeCardSurfaceAsset(kind, surface) {
+  const assets = getVisualTheme().assets?.[surface] || {};
+  const asset = assets[kind] || assets.default || "";
+  return typeof asset === "string" && asset.startsWith("data:image/") ? asset : "";
+}
+
 function getResizeDirections(card) {
   return card.kind === "group"
     ? ["n", "ne", "e", "se", "s", "sw", "w", "nw"]
@@ -7967,6 +13298,7 @@ function applyWebAddressValue(card, input) {
   if (!card.title || card.title === oldTitle || card.title === "URL") {
     card.title = getUrlTitle(nextUrl);
   }
+  emitThemeInteractionEvent("urlLoaded", { card });
 
   render();
   scheduleSave();
@@ -8053,6 +13385,7 @@ function renderCard(card) {
   element.className = "card";
   element.classList.toggle("is-selected", selectedIds.has(card.id));
   element.classList.toggle("is-attached", card.kind === "comment" && Boolean(card.commentAttachment));
+  element.classList.toggle("is-theme-removing", pendingCardRemovalIds.has(card.id));
   element.dataset.id = card.id;
   element.dataset.kind = card.kind;
   if (card.kind === "comment" && card.commentAttachment?.side) {
@@ -8065,6 +13398,7 @@ function renderCard(card) {
   element.style.zIndex = String(getCardLayer(card));
   applyCardColors(element, card);
   element.addEventListener("pointerdown", (event) => selectCardFromPointer(event, card));
+  element.addEventListener("pointerenter", () => emitThemeInteractionEvent("cardHovered", { card }));
 
   const header = document.createElement("div");
   header.className = "card-header";
@@ -8080,6 +13414,7 @@ function renderCard(card) {
   title.readOnly = state.locked;
   title.addEventListener("input", () => {
     card.title = title.value;
+    emitThemeInteractionEvent("cardContentChanged", { card });
     scheduleSave();
   });
 
@@ -8167,9 +13502,13 @@ function applyCardColors(element, card) {
   const headerColor = card.headerColor || getDefaultCardColors(card.kind).header;
   const bodyColor = card.bodyColor || getDefaultCardColors(card.kind).body;
   const buttonPalette = getCardButtonPalette(bodyColor);
+  const headerAsset = getThemeCardSurfaceAsset(card.kind, "cardHeaders");
+  const bodyAsset = getThemeCardSurfaceAsset(card.kind, "cardBodies");
 
   element.style.setProperty("--card-header-color", headerColor);
   element.style.setProperty("--card-body-color", bodyColor);
+  element.style.setProperty("--card-header-image", headerAsset ? `url("${headerAsset}")` : "none");
+  element.style.setProperty("--card-body-image", bodyAsset ? `url("${bodyAsset}")` : "none");
   element.style.setProperty("--card-header-text", getReadableTextColor(headerColor));
   element.style.setProperty("--card-body-text", getReadableTextColor(bodyColor));
   element.style.setProperty("--card-button-bg", buttonPalette.background);
@@ -8288,7 +13627,12 @@ function renderRichTextEditor(card, className, placeholderKey = "note") {
       syncRichTextCardFromEditor(card, editor);
       const beforeText = editor.dataset.initialText || "";
       const afterText = card.text || "";
-      if (recordCommentTextEdit(card, beforeText, afterText)) {
+      const contentChanged = beforeText !== afterText;
+      const historyRecorded = recordCommentTextEdit(card, beforeText, afterText);
+      if (contentChanged) {
+        emitThemeInteractionEvent("cardContentChanged", { card });
+      }
+      if (contentChanged || historyRecorded) {
         editor.dataset.initialText = afterText;
         editor.dataset.initialHtml = card.textHtml || "";
         scheduleSave();
@@ -8324,6 +13668,14 @@ function renderCardBody(card) {
 
   if (card.kind === "reminder") {
     return renderReminder(card);
+  }
+
+  if (card.kind === "clock") {
+    return renderClock(card);
+  }
+
+  if (card.kind === "weather") {
+    return renderWeather(card);
   }
 
   if (card.kind === "schedule") {
@@ -9469,6 +14821,7 @@ function maybeTriggerTimerNotification(card, now) {
   }
 
   card.timerCompletionNotifiedAt = now;
+  emitThemeInteractionEvent("timerFinished", { card });
   void requestDesktopNotification({
     notificationId: buildBoardNotificationId("timer", card.id),
     cardId: card.id,
@@ -9506,6 +14859,7 @@ function maybeTriggerReminderNotification(card, now) {
   }
 
   card.reminderLastTriggeredAt = now;
+  emitThemeInteractionEvent("reminderTriggered", { card });
   void requestDesktopNotification({
     notificationId: buildBoardNotificationId("reminder", card.id),
     cardId: card.id,
@@ -9550,6 +14904,7 @@ function handleTimerTick(options = {}) {
 
   refreshVisibleTimerCards(now);
   refreshVisibleReminderCards(now);
+  refreshVisibleClockCards(now);
   if (sideEffects && changed) {
     void saveState({ skipHistory: true });
   }
@@ -9773,6 +15128,366 @@ function renderReminder(card) {
 
   wrapper.append(dateLabel, messageLabel, options, repeatRow, status, actions);
   updateReminderCardElement(wrapper, card);
+  return wrapper;
+}
+
+function formatClockParts(card, now = Date.now()) {
+  const locale = getActiveLanguage() === "ru" ? "ru-RU" : "en-US";
+  const timeZone = getClockResolvedTimeZone(card);
+  const hour12 = state.settings?.timeFormat === "12h";
+  const second = card.clockShowSeconds === false ? undefined : "2-digit";
+
+  try {
+    return {
+      time: new Intl.DateTimeFormat(locale, {
+        timeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        second,
+        hour12
+      }).format(now),
+      date: new Intl.DateTimeFormat(locale, {
+        timeZone,
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }).format(now),
+      timeZone
+    };
+  } catch {
+    return {
+      time: new Date(now).toLocaleTimeString(locale),
+      date: new Date(now).toLocaleDateString(locale),
+      timeZone: getSystemTimeZone()
+    };
+  }
+}
+
+function updateClockCardElement(element, card, now = Date.now()) {
+  if (!element || !card) {
+    return;
+  }
+  const parts = formatClockParts(card, now);
+  const time = element.querySelector(".clock-time");
+  const date = element.querySelector(".clock-date");
+  const zone = element.querySelector(".clock-zone");
+  const input = element.querySelector(".clock-timezone-input");
+
+  if (time) {
+    time.textContent = parts.time;
+  }
+  if (date) {
+    date.textContent = parts.date;
+  }
+  if (zone) {
+    zone.textContent = card.clockTimeZone === "system"
+      ? t("clockSystemTimeZone", { zone: parts.timeZone })
+      : parts.timeZone;
+  }
+  if (input && document.activeElement !== input) {
+    input.value = card.clockTimeZone === "system" ? "" : card.clockTimeZone;
+    input.disabled = state.locked;
+  }
+}
+
+function refreshVisibleClockCards(now = Date.now()) {
+  workspace.querySelectorAll(".clock-card[data-card-id]").forEach((element) => {
+    const card = getCardById(element.dataset.cardId);
+    if (card?.kind === "clock") {
+      updateClockCardElement(element, card, now);
+    }
+  });
+}
+
+function renderClock(card) {
+  Object.assign(card, normalizeClockFields(card));
+  const wrapper = document.createElement("div");
+  wrapper.className = "clock-card";
+  wrapper.dataset.cardId = card.id;
+
+  const display = document.createElement("div");
+  display.className = "clock-display";
+  const time = document.createElement("div");
+  time.className = "clock-time";
+  const date = document.createElement("div");
+  date.className = "clock-date";
+  const zone = document.createElement("div");
+  zone.className = "clock-zone";
+  display.append(time, date, zone);
+
+  const settings = document.createElement("label");
+  settings.className = "clock-timezone-row";
+  const label = document.createElement("span");
+  label.textContent = t("clockTimeZone");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "card-field clock-timezone-input";
+  input.placeholder = getSystemTimeZone();
+  input.value = card.clockTimeZone === "system" ? "" : card.clockTimeZone;
+  input.readOnly = state.locked;
+  input.addEventListener("change", () => {
+    card.clockTimeZone = normalizeClockTimeZone(input.value);
+    input.value = card.clockTimeZone === "system" ? "" : card.clockTimeZone;
+    updateClockCardElement(wrapper, card);
+    scheduleSave();
+  });
+  settings.append(label, input);
+
+  const help = document.createElement("div");
+  help.className = "clock-help";
+  help.textContent = t("clockTimeZoneHelp");
+
+  wrapper.append(display, settings, help);
+  updateClockCardElement(wrapper, card);
+  return wrapper;
+}
+
+function getWeatherTemperature(card) {
+  const value = Number(card.weatherTemperatureC);
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  if (normalizeWeatherUnits(card.weatherUnits) === "imperial") {
+    return `${Math.round((value * 9) / 5 + 32)}°F`;
+  }
+  return `${Math.round(value)}°C`;
+}
+
+function getWeatherWind(card) {
+  const value = Number(card.weatherWindKph);
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  if (normalizeWeatherUnits(card.weatherUnits) === "imperial") {
+    return `${Math.round(value / 1.609)} mph`;
+  }
+  return `${Math.round(value)} km/h`;
+}
+
+function updateWeatherCardElement(element, card) {
+  if (!element || !card) {
+    return;
+  }
+
+  const locationInput = element.querySelector(".weather-location-input");
+  const unitsInput = element.querySelector(".weather-units-input");
+  const refreshButton = element.querySelector(".weather-refresh-button");
+  const temp = element.querySelector(".weather-temperature");
+  const desc = element.querySelector(".weather-description");
+  const meta = element.querySelector(".weather-meta");
+  const status = element.querySelector(".weather-status");
+
+  if (locationInput && document.activeElement !== locationInput) {
+    locationInput.value = card.weatherLocation || "";
+    locationInput.readOnly = state.locked;
+  }
+  if (unitsInput) {
+    unitsInput.value = normalizeWeatherUnits(card.weatherUnits);
+    unitsInput.disabled = state.locked;
+  }
+  if (refreshButton) {
+    refreshButton.disabled = state.locked || weatherFetchRequests.has(card.id);
+    refreshButton.textContent = weatherFetchRequests.has(card.id) ? t("weatherLoading") : t("weatherRefresh");
+  }
+  if (temp) {
+    temp.textContent = getWeatherTemperature(card) || "--";
+  }
+  if (desc) {
+    desc.textContent = card.weatherDescription || t("weatherNoData");
+  }
+  if (meta) {
+    const details = [];
+    if (Number.isFinite(Number(card.weatherHumidity))) {
+      details.push(t("weatherHumidity", { value: Math.round(Number(card.weatherHumidity)) }));
+    }
+    const wind = getWeatherWind(card);
+    if (wind) {
+      details.push(t("weatherWind", { value: wind }));
+    }
+    meta.textContent = details.join(" / ");
+  }
+  if (status) {
+    if (card.weatherError) {
+      status.textContent = card.weatherError;
+      status.dataset.tone = "error";
+    } else if (card.weatherUpdatedAt) {
+      status.textContent = t("weatherUpdated", { time: formatDateTimeDisplay(card.weatherUpdatedAt) });
+      status.dataset.tone = "muted";
+    } else if (!card.weatherLocation) {
+      status.textContent = t("weatherEmptyLocation");
+      status.dataset.tone = "muted";
+    } else {
+      status.textContent = t("weatherSource");
+      status.dataset.tone = "muted";
+    }
+  }
+}
+
+function parseWeatherResponse(data) {
+  const current = Array.isArray(data?.current_condition) ? data.current_condition[0] : null;
+  if (!current) {
+    return null;
+  }
+  const description = Array.isArray(current.weatherDesc) ? current.weatherDesc[0]?.value : "";
+  return {
+    weatherTemperatureC: Number.isFinite(Number(current.temp_C)) ? Number(current.temp_C) : null,
+    weatherFeelsLikeC: Number.isFinite(Number(current.FeelsLikeC)) ? Number(current.FeelsLikeC) : null,
+    weatherDescription: typeof description === "string" ? description.slice(0, 120) : "",
+    weatherHumidity: Number.isFinite(Number(current.humidity)) ? Number(current.humidity) : null,
+    weatherWindKph: Number.isFinite(Number(current.windspeedKmph)) ? Number(current.windspeedKmph) : null,
+    weatherUpdatedAt: Date.now(),
+    weatherError: ""
+  };
+}
+
+function clearWeatherResult(card) {
+  card.weatherTemperatureC = null;
+  card.weatherFeelsLikeC = null;
+  card.weatherDescription = "";
+  card.weatherHumidity = null;
+  card.weatherWindKph = null;
+  card.weatherUpdatedAt = null;
+  card.weatherError = "";
+}
+
+async function refreshWeatherCard(card) {
+  if (!card || card.kind !== "weather" || state.locked) {
+    return;
+  }
+
+  const location = normalizeWeatherLocation(card.weatherLocation);
+  if (!location) {
+    clearWeatherResult(card);
+    render();
+    scheduleSave();
+    return;
+  }
+
+  const activeRequest = weatherFetchRequests.get(card.id);
+  if (activeRequest?.location === location) {
+    return;
+  }
+
+  const requestId = createId("weather-request");
+  weatherFetchRequests.set(card.id, { requestId, location });
+  updateWeatherCardElement(workspace.querySelector(`.weather-card[data-card-id="${CSS.escape(card.id)}"]`), card);
+
+  try {
+    const response = await fetch(`https://wttr.in/${encodeURIComponent(location)}?format=j1`, {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const parsed = parseWeatherResponse(await response.json());
+    if (!parsed) {
+      throw new Error("No weather data");
+    }
+    if (weatherFetchRequests.get(card.id)?.requestId !== requestId || normalizeWeatherLocation(card.weatherLocation) !== location) {
+      return;
+    }
+    Object.assign(card, parsed);
+  } catch {
+    if (weatherFetchRequests.get(card.id)?.requestId === requestId) {
+      card.weatherError = t("weatherFailed");
+    }
+  } finally {
+    if (weatherFetchRequests.get(card.id)?.requestId === requestId) {
+      weatherFetchRequests.delete(card.id);
+      render();
+      scheduleSave();
+    }
+  }
+}
+
+function renderWeather(card) {
+  Object.assign(card, normalizeWeatherFields(card));
+  const wrapper = document.createElement("div");
+  wrapper.className = "weather-card";
+  wrapper.dataset.cardId = card.id;
+
+  const controls = document.createElement("div");
+  controls.className = "weather-controls";
+
+  const locationInput = document.createElement("input");
+  locationInput.type = "text";
+  locationInput.className = "card-field weather-location-input";
+  locationInput.placeholder = t("weatherLocationPlaceholder");
+  locationInput.value = card.weatherLocation || "";
+  locationInput.readOnly = state.locked;
+  locationInput.addEventListener("change", () => {
+    const nextLocation = normalizeWeatherLocation(locationInput.value);
+    if (nextLocation !== card.weatherLocation) {
+      clearWeatherResult(card);
+    }
+    card.weatherLocation = nextLocation;
+    scheduleSave();
+    void refreshWeatherCard(card);
+  });
+  locationInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      locationInput.blur();
+      const nextLocation = normalizeWeatherLocation(locationInput.value);
+      if (nextLocation !== card.weatherLocation) {
+        clearWeatherResult(card);
+      }
+      card.weatherLocation = nextLocation;
+      scheduleSave();
+      void refreshWeatherCard(card);
+    }
+  });
+
+  const unitsInput = document.createElement("select");
+  unitsInput.className = "card-field weather-units-input";
+  [
+    { value: "metric", label: "°C" },
+    { value: "imperial", label: "°F" }
+  ].forEach((option) => {
+    const item = document.createElement("option");
+    item.value = option.value;
+    item.textContent = option.label;
+    unitsInput.appendChild(item);
+  });
+  unitsInput.value = normalizeWeatherUnits(card.weatherUnits);
+  unitsInput.disabled = state.locked;
+  unitsInput.addEventListener("change", () => {
+    card.weatherUnits = normalizeWeatherUnits(unitsInput.value);
+    render();
+    scheduleSave();
+  });
+
+  const refreshButton = document.createElement("button");
+  refreshButton.type = "button";
+  refreshButton.className = "weather-refresh-button";
+  refreshButton.addEventListener("click", () => {
+    const nextLocation = normalizeWeatherLocation(locationInput.value);
+    if (nextLocation !== card.weatherLocation) {
+      clearWeatherResult(card);
+    }
+    card.weatherLocation = nextLocation;
+    card.weatherUnits = normalizeWeatherUnits(unitsInput.value);
+    void refreshWeatherCard(card);
+  });
+
+  controls.append(locationInput, unitsInput, refreshButton);
+
+  const summary = document.createElement("div");
+  summary.className = "weather-summary";
+  const temp = document.createElement("strong");
+  temp.className = "weather-temperature";
+  const desc = document.createElement("span");
+  desc.className = "weather-description";
+  const meta = document.createElement("span");
+  meta.className = "weather-meta";
+  summary.append(temp, desc, meta);
+
+  const status = document.createElement("div");
+  status.className = "weather-status";
+
+  wrapper.append(controls, summary, status);
+  updateWeatherCardElement(wrapper, card);
   return wrapper;
 }
 
@@ -10517,6 +16232,7 @@ function createChecklistRow(card, task, options = {}) {
   checkbox.disabled = state.locked;
   checkbox.addEventListener("change", () => {
     task.done = checkbox.checked;
+    emitThemeInteractionEvent(task.done ? "taskChecked" : "taskUnchecked", { card });
     options.onToggle?.();
     scheduleSave();
   });
@@ -11822,22 +17538,41 @@ function getSelectedCards() {
 
 function setSelectedCards(ids) {
   const hadSelectedConnection = Boolean(selectedConnectionId);
+  const previousSelectedIds = new Set(selectedIds);
   selectedConnectionId = null;
   selectedIds = new Set(ids);
   updateSelectionStyles();
   if (hadSelectedConnection) {
     renderConnections();
   }
+  selectedIds.forEach((id) => {
+    if (!previousSelectedIds.has(id)) {
+      const card = state.cards.find((item) => item.id === id);
+      if (card) {
+        emitThemeInteractionEvent("cardSelected", { card });
+      }
+    }
+  });
+  previousSelectedIds.forEach((id) => {
+    if (!selectedIds.has(id)) {
+      const card = state.cards.find((item) => item.id === id);
+      if (card) {
+        emitThemeInteractionEvent("cardDeselected", { card });
+      }
+    }
+  });
 }
 
 function clearSelection() {
   const hadSelectedConnection = Boolean(selectedConnectionId);
+  const previousSelectedCards = getSelectedCards();
   selectedConnectionId = null;
   selectedIds.clear();
   updateSelectionStyles();
   if (hadSelectedConnection) {
     renderConnections();
   }
+  previousSelectedCards.forEach((card) => emitThemeInteractionEvent("cardDeselected", { card }));
 }
 
 function updateSelectionStyles() {
@@ -12229,7 +17964,27 @@ function stopActiveAction(event) {
   }
 
   if (activeAction.type === "move") {
+    activeAction.items.forEach((item) => {
+      if (Math.round(item.card.x) !== Math.round(item.originX) || Math.round(item.card.y) !== Math.round(item.originY)) {
+        emitThemeInteractionEvent("cardMoved", { card: item.card });
+      }
+    });
     settleMovedCommentAttachments(activeAction.items);
+  }
+
+  if (activeAction.type === "resize") {
+    const card = activeAction.card;
+    if (
+      card
+      && (
+        Math.round(card.x) !== Math.round(activeAction.originX)
+        || Math.round(card.y) !== Math.round(activeAction.originY)
+        || Math.round(card.width) !== Math.round(activeAction.originWidth)
+        || Math.round(card.height) !== Math.round(activeAction.originHeight)
+      )
+    ) {
+      emitThemeInteractionEvent("cardResized", { card });
+    }
   }
 
   activeAction = null;
@@ -12270,6 +18025,212 @@ function getNewCardPosition(width, height, worldPoint = null) {
   };
 }
 
+function commitCardCreation(card, options = {}) {
+  const effect = isThemeCardEffectEnabled("create") ? getThemeCardEffect("create") : null;
+  if (effect) {
+    queueInteractiveCardEffect("create", card);
+  }
+
+  const delayMs = effect?.delayMs || 0;
+  if (delayMs > 0) {
+    const targetBoardId = state.boardId;
+    window.setTimeout(() => {
+      if (state.boardId !== targetBoardId) {
+        return;
+      }
+      state.cards.push(card);
+      emitThemeInteractionEvent("cardCreated", { card });
+      if (typeof options.afterInsert === "function") {
+        options.afterInsert(card);
+      }
+      render();
+      scheduleSave();
+    }, delayMs);
+    return false;
+  }
+
+  state.cards.push(card);
+  emitThemeInteractionEvent("cardCreated", { card });
+  if (typeof options.afterInsert === "function") {
+    options.afterInsert(card);
+  }
+  return true;
+}
+
+function commitCardsCreation(cards) {
+  let insertedImmediately = false;
+  cards.filter(Boolean).forEach((card) => {
+    insertedImmediately = commitCardCreation(card) || insertedImmediately;
+  });
+  return insertedImmediately;
+}
+
+function getTemplateCardTitle(template) {
+  return localizeTemplateValue(template.title, template.titleKey)
+    || getCardTemplateDisplayName(template)
+    || t(getCardTypeDefinition(template.kind).labelKey);
+}
+
+function buildTemplateCardContent(template) {
+  const data = template.data && typeof template.data === "object" ? template.data : {};
+  const title = getTemplateCardTitle(template);
+
+  switch (template.kind) {
+    case "comment": {
+      const now = Date.now();
+      const text = getTemplateDataText(data, "text");
+      return {
+        title,
+        text,
+        textHtml: normalizeRichTextHtml(data.textHtml, text),
+        commentAttachment: null,
+        commentCreatedAt: now,
+        commentUpdatedAt: now,
+        commentHistory: []
+      };
+    }
+    case "code":
+      return {
+        title,
+        codeLanguage: typeof data.codeLanguage === "string" ? data.codeLanguage.slice(0, 24) : "",
+        text: getTemplateDataText(data, "text")
+      };
+    case "calculator":
+      return {
+        title,
+        calculatorDisplay: "0",
+        calculatorExpression: "",
+        calculatorOperand: null,
+        calculatorOperation: null,
+        calculatorWaitingForOperand: false,
+        calculatorError: "",
+        calculatorHistory: []
+      };
+    case "table": {
+      const columns = materializeTemplateTableColumns(data.tableColumns);
+      const rows = materializeTemplateTableRows(data.tableRows, columns.length);
+      return {
+        title,
+        tableColumns: columns,
+        tableRows: rows.length ? rows : Array.from({ length: 3 }, () => createTableRow({}, columns.length))
+      };
+    }
+    case "tasks":
+      return {
+        title,
+        tasks: materializeTemplateTasks(data.tasks).length
+          ? materializeTemplateTasks(data.tasks)
+          : [{ id: createId("task"), text: t("firstTask"), done: false }]
+      };
+    case "bookmark":
+      return {
+        title,
+        links: materializeTemplateLinks(data.links).length
+          ? materializeTemplateLinks(data.links)
+          : [createBookmarkLink()]
+      };
+    case "progress":
+      return {
+        title,
+        progressValue: 0,
+        tasks: materializeTemplateTasks(data.tasks).length
+          ? materializeTemplateTasks(data.tasks)
+          : [{ id: createId("task"), text: t("firstTask"), done: false }]
+      };
+    case "timer": {
+      const duration = normalizeThemeNumber(data.timerDurationMinutes, defaultTimerDurationMinutes, 1, 1440);
+      return {
+        title,
+        timerDurationMinutes: duration,
+        timerRemainingMs: duration * 60 * 1000,
+        timerEndsAt: null,
+        timerNotifyToast: data.timerNotifyToast !== false,
+        timerPlaySound: data.timerPlaySound === true,
+        timerCompletionNotifiedAt: null
+      };
+    }
+    case "reminder":
+      return {
+        title,
+        text: getTemplateDataText(data, "text"),
+        textHtml: normalizeRichTextHtml(data.textHtml, getTemplateDataText(data, "text")),
+        reminderAt: typeof data.reminderAt === "string" ? data.reminderAt : "",
+        reminderShowToast: data.reminderShowToast !== false,
+        reminderPlaySound: data.reminderPlaySound === true,
+        reminderRepeatUntilAcknowledged: data.reminderRepeatUntilAcknowledged !== false,
+        reminderRepeatIntervalMinutes: normalizeThemeNumber(data.reminderRepeatIntervalMinutes, defaultReminderRepeatIntervalMinutes, 1, 1440),
+        reminderAcknowledgedAt: null,
+        reminderLastTriggeredAt: null
+      };
+    case "clock":
+      return {
+        title,
+        ...normalizeClockFields(data)
+      };
+    case "weather":
+      return {
+        title,
+        ...normalizeWeatherFields(data)
+      };
+    case "schedule": {
+      const entries = materializeTemplateScheduleEntries(data.scheduleEntries);
+      return {
+        title,
+        scheduleEntries: entries.length ? entries : [createScheduleEntry({ time: "09:00", note: "" })],
+        text: ""
+      };
+    }
+    case "web": {
+      const url = normalizeUrl(data.url || getTemplateDataText(data, "url"));
+      return {
+        title: title || (url ? getUrlTitle(url) : t("urlTitle")),
+        url,
+        src: url
+      };
+    }
+    default: {
+      const text = getTemplateDataText(data, "text");
+      return {
+        title,
+        text,
+        textHtml: normalizeRichTextHtml(data.textHtml, text)
+      };
+    }
+  }
+}
+
+function createCardFromTemplate(templateSource, worldPoint = null, source = {}) {
+  ensureEditMode();
+  const template = normalizeCardTemplate(templateSource);
+  const position = getNewCardPosition(template.width, template.height, worldPoint);
+  const colors = getDefaultCardColors(template.kind);
+  const data = template.data && typeof template.data === "object" ? template.data : {};
+  const sourcePackId = source.packId ? normalizePackId(source.packId, "pack") : "";
+  const sourceTemplateId = normalizePackId(source.templateId || template.id, "template");
+  const card = {
+    id: createId(template.kind),
+    kind: template.kind,
+    x: position.x,
+    y: position.y,
+    width: template.width,
+    height: template.height,
+    headerColor: isHexColor(data.headerColor) ? data.headerColor : colors.header,
+    bodyColor: isHexColor(data.bodyColor) ? data.bodyColor : colors.body,
+    customHeaderColor: isHexColor(data.headerColor),
+    customBodyColor: isHexColor(data.bodyColor),
+    stackOrder: getNextStackOrderForLayer(template.kind === "group" ? "group" : "card"),
+    tags: normalizeTagList(data.tags),
+    sourceCardPackId: sourcePackId || "",
+    sourceCardTemplateId: sourcePackId ? sourceTemplateId : "",
+    ...buildTemplateCardContent(template)
+  };
+
+  commitCardCreation(card);
+  render();
+  scheduleSave();
+  return card;
+}
+
 function addCard(kind, worldPoint = null) {
   ensureEditMode();
 
@@ -12294,7 +18255,7 @@ function addCard(kind, worldPoint = null) {
 
   if (kind === "comment") {
     const now = Date.now();
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newComment"),
       text: "",
@@ -12305,14 +18266,14 @@ function addCard(kind, worldPoint = null) {
       commentHistory: []
     });
   } else if (kind === "code") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newCode"),
       codeLanguage: "",
       text: ""
     });
   } else if (kind === "calculator") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newCalculator"),
       calculatorDisplay: "0",
@@ -12324,33 +18285,33 @@ function addCard(kind, worldPoint = null) {
       calculatorHistory: []
     });
   } else if (kind === "table") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newTable"),
       tableColumns: normalizeTableColumns([], 3),
       tableRows: Array.from({ length: 3 }, () => createTableRow({}, 3))
     });
   } else if (kind === "tasks") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newList"),
       tasks: [{ id: createId("task"), text: t("firstTask"), done: false }]
     });
   } else if (kind === "bookmark") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newBookmark"),
       links: [createBookmarkLink()]
     });
   } else if (kind === "progress") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newProgress"),
       progressValue: 0,
       tasks: [{ id: createId("task"), text: t("firstTask"), done: false }]
     });
   } else if (kind === "timer") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newTimer"),
       timerDurationMinutes: defaultTimerDurationMinutes,
@@ -12361,7 +18322,7 @@ function addCard(kind, worldPoint = null) {
       timerCompletionNotifiedAt: null
     });
   } else if (kind === "reminder") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newReminder"),
       text: "",
@@ -12374,15 +18335,36 @@ function addCard(kind, worldPoint = null) {
       reminderAcknowledgedAt: null,
       reminderLastTriggeredAt: null
     });
+  } else if (kind === "clock") {
+    commitCardCreation({
+      ...base,
+      title: t("newClock"),
+      clockTimeZone: "system",
+      clockShowSeconds: true
+    });
+  } else if (kind === "weather") {
+    commitCardCreation({
+      ...base,
+      title: t("newWeather"),
+      weatherLocation: "",
+      weatherUnits: "metric",
+      weatherTemperatureC: null,
+      weatherFeelsLikeC: null,
+      weatherDescription: "",
+      weatherHumidity: null,
+      weatherWindKph: null,
+      weatherUpdatedAt: null,
+      weatherError: ""
+    });
   } else if (kind === "schedule") {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newSchedule"),
       scheduleEntries: [createScheduleEntry({ time: "09:00", note: "" })],
       text: ""
     });
   } else {
-    state.cards.push({
+    commitCardCreation({
       ...base,
       title: t("newNote"),
       text: "",
@@ -12402,7 +18384,7 @@ function addGroup(worldPoint = null) {
   const height = definition.defaultSize?.height || 360;
   const position = getNewCardPosition(width, height, worldPoint);
   const colors = getDefaultCardColors("group");
-  state.cards.push({
+  commitCardCreation({
     id: createId("group"),
     kind: "group",
     title: t("newGroup"),
@@ -12438,7 +18420,7 @@ async function addMedia(kind, worldPoint = null) {
   const position = getNewCardPosition(width, height, worldPoint);
   const colors = getDefaultCardColors(kind);
 
-  state.cards.push({
+  commitCardCreation({
     id: createId(kind),
     kind,
     title: media.name || (kind === "video" ? t("video") : kind === "audio" ? t("audio") : t("image")),
@@ -12479,7 +18461,7 @@ async function addFile(worldPoint = null) {
   const position = getNewCardPosition(width, height, worldPoint);
   const colors = getDefaultCardColors("file");
 
-  state.cards.push({
+  commitCardCreation({
     id: createId("file"),
     kind: "file",
     title: file.name || t("newFile"),
@@ -13199,17 +19181,21 @@ async function addWeb(worldPoint = null) {
     src: ""
   };
 
-  state.cards.push(card);
+  const focusAddress = () => {
+    requestAnimationFrame(() => {
+      const addressInput = getCardElement(card)?.querySelector(".web-address-input");
+      if (addressInput) {
+        addressInput.focus();
+        addressInput.select();
+      }
+    });
+  };
 
-  render();
-  requestAnimationFrame(() => {
-    const addressInput = getCardElement(card)?.querySelector(".web-address-input");
-    if (addressInput) {
-      addressInput.focus();
-      addressInput.select();
-    }
-  });
-  scheduleSave();
+  const inserted = commitCardCreation(card, { afterInsert: focusAddress });
+  if (inserted) {
+    render();
+    scheduleSave();
+  }
 }
 
 function pickMediaInBrowser(kind) {
@@ -13463,22 +19449,65 @@ function duplicateCard(card) {
   }
 
   assignTopStackOrder(copy);
-  state.cards.push(copy);
-  render();
-  scheduleSave();
+  const inserted = commitCardCreation(copy);
+  if (inserted) {
+    render();
+    scheduleSave();
+  }
   closeContextMenu();
+}
+
+function removeCardsByIds(ids) {
+  state.cards = state.cards.filter((card) => !ids.has(card.id));
+  removeConnectionsForCardIds(ids);
+  removeReferencesForCardIds(ids);
+  detachCommentsFromCardIds(ids);
+  ids.forEach((id) => pendingCardRemovalIds.delete(id));
+}
+
+function deleteCardsWithThemeEffect(cards) {
+  const ids = new Set(cards.map((card) => card.id));
+  const effect = isThemeCardEffectEnabled("delete") ? getThemeCardEffect("delete") : null;
+  if (!effect || effect.delayMs <= 0) {
+    cards.forEach((card) => emitThemeInteractionEvent("cardDeleted", { card }));
+    removeCardsByIds(ids);
+    clearSelection();
+    render();
+    scheduleSave();
+    closeContextMenu();
+    return;
+  }
+
+  cards.forEach((card) => {
+    emitThemeInteractionEvent("cardDeleted", { card });
+    if (!pendingCardRemovalIds.has(card.id)) {
+      queueInteractiveCardEffect("delete", card);
+    }
+    pendingCardRemovalIds.add(card.id);
+  });
+  selectedIds = new Set([...selectedIds].filter((id) => !ids.has(id)));
+  render();
+  closeContextMenu();
+  const targetBoardId = state.boardId;
+  window.setTimeout(() => {
+    if (state.boardId !== targetBoardId) {
+      ids.forEach((id) => pendingCardRemovalIds.delete(id));
+      return;
+    }
+    removeCardsByIds(ids);
+    clearSelection();
+    render();
+    scheduleSave();
+  }, effect.delayMs);
 }
 
 function deleteCard(card) {
   ensureEditMode();
-  state.cards = state.cards.filter((item) => item.id !== card.id);
-  removeConnectionsForCardIds([card.id]);
-  removeReferencesForCardIds([card.id]);
-  detachCommentsFromCardIds([card.id]);
-  selectedIds.delete(card.id);
-  render();
-  scheduleSave();
-  closeContextMenu();
+  if (!card || pendingCardRemovalIds.has(card.id)) {
+    return;
+  }
+
+  deleteCardsWithThemeEffect([card]);
 }
 
 function deleteSelectedCards() {
@@ -13486,15 +19515,12 @@ function deleteSelectedCards() {
     return;
   }
 
-  const ids = new Set(selectedIds);
-  state.cards = state.cards.filter((card) => !ids.has(card.id));
-  removeConnectionsForCardIds(ids);
-  removeReferencesForCardIds(ids);
-  detachCommentsFromCardIds(ids);
-  clearSelection();
-  render();
-  scheduleSave();
-  closeContextMenu();
+  const cards = getSelectedCards().filter((card) => !pendingCardRemovalIds.has(card.id));
+  if (cards.length === 0) {
+    return;
+  }
+
+  deleteCardsWithThemeEffect(cards);
 }
 
 function createGroupFromSelection() {
@@ -13530,10 +19556,14 @@ function createGroupFromSelection() {
     stackOrder: getNextStackOrderForLayer("group")
   };
 
-  state.cards.push(group);
+  const inserted = commitCardCreation(group);
   selectedIds = new Set([group.id]);
-  render();
-  scheduleSave();
+  if (inserted) {
+    emitThemeInteractionEvent("cardGrouped", { card: group });
+    cards.forEach((card) => emitThemeInteractionEvent("cardGrouped", { card }));
+    render();
+    scheduleSave();
+  }
   closeContextMenu();
 }
 
@@ -13710,6 +19740,18 @@ function createAtContext(kind, worldPoint) {
   createElement(kind, worldPoint);
 }
 
+function createDefinitionAtContext(definition, worldPoint) {
+  closeContextMenu();
+  if (definition?.createMode === "template") {
+    createCardFromTemplate(definition.template, worldPoint, {
+      packId: definition.packId,
+      templateId: definition.templateId
+    });
+    return;
+  }
+  createElement(definition?.kind, worldPoint);
+}
+
 function renderConnectionContextMenu(connection) {
   const title = document.createElement("div");
   title.className = "context-menu-title";
@@ -13765,7 +19807,7 @@ function renderBoardContextMenu(worldPoint) {
   quickCreateGroupOrder.forEach((group) => {
     const items = quickCreateDefinitions
       .filter((definition) => definition.quickCreateGroup === group)
-      .map((definition) => createContextButton(t(definition.labelKey), () => createAtContext(definition.kind, worldPoint)));
+      .map((definition) => createContextButton(getCreateDefinitionLabel(definition), () => createDefinitionAtContext(definition, worldPoint)));
 
     if (items.length) {
       sections.push(createContextSection(items));
@@ -14137,6 +20179,7 @@ async function saveSettings() {
     timeFormat: timeFormatInput.value || defaultSettings.timeFormat,
     backgroundColor: backgroundColorInput.value || defaultSettings.backgroundColor,
     backgroundOpacity: Number(backgroundOpacityInput?.value ?? defaultSettings.backgroundOpacity),
+    interactiveBackgroundQuality: interactiveBackgroundQualityInput?.value || defaultSettings.interactiveBackgroundQuality,
     connectionColor: connectionColorInput.value || getDefaultConnectionColor(backgroundColorInput.value || defaultSettings.backgroundColor),
     richTextFontFamily: richTextFontFamilyInput?.value || defaultSettings.richTextFontFamily,
     richTextFontSize: Number(richTextFontSizeInput?.value || defaultSettings.richTextFontSize),
@@ -14144,6 +20187,7 @@ async function saveSettings() {
     historyEnabled: historyEnabledInput?.checked !== false,
     quickCreateKinds: getSelectedQuickCreateKinds(),
     toolbarCreateKinds: getSelectedToolbarCreateKinds(),
+    cardPacks: state.settings.cardPacks,
     colorSchemes: state.settings.colorSchemes,
     colors: nextColors,
     toggleHotkey: toggleHotkeyInput.value.trim() || defaultSettings.toggleHotkey,
@@ -14172,7 +20216,7 @@ async function saveSettings() {
         wallpaperInteractionEnabled: false,
         multiMonitorEnabled: multiMonitorMode === "seamless",
         multiMonitorMode,
-        multiMonitorDisplayIds: multiMonitorMode === "single" ? [] : getSelectedMultiMonitorDisplayIdsFromUi()
+        multiMonitorDisplayIds: getSelectedMultiMonitorDisplayIdsFromUi()
       });
       if (requestVersion === appRuntimeConfigRequestVersion) {
         appRuntimeConfig = nextAppConfig;
@@ -14271,10 +20315,12 @@ async function handleDroppedFiles(event) {
     };
   }));
 
-  state.cards.push(...cards.filter(Boolean));
+  const inserted = commitCardsCreation(cards.filter(Boolean));
 
-  render();
-  scheduleSave();
+  if (inserted) {
+    render();
+    scheduleSave();
+  }
 }
 
 board.addEventListener("pointerdown", handleConnectionPointerDown);
@@ -14404,6 +20450,18 @@ window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !settingsModal.hidden) {
     closeSettings();
   }
+
+  if (event.key === "Escape" && themeCatalogModal && !themeCatalogModal.hidden) {
+    closeThemeCatalog();
+  }
+
+  if (event.key === "Escape" && cardCatalogModal && !cardCatalogModal.hidden) {
+    closeCardCatalog();
+  }
+
+  if (event.key === "Escape" && themeEditorModal && !themeEditorModal.hidden) {
+    closeThemeEditor();
+  }
 });
 
 window.addEventListener("pointerdown", (event) => {
@@ -14415,9 +20473,15 @@ window.addEventListener("pointerdown", (event) => {
   }
 });
 
-window.addEventListener("resize", closeContextMenu);
+window.addEventListener("resize", () => {
+  closeContextMenu();
+  syncInteractiveBackgroundEngine();
+});
 document.addEventListener("selectionchange", updateRichTextToolbarFromSelection);
-document.addEventListener("visibilitychange", syncBrandLogoAnimationState);
+document.addEventListener("visibilitychange", () => {
+  syncBrandLogoAnimationState();
+  syncInteractiveBackgroundEngine();
+});
 
 lockButton.addEventListener("click", () => setLocked(!state.locked));
 hideButton.addEventListener("click", () => {
@@ -14465,6 +20529,107 @@ importThemeButton?.addEventListener("click", () => {
 importThemePackageButton?.addEventListener("click", () => {
   void importThemePackageFromDirectory();
 });
+openThemeCatalogButton?.addEventListener("click", openThemeCatalog);
+closeThemeCatalogButton?.addEventListener("click", closeThemeCatalog);
+themeCatalogCloseFooterButton?.addEventListener("click", closeThemeCatalog);
+themeCatalogImportFileButton?.addEventListener("click", () => {
+  void importThemeFromCatalogFile();
+});
+themeCatalogImportPackageButton?.addEventListener("click", () => {
+  void importThemePackageFromCatalogDirectory();
+});
+themeCatalogUploadButton?.addEventListener("click", () => {
+  setThemeCatalogStatus(t("themeCatalogUploadLocal"), "muted");
+  void importThemeFromCatalogFile();
+});
+themeCatalogBrowseTab?.addEventListener("click", () => {
+  themeCatalogActiveTab = "browse";
+  renderThemeCatalog();
+});
+themeCatalogInstalledTab?.addEventListener("click", () => {
+  themeCatalogActiveTab = "installed";
+  renderThemeCatalog();
+});
+openCardCatalogButton?.addEventListener("click", openCardCatalog);
+closeCardCatalogButton?.addEventListener("click", closeCardCatalog);
+cardCatalogCloseFooterButton?.addEventListener("click", closeCardCatalog);
+cardCatalogImportButton?.addEventListener("click", () => {
+  void importCardPackFromFile();
+});
+cardCatalogUploadButton?.addEventListener("click", () => {
+  setCardCatalogStatus(t("cardCatalogUploadLocal"), "muted");
+  void importCardPackFromFile();
+});
+cardCatalogBrowseTab?.addEventListener("click", () => {
+  cardCatalogActiveTab = "browse";
+  renderCardCatalog();
+});
+cardCatalogInstalledTab?.addEventListener("click", () => {
+  cardCatalogActiveTab = "installed";
+  renderCardCatalog();
+});
+openThemeEditorButton?.addEventListener("click", openThemeEditor);
+closeThemeEditorButton?.addEventListener("click", closeThemeEditor);
+themeEditorCloseFooterButton?.addEventListener("click", closeThemeEditor);
+themeEditorLoadCurrentButton?.addEventListener("click", () => fillThemeEditorFromTheme(getVisualTheme(), "themeEditorLoaded"));
+themeEditorLoadDefaultButton?.addEventListener("click", () => fillThemeEditorFromTheme(defaultVisualTheme, "themeEditorDefaultLoaded"));
+themePickHeaderAssetButton?.addEventListener("click", () => {
+  void pickThemeSurfaceAsset(themeHeaderAssetInput);
+});
+themePickBodyAssetButton?.addEventListener("click", () => {
+  void pickThemeSurfaceAsset(themeBodyAssetInput);
+});
+themeClearHeaderAssetButton?.addEventListener("click", () => {
+  setThemeAssetInput(themeHeaderAssetInput, "");
+  updateThemeAssetsJsonDefaultAsset("cardHeaders", "");
+  updateThemeEditorPreview();
+});
+themeClearBodyAssetButton?.addEventListener("click", () => {
+  setThemeAssetInput(themeBodyAssetInput, "");
+  updateThemeAssetsJsonDefaultAsset("cardBodies", "");
+  updateThemeEditorPreview();
+});
+themeAddActorPresetButton?.addEventListener("click", addThemeActorPreset);
+themeApplyActorEnhancerButton?.addEventListener("click", applyThemeActorEnhancer);
+themeApplyEffectPresetButton?.addEventListener("click", applyThemeEffectPreset);
+themeFormatJsonButton?.addEventListener("click", formatThemeEditorJson);
+themeValidateJsonButton?.addEventListener("click", validateThemeEditorTheme);
+themeEditorApplyButton?.addEventListener("click", () => {
+  void applyThemeEditorTheme();
+});
+themeEditorExportButton?.addEventListener("click", exportThemeEditorTheme);
+[
+  themeEditorNameInput,
+  themeCardRadiusInput,
+  themePanelRadiusInput,
+  themeButtonRadiusInput,
+  themeCardBorderWidthInput,
+  themeCardHeaderHeightInput,
+  themeGroupHeaderHeightInput,
+  themeIconScaleInput,
+  themeShadowInput,
+  themeStrokeWidthInput,
+  themeSelectedStrokeWidthInput,
+  themeDraftStrokeWidthInput,
+  themeOutlineWidthInput,
+  themeWaypointRadiusInput,
+  themeMarkerScaleInput,
+  themeLineStyleInput,
+  themeInteractiveEnabledInput,
+  themeInteractiveFpsInput,
+  themeBackgroundTypeInput,
+  themeBackgroundColorInput,
+  themeBackgroundOpacityInput,
+  themeParticleColorInput,
+  themeParticleCountInput,
+  themeAssetsJsonInput,
+  themeActorsJsonInput,
+  themeReactionsJsonInput,
+  themeCardEffectsJsonInput
+].filter(Boolean).forEach((input) => {
+  input.addEventListener("input", updateThemeEditorPreview);
+  input.addEventListener("change", updateThemeEditorPreview);
+});
 multiMonitorModeInput?.addEventListener("change", () => refreshAppConfigUi());
 backgroundOpacityInput?.addEventListener("input", () => {
   if (backgroundOpacityValue) {
@@ -14473,6 +20638,7 @@ backgroundOpacityInput?.addEventListener("input", () => {
   }
 });
 window.addEventListener("pointermove", (event) => {
+  updateInteractiveBackgroundPointer(event);
   widgetHoverTarget = event.target instanceof Element ? event.target : null;
   void syncWidgetModeInteractivity(widgetHoverTarget);
 }, true);
