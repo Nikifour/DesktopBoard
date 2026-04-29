@@ -12,6 +12,7 @@ const lockButton = document.getElementById("lockButton");
 const hideButton = document.getElementById("hideButton");
 const addNoteButton = document.getElementById("addNoteButton");
 const addCommentButton = document.getElementById("addCommentButton");
+const addChatButton = document.getElementById("addChatButton");
 const addTableButton = document.getElementById("addTableButton");
 const addCalculatorButton = document.getElementById("addCalculatorButton");
 const addTasksButton = document.getElementById("addTasksButton");
@@ -84,6 +85,8 @@ const noteHeaderColorInput = document.getElementById("noteHeaderColorInput");
 const noteBodyColorInput = document.getElementById("noteBodyColorInput");
 const commentHeaderColorInput = document.getElementById("commentHeaderColorInput");
 const commentBodyColorInput = document.getElementById("commentBodyColorInput");
+const chatHeaderColorInput = document.getElementById("chatHeaderColorInput");
+const chatBodyColorInput = document.getElementById("chatBodyColorInput");
 const codeHeaderColorInput = document.getElementById("codeHeaderColorInput");
 const codeBodyColorInput = document.getElementById("codeBodyColorInput");
 const tableHeaderColorInput = document.getElementById("tableHeaderColorInput");
@@ -121,6 +124,7 @@ const groupBodyColorInput = document.getElementById("groupBodyColorInput");
 const colorInputRefs = {
   note: { header: noteHeaderColorInput, body: noteBodyColorInput },
   comment: { header: commentHeaderColorInput, body: commentBodyColorInput },
+  chat: { header: chatHeaderColorInput, body: chatBodyColorInput },
   code: { header: codeHeaderColorInput, body: codeBodyColorInput },
   table: { header: tableHeaderColorInput, body: tableBodyColorInput },
   calculator: { header: calculatorHeaderColorInput, body: calculatorBodyColorInput },
@@ -313,9 +317,28 @@ const commentAttachThreshold = 42;
 const commentHistoryLimit = 80;
 const cardHistoryLimit = 120;
 const groupHistoryLimit = 240;
-const stateSchemaVersion = 9;
+const chatMessageLimit = 300;
+const sharedGroupOperationLimit = 1000;
+const stateSchemaVersion = 10;
 const defaultBoardId = "main";
 const defaultBoardName = navigator.language?.toLowerCase().startsWith("ru") ? "Основная доска" : "Main board";
+const subscriptionPlanLimits = {
+  free: {
+    labelKey: "subscriptionPlanFree",
+    sharedGroupMaxWidth: 1800,
+    sharedGroupMaxHeight: 1100
+  },
+  plus: {
+    labelKey: "subscriptionPlanPlus",
+    sharedGroupMaxWidth: 3600,
+    sharedGroupMaxHeight: 2200
+  },
+  team: {
+    labelKey: "subscriptionPlanTeam",
+    sharedGroupMaxWidth: 7200,
+    sharedGroupMaxHeight: 4400
+  }
+};
 const minTimerDurationMinutes = 1;
 const defaultTimerDurationMinutes = 25;
 const maxTimerDurationMinutes = 10080;
@@ -385,6 +408,17 @@ const cardTypeRegistry = [
     defaultSize: { width: 260, height: 150 },
     toolbarButton: addCommentButton,
     icon: '<svg viewBox="0 0 24 24"><path d="M5 6h14v10H9l-4 4z"/><path d="M8 10h8M8 13h5"/></svg>'
+  },
+  {
+    kind: "chat",
+    labelKey: "chat",
+    createLabelKey: "addChat",
+    colorKind: "chat",
+    quickCreateGroup: "text",
+    createMode: "card",
+    defaultSize: { width: 360, height: 320 },
+    toolbarButton: addChatButton,
+    icon: '<svg viewBox="0 0 24 24"><path d="M5 6h14v9H8l-3 3z"/><path d="M9 10h6M9 13h4"/><path d="M17 16l2 2v-5"/></svg>'
   },
   {
     kind: "code",
@@ -580,6 +614,10 @@ const defaultQuickCreateKinds = getStaticQuickCreateDefinitions().map((definitio
 const defaultToolbarCreateKinds = cardTypeRegistry
   .filter((definition) => Boolean(definition.toolbarButton))
   .map((definition) => definition.kind);
+const cardTemplateCreatePrefix = "template:";
+const developerCardPackId = "developer-pack";
+const codeSnippetCardTemplateId = "code-snippet";
+const legacyCodeCardKind = "code";
 
 const bundledCardCatalog = [
   {
@@ -809,6 +847,7 @@ const builtInColorSchemes = [
     colors: {
       note: { header: "#f2c94c", body: "#fff8d7" },
       comment: { header: "#8a6f2a", body: "#fff1c2" },
+      chat: { header: "#3f6f8f", body: "#e6f1f6" },
       code: { header: "#4c6ef5", body: "#e9efff" },
       table: { header: "#5b7bd5", body: "#eef3ff" },
       calculator: { header: "#d66f45", body: "#fde8de" },
@@ -837,6 +876,7 @@ const builtInColorSchemes = [
     colors: {
       note: { header: "#d6b23c", body: "#f7efc9" },
       comment: { header: "#7a6730", body: "#f3e9bf" },
+      chat: { header: "#466f86", body: "#dcecf2" },
       code: { header: "#6072d6", body: "#e5e9fb" },
       table: { header: "#536fb5", body: "#e7edf9" },
       calculator: { header: "#c56f4d", body: "#f7e2d7" },
@@ -865,6 +905,7 @@ const builtInColorSchemes = [
     colors: {
       note: { header: "#e2b94b", body: "#fff4ce" },
       comment: { header: "#8c7240", body: "#fff0c8" },
+      chat: { header: "#4d7f9d", body: "#e2f0f6" },
       code: { header: "#3e70b8", body: "#e3edf8" },
       table: { header: "#4f85a6", body: "#e4f0f4" },
       calculator: { header: "#b9674c", body: "#f5e1d7" },
@@ -1097,6 +1138,7 @@ const defaultSettings = {
   colors: {
     note: { header: "#f2c94c", body: "#fff8d7" },
     comment: { header: "#8a6f2a", body: "#fff1c2" },
+    chat: { header: "#3f6f8f", body: "#e6f1f6" },
     code: { header: "#4c6ef5", body: "#e9efff" },
     table: { header: "#5b7bd5", body: "#eef3ff" },
     calculator: { header: "#d66f45", body: "#fde8de" },
@@ -1132,10 +1174,14 @@ const defaultState = {
   locked: false,
   viewport: { ...defaultViewport },
   settings: clone(defaultSettings),
+  account: {
+    subscriptionPlan: "free"
+  },
   audit: {
     localActor: createDefaultAuditActor()
   },
   groupHistory: [],
+  sharedGroupOperations: [],
   connections: [],
   cards: [
     {
@@ -2415,6 +2461,42 @@ Object.assign(translations.en, {
 });
 
 Object.assign(translations.ru, {
+  chat: "\u0427\u0430\u0442",
+  addChat: "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0447\u0430\u0442",
+  newChat: "\u041d\u043e\u0432\u044b\u0439 \u0447\u0430\u0442",
+  chatPlaceholder: "\u041d\u0430\u043f\u0438\u0448\u0438\u0442\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435...",
+  sendChatMessage: "\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c",
+  chatEmpty: "\u0421\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442.",
+  makeSharedGroup: "\u0421\u0434\u0435\u043b\u0430\u0442\u044c shared group",
+  disableSharedGroup: "\u041e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u044c shared group",
+  copySharedGroupId: "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c shared ID",
+  sharedGroupBadge: "Shared",
+  sharedGroupLocalStatus: "\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u0430\u044f shared group",
+  sharedGroupLimit: "\u041b\u0438\u043c\u0438\u0442",
+  subscriptionPlanFree: "Free",
+  subscriptionPlanPlus: "Plus",
+  subscriptionPlanTeam: "Team"
+});
+
+Object.assign(translations.en, {
+  chat: "Chat",
+  addChat: "Add chat",
+  newChat: "New chat",
+  chatPlaceholder: "Write a message...",
+  sendChatMessage: "Send",
+  chatEmpty: "No messages yet.",
+  makeSharedGroup: "Make shared group",
+  disableSharedGroup: "Disable shared group",
+  copySharedGroupId: "Copy shared ID",
+  sharedGroupBadge: "Shared",
+  sharedGroupLocalStatus: "Local shared group",
+  sharedGroupLimit: "Limit",
+  subscriptionPlanFree: "Free",
+  subscriptionPlanPlus: "Plus",
+  subscriptionPlanTeam: "Team"
+});
+
+Object.assign(translations.ru, {
   historyEnabled: "\u0417\u0430\u043f\u0438\u0441\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u0439",
   historyEnabledHelp: "\u0414\u043e\u0431\u0430\u0432\u043b\u044f\u0435\u0442 \u0432 JSON \u0438\u0441\u0442\u043e\u0440\u0438\u044e \u043a\u0430\u0440\u0442\u043e\u0447\u0435\u043a, \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f \u0438 \u0441\u043e\u0441\u0442\u0430\u0432\u0430 \u0433\u0440\u0443\u043f\u043f. \u0415\u0441\u043b\u0438 \u0432\u044b\u043a\u043b\u044e\u0447\u0438\u0442\u044c, \u043d\u043e\u0432\u044b\u0435 \u0437\u0430\u043f\u0438\u0441\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u043d\u0435 \u0441\u043e\u0437\u0434\u0430\u044e\u0442\u0441\u044f.",
   cardHistory: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f",
@@ -2970,6 +3052,25 @@ function normalizeAuditState(audit = {}) {
   };
 }
 
+function normalizeSubscriptionPlan(value) {
+  return Object.hasOwn(subscriptionPlanLimits, value) ? value : "free";
+}
+
+function normalizeAccountState(account = {}) {
+  return {
+    subscriptionPlan: normalizeSubscriptionPlan(account?.subscriptionPlan)
+  };
+}
+
+function getSharedGroupLimits(subscriptionPlan = state?.account?.subscriptionPlan) {
+  return subscriptionPlanLimits[normalizeSubscriptionPlan(subscriptionPlan)] || subscriptionPlanLimits.free;
+}
+
+function getSharedGroupLimitLabel(subscriptionPlan = state?.account?.subscriptionPlan) {
+  const limits = getSharedGroupLimits(subscriptionPlan);
+  return `${t(limits.labelKey)}: ${limits.sharedGroupMaxWidth}x${limits.sharedGroupMaxHeight}`;
+}
+
 function getCurrentAuditActor() {
   if (!state?.audit?.localActor) {
     return createDefaultAuditActor();
@@ -2989,6 +3090,151 @@ function createBookmarkLink(link = {}) {
 function normalizeBookmarkLinks(links) {
   const source = Array.isArray(links) ? links : [];
   return source.map((link) => createBookmarkLink(link));
+}
+
+function normalizeChatMessage(message = {}) {
+  const source = message && typeof message === "object" ? message : {};
+  const createdAt = Number.isFinite(Number(source.createdAt)) ? Number(source.createdAt) : Date.now();
+  const editedAt = Number.isFinite(Number(source.editedAt)) ? Number(source.editedAt) : null;
+  const deletedAt = Number.isFinite(Number(source.deletedAt)) ? Number(source.deletedAt) : null;
+
+  return {
+    id: typeof source.id === "string" && source.id ? source.id.slice(0, 160) : createId("chat-message"),
+    author: normalizeAuditActor(source.author, createDefaultAuditActor()),
+    text: typeof source.text === "string" ? source.text.slice(0, 4000) : "",
+    createdAt,
+    editedAt,
+    deletedAt
+  };
+}
+
+function normalizeChatMessages(messages = []) {
+  if (!Array.isArray(messages)) {
+    return [];
+  }
+
+  return messages
+    .map(normalizeChatMessage)
+    .filter((message) => message.text || Number.isFinite(message.deletedAt))
+    .slice(-chatMessageLimit);
+}
+
+function createChatMessage(text) {
+  return normalizeChatMessage({
+    id: createId("chat-message"),
+    author: getCurrentAuditActor(),
+    text: String(text || "").trim(),
+    createdAt: Date.now()
+  });
+}
+
+function normalizeSharedGroup(sharedGroup = null, groupId = "") {
+  const source = sharedGroup && typeof sharedGroup === "object" ? sharedGroup : {};
+  const enabled = source.enabled === true;
+  const id = typeof source.id === "string" && source.id.trim()
+    ? source.id.trim().slice(0, 160)
+    : enabled
+      ? createId("shared-group")
+      : "";
+
+  return {
+    enabled,
+    id,
+    role: ["owner", "editor", "viewer"].includes(source.role) ? source.role : "owner",
+    status: ["local", "pending", "syncing", "synced", "error"].includes(source.status) ? source.status : "local",
+    groupId: typeof source.groupId === "string" && source.groupId.trim() ? source.groupId.trim().slice(0, 160) : groupId,
+    createdAt: Number.isFinite(Number(source.createdAt)) ? Number(source.createdAt) : Date.now(),
+    lastSyncedAt: Number.isFinite(Number(source.lastSyncedAt)) ? Number(source.lastSyncedAt) : null,
+    lastSyncedOpId: typeof source.lastSyncedOpId === "string" ? source.lastSyncedOpId.slice(0, 160) : "",
+    lastLocalChangeAt: Number.isFinite(Number(source.lastLocalChangeAt)) ? Number(source.lastLocalChangeAt) : null,
+    lastLocalOpId: typeof source.lastLocalOpId === "string" ? source.lastLocalOpId.slice(0, 160) : "",
+    inviteUrl: typeof source.inviteUrl === "string" ? source.inviteUrl.slice(0, 500) : ""
+  };
+}
+
+function isGroupShared(group) {
+  return group?.kind === "group" && group.sharedGroup?.enabled === true && Boolean(group.sharedGroup.id);
+}
+
+function normalizeSharedGroupOperation(operation = {}) {
+  const source = operation && typeof operation === "object" ? operation : {};
+  const groupId = typeof source.groupId === "string" ? source.groupId.slice(0, 160) : "";
+  const sharedGroupId = typeof source.sharedGroupId === "string" ? source.sharedGroupId.slice(0, 160) : "";
+  const type = typeof source.type === "string" && source.type.trim() ? source.type.trim().slice(0, 80) : "";
+  const entityType = typeof source.entityType === "string" && source.entityType.trim() ? source.entityType.trim().slice(0, 80) : "";
+  const entityId = typeof source.entityId === "string" ? source.entityId.slice(0, 160) : "";
+
+  return {
+    id: typeof source.id === "string" && source.id ? source.id.slice(0, 160) : createId("shared-op"),
+    at: Number.isFinite(Number(source.at)) ? Number(source.at) : Date.now(),
+    actor: normalizeAuditActor(source.actor, createDefaultAuditActor()),
+    groupId,
+    sharedGroupId,
+    type,
+    entityType,
+    entityId,
+    payload: source.payload && typeof source.payload === "object" && !Array.isArray(source.payload)
+      ? clone(source.payload)
+      : {}
+  };
+}
+
+function normalizeSharedGroupOperations(operations = []) {
+  if (!Array.isArray(operations)) {
+    return [];
+  }
+
+  return operations
+    .map(normalizeSharedGroupOperation)
+    .filter((operation) => operation.groupId && operation.sharedGroupId && operation.type && operation.entityType)
+    .slice(-sharedGroupOperationLimit);
+}
+
+function constrainSharedGroupRect(rect, direction = "se", subscriptionPlan = state?.account?.subscriptionPlan) {
+  const limits = getSharedGroupLimits(subscriptionPlan);
+  let left = Number(rect.left) || 0;
+  let top = Number(rect.top) || 0;
+  let right = Number(rect.right) || left + minCardWidth;
+  let bottom = Number(rect.bottom) || top + minCardHeight;
+  const maxWidth = Math.max(minCardWidth, limits.sharedGroupMaxWidth);
+  const maxHeight = Math.max(minCardHeight, limits.sharedGroupMaxHeight);
+
+  if (right - left > maxWidth) {
+    if (direction.includes("w") && !direction.includes("e")) {
+      left = right - maxWidth;
+    } else {
+      right = left + maxWidth;
+    }
+  }
+
+  if (bottom - top > maxHeight) {
+    if (direction.includes("n") && !direction.includes("s")) {
+      top = bottom - maxHeight;
+    } else {
+      bottom = top + maxHeight;
+    }
+  }
+
+  return { left, top, right, bottom };
+}
+
+function enforceSharedGroupLimits(group, subscriptionPlan = state?.account?.subscriptionPlan) {
+  if (!isGroupShared(group)) {
+    return false;
+  }
+
+  const rect = constrainSharedGroupRect({
+    left: group.x,
+    top: group.y,
+    right: group.x + group.width,
+    bottom: group.y + group.height
+  }, "se", subscriptionPlan);
+  const nextWidth = Math.max(rect.right - rect.left, minCardWidth);
+  const nextHeight = Math.max(rect.bottom - rect.top, minCardHeight);
+  const changed = Math.round(group.width) !== Math.round(nextWidth) || Math.round(group.height) !== Math.round(nextHeight);
+  group.width = nextWidth;
+  group.height = nextHeight;
+  return changed;
 }
 
 function normalizeChecklistTasks(tasks) {
@@ -4921,11 +5167,6 @@ function getStaticQuickCreateDefinitions() {
 function getToolbarCardTypes() {
   return cardTypeRegistry.filter((definition) => Boolean(definition.toolbarButton));
 }
-
-const cardTemplateCreatePrefix = "template:";
-const developerCardPackId = "developer-pack";
-const codeSnippetCardTemplateId = "code-snippet";
-const legacyCodeCardKind = "code";
 
 function getCardTemplateCreateId(packId, templateId) {
   return `${cardTemplateCreatePrefix}${normalizePackId(packId, "pack")}:${normalizePackId(templateId, "template")}`;
@@ -7251,6 +7492,10 @@ function normalizeState(input) {
     settings.quickCreateKinds = ensureCardKindInList(settings.quickCreateKinds, "comment", cardTypeRegistry);
     settings.toolbarCreateKinds = ensureCardKindInList(settings.toolbarCreateKinds, "comment", getToolbarCardTypes());
   }
+  if (sourceSchemaVersion < 10) {
+    settings.quickCreateKinds = ensureCardKindInList(settings.quickCreateKinds, "chat", cardTypeRegistry);
+    settings.toolbarCreateKinds = ensureCardKindInList(settings.toolbarCreateKinds, "chat", getToolbarCardTypes());
+  }
   const normalized = {
     schemaVersion: stateSchemaVersion,
     boardId: typeof source.boardId === "string" && source.boardId.trim() ? source.boardId.trim() : defaultBoardId,
@@ -7261,8 +7506,10 @@ function normalizeState(input) {
       ...(source.viewport || {})
     },
     settings,
+    account: normalizeAccountState(source.account),
     audit: normalizeAuditState(source.audit),
     groupHistory: normalizeGroupHistory(source.groupHistory),
+    sharedGroupOperations: normalizeSharedGroupOperations(source.sharedGroupOperations),
     cards: normalizeCardStackOrders(source.cards.map((card) => normalizeCard(card, settings))),
     connections: []
   };
@@ -7275,6 +7522,7 @@ function normalizeState(input) {
       ? card.commentAttachment
       : null
   }));
+  normalized.cards.forEach((card) => enforceSharedGroupLimits(card, normalized.account.subscriptionPlan));
   normalized.connections = Array.isArray(source.connections)
     ? source.connections
       .map((connection) => normalizeConnection(connection, settings))
@@ -7962,6 +8210,11 @@ function normalizeCard(card, settings) {
     normalized.links = normalizeBookmarkLinks(normalized.links);
   }
 
+  if (normalized.kind === "chat") {
+    normalized.chatMessages = normalizeChatMessages(normalized.chatMessages);
+    normalized.sharedGroupId = typeof normalized.sharedGroupId === "string" ? normalized.sharedGroupId.slice(0, 160) : "";
+  }
+
   if (normalized.kind === "schedule") {
     normalized.scheduleEntries = normalizeScheduleEntries(normalized.scheduleEntries, normalized.text);
     normalized.text = typeof normalized.text === "string" ? normalized.text : "";
@@ -8073,6 +8326,10 @@ function normalizeCard(card, settings) {
     normalized.url = normalizeUrl(normalized.url || normalized.src);
     normalized.src = normalized.url;
     normalized.webInteractive = Boolean(normalized.webInteractive);
+  }
+
+  if (normalized.kind === "group") {
+    normalized.sharedGroup = normalizeSharedGroup(normalized.sharedGroup, normalized.id);
   }
 
   return normalized;
@@ -8203,6 +8460,17 @@ function getAuditBookmarkLinks(links = []) {
   }));
 }
 
+function getAuditChatMessages(messages = []) {
+  return normalizeChatMessages(messages).map((message) => ({
+    authorId: message.author.id,
+    authorName: message.author.name,
+    text: message.text,
+    createdAt: message.createdAt,
+    editedAt: message.editedAt,
+    deletedAt: message.deletedAt
+  }));
+}
+
 function getAuditScheduleEntries(entries = [], legacyText = "") {
   return normalizeScheduleEntries(entries, legacyText).map((entry) => ({
     time: entry.time,
@@ -8262,6 +8530,12 @@ function getAuditComparableCard(card = {}) {
       return {
         ...base,
         links: getAuditBookmarkLinks(card.links)
+      };
+    case "chat":
+      return {
+        ...base,
+        sharedGroupId: getAuditText(card.sharedGroupId),
+        chatMessages: getAuditChatMessages(card.chatMessages)
       };
     case "code":
       return {
@@ -8336,7 +8610,16 @@ function getAuditComparableCard(card = {}) {
         url: normalizeUrl(card.url || card.src)
       };
     case "group":
-      return base;
+      return {
+        ...base,
+        sharedGroup: isGroupShared(card)
+          ? {
+            id: card.sharedGroup.id,
+            role: card.sharedGroup.role,
+            status: card.sharedGroup.status
+          }
+          : null
+      };
     case "note":
     default:
       return {
@@ -8419,7 +8702,8 @@ function resetAuditTracking(source = state) {
   auditGroupBaseline = createGroupMembershipSnapshot();
 }
 
-function recordGroupMembershipAudit(actor, at) {
+function recordGroupMembershipAudit(actor, at, options = {}) {
+  const recordHistory = options.recordHistory !== false;
   const nextSnapshot = createGroupMembershipSnapshot();
   const entries = [];
   const cardById = new Map(state.cards.map((card) => [card.id, card]));
@@ -8466,7 +8750,17 @@ function recordGroupMembershipAudit(actor, at) {
     });
   });
 
-  if (entries.length) {
+  entries.forEach((entry) => {
+    const group = cardById.get(entry.groupId);
+    if (!isGroupShared(group)) {
+      return;
+    }
+    appendSharedGroupOperation(group, `membership.${entry.action}`, "membership", `${entry.groupId}:${entry.cardId}`, {
+      entry
+    }, { actor, at });
+  });
+
+  if (recordHistory && entries.length) {
     state.groupHistory = normalizeGroupHistory([
       ...(Array.isArray(state.groupHistory) ? state.groupHistory : []),
       ...entries
@@ -8475,11 +8769,7 @@ function recordGroupMembershipAudit(actor, at) {
 }
 
 function recordAuditChanges() {
-  if (!isHistoryRecordingEnabled()) {
-    resetAuditTracking(state);
-    return;
-  }
-
+  const recordHistory = isHistoryRecordingEnabled();
   const actor = getCurrentAuditActor();
   const now = Date.now();
   state.cards.forEach((card) => {
@@ -8499,12 +8789,15 @@ function recordAuditChanges() {
       card.updatedAt = now;
       card.createdBy = actor;
       card.updatedBy = actor;
-      appendCardHistoryEntry(card, {
-        at: now,
-        actor,
-        kind: "created",
-        changes: []
-      });
+      if (recordHistory) {
+        appendCardHistoryEntry(card, {
+          at: now,
+          actor,
+          kind: "created",
+          changes: []
+        });
+      }
+      appendSharedGroupCardOperation(card, "card.created", {}, { actor, at: now });
       return;
     }
 
@@ -8515,15 +8808,18 @@ function recordAuditChanges() {
 
     card.updatedAt = now;
     card.updatedBy = actor;
-    appendCardHistoryEntry(card, {
-      at: now,
-      actor,
-      kind: "updated",
-      changes
-    });
+    if (recordHistory) {
+      appendCardHistoryEntry(card, {
+        at: now,
+        actor,
+        kind: "updated",
+        changes
+      });
+    }
+    appendSharedGroupCardOperation(card, "card.updated", { changes }, { actor, at: now });
   });
 
-  recordGroupMembershipAudit(actor, now);
+  recordGroupMembershipAudit(actor, now, { recordHistory });
   resetAuditTracking(state);
 }
 
@@ -8862,6 +9158,200 @@ function getCardsForMove(baseCards = []) {
   return [...moveCards.values()];
 }
 
+function getSharedGroupBySharedId(sharedGroupId) {
+  if (!sharedGroupId) {
+    return null;
+  }
+
+  return state.cards.find((card) => isGroupShared(card) && card.sharedGroup.id === sharedGroupId) || null;
+}
+
+function getSharedGroupByLocalOrSharedId(groupId) {
+  if (!groupId) {
+    return null;
+  }
+
+  return state.cards.find((card) => isGroupShared(card) && (card.id === groupId || card.sharedGroup.id === groupId)) || null;
+}
+
+function getSharedGroupForCard(card) {
+  if (!card) {
+    return null;
+  }
+
+  if (isGroupShared(card)) {
+    return card;
+  }
+
+  if (card.kind === "chat" && card.sharedGroupId) {
+    const directGroup = getSharedGroupByLocalOrSharedId(card.sharedGroupId);
+    if (directGroup) {
+      return directGroup;
+    }
+  }
+
+  return state.cards
+    .filter((group) => isGroupShared(group) && group.id !== card.id && isCardInsideGroup(card, group))
+    .sort((left, right) => (left.width * left.height) - (right.width * right.height))[0] || null;
+}
+
+function serializeCardForSharedGroup(card, group) {
+  const snapshot = clone(card);
+  snapshot.sharedGroupOffset = {
+    x: Math.round(card.x - group.x),
+    y: Math.round(card.y - group.y)
+  };
+  return snapshot;
+}
+
+function isConnectionAnchorInsideSharedGroup(anchor, group, memberIds) {
+  if (!anchor || !group) {
+    return false;
+  }
+
+  if (anchor.type === "card") {
+    return memberIds.has(anchor.cardId);
+  }
+
+  if (anchor.type === "point" && anchor.binding?.type === "group-body") {
+    return anchor.binding.cardId === group.id || memberIds.has(anchor.binding.cardId);
+  }
+
+  if (anchor.type === "point") {
+    return isPointInsideRect(anchor, getGroupBodyRect(group));
+  }
+
+  return false;
+}
+
+function getSharedGroupCards(group) {
+  if (!isGroupShared(group)) {
+    return [];
+  }
+
+  return getContainedCards(group, { includeGroups: true, recursive: true })
+    .filter((card) => card.id !== group.id)
+    .sort((left, right) => (left.stackOrder || 0) - (right.stackOrder || 0) || left.id.localeCompare(right.id));
+}
+
+function getSharedGroupConnections(group) {
+  const cards = getSharedGroupCards(group);
+  const memberIds = new Set(cards.map((card) => card.id));
+  memberIds.add(group.id);
+  return state.connections
+    .filter((connection) => (
+      isConnectionAnchorInsideSharedGroup(connection.from, group, memberIds)
+      && isConnectionAnchorInsideSharedGroup(connection.to, group, memberIds)
+    ))
+    .map((connection) => clone(connection));
+}
+
+function getSharedGroupForConnection(connection) {
+  if (!connection) {
+    return null;
+  }
+
+  return state.cards
+    .filter(isGroupShared)
+    .sort((left, right) => (left.width * left.height) - (right.width * right.height))
+    .find((group) => {
+      const memberIds = new Set(getSharedGroupCards(group).map((card) => card.id));
+      memberIds.add(group.id);
+      return (
+        isConnectionAnchorInsideSharedGroup(connection.from, group, memberIds)
+        && isConnectionAnchorInsideSharedGroup(connection.to, group, memberIds)
+      );
+    }) || null;
+}
+
+function buildSharedGroupSyncPayload(group) {
+  if (!isGroupShared(group)) {
+    return null;
+  }
+  const subscriptionPlan = normalizeSubscriptionPlan(state.account?.subscriptionPlan);
+
+  return {
+    schemaVersion: 1,
+    boardId: state.boardId,
+    boardName: state.boardName,
+    groupId: group.id,
+    sharedGroupId: group.sharedGroup.id,
+    subscriptionPlan,
+    limits: getSharedGroupLimits(subscriptionPlan),
+    generatedAt: Date.now(),
+    group: serializeCardForSharedGroup(group, group),
+    cards: getSharedGroupCards(group).map((card) => serializeCardForSharedGroup(card, group)),
+    connections: getSharedGroupConnections(group),
+    operations: normalizeSharedGroupOperations(state.sharedGroupOperations)
+      .filter((operation) => operation.sharedGroupId === group.sharedGroup.id)
+  };
+}
+
+function getSharedGroupEntityType(card) {
+  if (!card) {
+    return "card";
+  }
+
+  if (card.kind === "chat") {
+    return "chat";
+  }
+
+  if (card.kind === "group") {
+    return "group";
+  }
+
+  return "card";
+}
+
+function appendSharedGroupOperation(group, type, entityType, entityId, payload = {}, options = {}) {
+  if (!isGroupShared(group)) {
+    return false;
+  }
+
+  const operation = normalizeSharedGroupOperation({
+    id: createId("shared-op"),
+    at: Number.isFinite(Number(options.at)) ? Number(options.at) : Date.now(),
+    actor: normalizeAuditActor(options.actor, getCurrentAuditActor()),
+    groupId: group.id,
+    sharedGroupId: group.sharedGroup.id,
+    type,
+    entityType,
+    entityId,
+    payload
+  });
+  state.sharedGroupOperations = normalizeSharedGroupOperations([
+    ...(Array.isArray(state.sharedGroupOperations) ? state.sharedGroupOperations : []),
+    operation
+  ]);
+  group.sharedGroup.lastLocalOpId = operation.id;
+  group.sharedGroup.lastLocalChangeAt = operation.at;
+  return true;
+}
+
+function appendSharedGroupCardOperation(card, type, payload = {}, options = {}) {
+  const group = getSharedGroupForCard(card);
+  if (!group) {
+    return false;
+  }
+
+  return appendSharedGroupOperation(group, type, getSharedGroupEntityType(card), card.id, {
+    card: serializeCardForSharedGroup(card, group),
+    ...payload
+  }, options);
+}
+
+function appendSharedGroupConnectionOperation(connection, type, payload = {}, options = {}) {
+  const group = getSharedGroupForConnection(connection);
+  if (!group) {
+    return false;
+  }
+
+  return appendSharedGroupOperation(group, type, "connection", connection.id, {
+    connection: clone(connection),
+    ...payload
+  }, options);
+}
+
 function getAttachedComments(targetCardId) {
   return state.cards.filter((card) => (
     card.kind === "comment"
@@ -9132,6 +9622,7 @@ function isConnectionUsable(connection, cardIds = new Set(state.cards.map((card)
 function createHistoryState(source = state) {
   return {
     schemaVersion: source.schemaVersion,
+    account: clone(source.account || normalizeAccountState()),
     settings: clone(source.settings),
     cards: clone(source.cards),
     connections: clone(source.connections)
@@ -9481,6 +9972,7 @@ function applyTranslations() {
   [
     ["noteColorRuleLabel", "note"],
     ["commentColorRuleLabel", "comment"],
+    ["chatColorRuleLabel", "chat"],
     ["codeColorRuleLabel", "code"],
     ["tableColorRuleLabel", "table"],
     ["calculatorColorRuleLabel", "calculator"],
@@ -9833,6 +10325,12 @@ function getCardTextParts(card) {
   if (card.kind === "bookmark" && Array.isArray(card.links)) {
     card.links.forEach((link) => {
       parts.push(link.title || "", link.url || "");
+    });
+  }
+
+  if (card.kind === "chat" && Array.isArray(card.chatMessages)) {
+    card.chatMessages.forEach((message) => {
+      parts.push(message.author?.name || "", message.text || "");
     });
   }
 
@@ -13441,6 +13939,14 @@ function renderCard(card) {
     kindIcon.innerHTML = getCardKindIcon(card.kind);
   }
 
+  const sharedBadge = document.createElement("span");
+  sharedBadge.className = "shared-group-badge";
+  sharedBadge.textContent = t("sharedGroupBadge");
+  sharedBadge.title = card.sharedGroup?.id
+    ? `${t("sharedGroupLocalStatus")}: ${card.sharedGroup.id}. ${t("sharedGroupLimit")}: ${getSharedGroupLimitLabel()}`
+    : t("sharedGroupBadge");
+  sharedBadge.hidden = !isGroupShared(card);
+
   if (card.kind === "comment") {
     header.append(grip, headerFill, kindIcon);
   } else if (card.kind === "web") {
@@ -13466,6 +13972,8 @@ function renderCard(card) {
 
     previewToggle.appendChild(previewInput);
     header.append(grip, title, headerFill, previewToggle, kindIcon);
+  } else if (card.kind === "group") {
+    header.append(grip, title, sharedBadge, headerFill, kindIcon);
   } else {
     header.append(grip, title, headerFill, kindIcon);
   }
@@ -13650,6 +14158,10 @@ function renderCardBody(card) {
     return renderBookmarks(card);
   }
 
+  if (card.kind === "chat") {
+    return renderChat(card);
+  }
+
   if (card.kind === "table") {
     return renderSimpleTable(card);
   }
@@ -13767,6 +14279,90 @@ function renderCodeSnippet(card) {
   textarea.addEventListener("keydown", (event) => handleCodeEditorKeydown(event, card, textarea));
 
   wrapper.append(languageInput, textarea);
+  return wrapper;
+}
+
+function renderChat(card) {
+  card.chatMessages = normalizeChatMessages(card.chatMessages);
+  const wrapper = document.createElement("div");
+  wrapper.className = "chat-card";
+
+  const messages = document.createElement("div");
+  messages.className = "chat-messages";
+  if (!card.chatMessages.length) {
+    const empty = document.createElement("div");
+    empty.className = "chat-empty";
+    empty.textContent = t("chatEmpty");
+    messages.appendChild(empty);
+  } else {
+    card.chatMessages.forEach((message) => {
+      if (message.deletedAt) {
+        return;
+      }
+      const item = document.createElement("article");
+      item.className = "chat-message";
+
+      const meta = document.createElement("div");
+      meta.className = "chat-message-meta";
+      const author = document.createElement("strong");
+      author.textContent = message.author?.name || t("unknown");
+      const time = document.createElement("span");
+      time.textContent = formatDateTimeDisplay(message.createdAt);
+      meta.append(author, time);
+
+      const text = document.createElement("div");
+      text.className = "chat-message-text";
+      text.textContent = message.text;
+      item.append(meta, text);
+      messages.appendChild(item);
+    });
+  }
+
+  const form = document.createElement("form");
+  form.className = "chat-compose";
+
+  const input = document.createElement("textarea");
+  input.className = "chat-input";
+  input.rows = 2;
+  input.maxLength = 4000;
+  input.placeholder = t("chatPlaceholder");
+  input.disabled = state.locked;
+
+  const sendButton = document.createElement("button");
+  sendButton.type = "submit";
+  sendButton.textContent = t("sendChatMessage");
+  sendButton.disabled = state.locked;
+
+  const sendMessage = () => {
+    const text = input.value.trim();
+    if (!text || state.locked) {
+      return;
+    }
+    card.chatMessages = normalizeChatMessages([...card.chatMessages, createChatMessage(text)]);
+    card.updatedAt = Date.now();
+    input.value = "";
+    emitThemeInteractionEvent("cardContentChanged", { card });
+    render();
+    scheduleSave();
+  };
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendMessage();
+  });
+
+  form.append(input, sendButton);
+  wrapper.append(messages, form);
+  requestAnimationFrame(() => {
+    messages.scrollTop = messages.scrollHeight;
+  });
   return wrapper;
 }
 
@@ -17148,6 +17744,9 @@ function addWaypointToConnection(connection, point) {
   const nextPoint = createConnectionPoint(point);
   connection.points.splice(getWaypointInsertIndex(connection, nextPoint), 0, nextPoint);
   selectedConnectionId = connection.id;
+  appendSharedGroupConnectionOperation(connection, "connection.waypoint.added", {
+    point: nextPoint
+  });
   renderConnections();
   scheduleSave();
 }
@@ -17362,6 +17961,7 @@ function startWaypointMove(event, connection, pointIndex) {
     pointerId: event.pointerId,
     connection,
     pointIndex,
+    originPoint: clone(connection.points[pointIndex] || {}),
     captureElement: event.currentTarget
   };
 }
@@ -17502,6 +18102,7 @@ function handleConnectionPointerDown(event) {
     pathStyle: connectionDraft.pathStyle
   });
   state.connections.push(connection);
+  appendSharedGroupConnectionOperation(connection, "connection.created");
   connectionDraft = null;
   setConnectionMode(false);
   renderConnections();
@@ -17561,6 +18162,14 @@ function setSelectedCards(ids) {
       }
     }
   });
+}
+
+function getConnectionsForCardIds(cardIds) {
+  const ids = new Set(cardIds);
+  return state.connections.filter((connection) => (
+    (connection.from.type === "card" && ids.has(connection.from.cardId)) ||
+    (connection.to.type === "card" && ids.has(connection.to.cardId))
+  ));
 }
 
 function clearSelection() {
@@ -17920,6 +18529,14 @@ function updateActiveAction(event) {
       }
     }
 
+    if (isGroupShared(card)) {
+      const constrained = constrainSharedGroupRect({ left, top, right, bottom }, activeAction.direction);
+      left = constrained.left;
+      top = constrained.top;
+      right = constrained.right;
+      bottom = constrained.bottom;
+    }
+
     card.x = left;
     card.y = top;
     card.width = Math.max(right - left, minCardWidth);
@@ -17964,9 +18581,21 @@ function stopActiveAction(event) {
   }
 
   if (activeAction.type === "move") {
+    const actor = getCurrentAuditActor();
+    const at = Date.now();
     activeAction.items.forEach((item) => {
       if (Math.round(item.card.x) !== Math.round(item.originX) || Math.round(item.card.y) !== Math.round(item.originY)) {
         emitThemeInteractionEvent("cardMoved", { card: item.card });
+        appendSharedGroupCardOperation(item.card, "card.moved", {
+          previousPosition: {
+            x: item.originX,
+            y: item.originY
+          },
+          position: {
+            x: item.card.x,
+            y: item.card.y
+          }
+        }, { actor, at });
       }
     });
     settleMovedCommentAttachments(activeAction.items);
@@ -17984,6 +18613,31 @@ function stopActiveAction(event) {
       )
     ) {
       emitThemeInteractionEvent("cardResized", { card });
+      appendSharedGroupCardOperation(card, "card.resized", {
+        previousRect: {
+          x: activeAction.originX,
+          y: activeAction.originY,
+          width: activeAction.originWidth,
+          height: activeAction.originHeight
+        },
+        rect: {
+          x: card.x,
+          y: card.y,
+          width: card.width,
+          height: card.height
+        }
+      });
+    }
+  }
+
+  if (activeAction.type === "waypoint") {
+    const point = activeAction.connection.points[activeAction.pointIndex];
+    if (serializeAuditValue(point) !== serializeAuditValue(activeAction.originPoint)) {
+      appendSharedGroupConnectionOperation(activeAction.connection, "connection.waypoint.moved", {
+        pointIndex: activeAction.pointIndex,
+        previousPoint: activeAction.originPoint,
+        point
+      });
     }
   }
 
@@ -18023,6 +18677,13 @@ function getNewCardPosition(width, height, worldPoint = null) {
     x: maybeSnap(center.x - width / 2 + offset),
     y: maybeSnap(center.y - height / 2 + offset)
   };
+}
+
+function findContainingSharedGroupForCard(card) {
+  const candidates = state.cards
+    .filter((group) => isGroupShared(group) && isCardInsideGroup(card, group))
+    .sort((left, right) => (left.width * left.height) - (right.width * right.height));
+  return candidates[0] || null;
 }
 
 function commitCardCreation(card, options = {}) {
@@ -18129,6 +18790,12 @@ function buildTemplateCardContent(template) {
           ? materializeTemplateLinks(data.links)
           : [createBookmarkLink()]
       };
+    case "chat":
+      return {
+        title,
+        chatMessages: normalizeChatMessages(data.chatMessages),
+        sharedGroupId: typeof data.sharedGroupId === "string" ? data.sharedGroupId.slice(0, 160) : ""
+      };
     case "progress":
       return {
         title,
@@ -18224,6 +18891,10 @@ function createCardFromTemplate(templateSource, worldPoint = null, source = {}) 
     sourceCardTemplateId: sourcePackId ? sourceTemplateId : "",
     ...buildTemplateCardContent(template)
   };
+  if (card.kind === "chat" && !card.sharedGroupId) {
+    const sharedGroup = findContainingSharedGroupForCard(card);
+    card.sharedGroupId = sharedGroup?.sharedGroup?.id || "";
+  }
 
   commitCardCreation(card);
   render();
@@ -18302,6 +18973,14 @@ function addCard(kind, worldPoint = null) {
       ...base,
       title: t("newBookmark"),
       links: [createBookmarkLink()]
+    });
+  } else if (kind === "chat") {
+    const sharedGroup = findContainingSharedGroupForCard(base);
+    commitCardCreation({
+      ...base,
+      title: t("newChat"),
+      chatMessages: [],
+      sharedGroupId: sharedGroup?.sharedGroup?.id || ""
     });
   } else if (kind === "progress") {
     commitCardCreation({
@@ -19406,6 +20085,10 @@ function duplicateCard(card) {
     copy.links = copy.links.map((link) => ({ ...link, id: createId("link") }));
   }
 
+  if (Array.isArray(copy.chatMessages)) {
+    copy.chatMessages = copy.chatMessages.map((message) => ({ ...message, id: createId("chat-message") }));
+  }
+
   if (Array.isArray(copy.scheduleEntries)) {
     copy.scheduleEntries = copy.scheduleEntries.map((entry) => ({ ...entry, id: createId("schedule-item") }));
   }
@@ -19448,6 +20131,10 @@ function duplicateCard(card) {
     copy.commentAttachment = null;
   }
 
+  if (copy.kind === "group") {
+    copy.sharedGroup = normalizeSharedGroup(null, copy.id);
+  }
+
   assignTopStackOrder(copy);
   const inserted = commitCardCreation(copy);
   if (inserted) {
@@ -19458,6 +20145,22 @@ function duplicateCard(card) {
 }
 
 function removeCardsByIds(ids) {
+  const actor = getCurrentAuditActor();
+  const at = Date.now();
+  const cardsToRemove = state.cards.filter((card) => ids.has(card.id));
+  const connectionsToRemove = getConnectionsForCardIds(ids);
+  connectionsToRemove.forEach((connection) => {
+    appendSharedGroupConnectionOperation(connection, "connection.deleted", {
+      connectionId: connection.id
+    }, { actor, at });
+  });
+  cardsToRemove.forEach((card) => {
+    appendSharedGroupCardOperation(card, "card.deleted", {
+      cardId: card.id,
+      kind: card.kind,
+      title: card.title || ""
+    }, { actor, at });
+  });
   state.cards = state.cards.filter((card) => !ids.has(card.id));
   removeConnectionsForCardIds(ids);
   removeReferencesForCardIds(ids);
@@ -19578,6 +20281,62 @@ function setWebInteraction(card, enabled) {
   closeContextMenu();
 }
 
+function enableLocalSharedGroup(group) {
+  ensureEditMode();
+  if (!group || group.kind !== "group") {
+    return;
+  }
+
+  group.sharedGroup = normalizeSharedGroup({
+    enabled: true,
+    id: group.sharedGroup?.id || createId("shared-group"),
+    role: group.sharedGroup?.role || "owner",
+    status: "local",
+    groupId: group.id,
+    createdAt: group.sharedGroup?.createdAt || Date.now(),
+    lastSyncedAt: group.sharedGroup?.lastSyncedAt || null,
+    lastSyncedOpId: group.sharedGroup?.lastSyncedOpId || "",
+    inviteUrl: group.sharedGroup?.inviteUrl || ""
+  }, group.id);
+  enforceSharedGroupLimits(group);
+  appendSharedGroupOperation(group, "sharedGroup.enabled", "group", group.id, {
+    group: buildSharedGroupSyncPayload(group)
+  });
+  render();
+  scheduleSave();
+  closeContextMenu();
+}
+
+function disableLocalSharedGroup(group) {
+  ensureEditMode();
+  if (!group || group.kind !== "group") {
+    return;
+  }
+
+  const sharedId = group.sharedGroup?.id || "";
+  appendSharedGroupOperation(group, "sharedGroup.disabled", "group", group.id, {
+    sharedGroupId: sharedId
+  });
+  group.sharedGroup = normalizeSharedGroup(null, group.id);
+  state.cards.forEach((card) => {
+    if (card.kind === "chat" && (card.sharedGroupId === group.id || card.sharedGroupId === sharedId)) {
+      card.sharedGroupId = "";
+    }
+  });
+  render();
+  scheduleSave();
+  closeContextMenu();
+}
+
+async function copySharedGroupId(group) {
+  if (!isGroupShared(group)) {
+    return;
+  }
+
+  await copyText(group.sharedGroup.id);
+  closeContextMenu();
+}
+
 function disableAllWebInteraction() {
   let changed = false;
   state.cards.forEach((card) => {
@@ -19625,41 +20384,82 @@ function setCardBodyColor(card, value) {
 
 function setConnectionColor(connection, value) {
   ensureEditMode();
+  const previousColor = connection.color;
   connection.color = value;
   connection.customColor = true;
+  appendSharedGroupConnectionOperation(connection, "connection.updated", {
+    changes: [{
+      field: "color",
+      before: previousColor,
+      after: connection.color
+    }]
+  });
   renderConnections();
   scheduleSave();
 }
 
 function resetConnectionColor(connection) {
   ensureEditMode();
+  const previousColor = connection.color;
+  const previousCustomColor = connection.customColor;
   connection.color = getConnectionColor();
   connection.customColor = false;
+  appendSharedGroupConnectionOperation(connection, "connection.updated", {
+    changes: [
+      { field: "color", before: previousColor, after: connection.color },
+      { field: "customColor", before: previousCustomColor, after: connection.customColor }
+    ]
+  });
   renderConnections();
   scheduleSave();
 }
 
 function setConnectionCap(connection, edge, value) {
   ensureEditMode();
+  const field = edge === "start" ? "startCap" : "endCap";
+  const previousValue = connection[field];
   if (edge === "start") {
     connection.startCap = normalizeConnectionCap(value);
   } else {
     connection.endCap = normalizeConnectionCap(value);
   }
+  appendSharedGroupConnectionOperation(connection, "connection.updated", {
+    changes: [{
+      field,
+      before: previousValue,
+      after: connection[field]
+    }]
+  });
   renderConnections();
   scheduleSave();
 }
 
 function setConnectionPathStyle(connection, value) {
   ensureEditMode();
+  const previousValue = connection.pathStyle;
   connection.pathStyle = normalizeConnectionPathStyle(value);
+  appendSharedGroupConnectionOperation(connection, "connection.updated", {
+    changes: [{
+      field: "pathStyle",
+      before: previousValue,
+      after: connection.pathStyle
+    }]
+  });
   renderConnections();
   scheduleSave();
 }
 
 function convertConnectionToAutoPath(connection) {
   ensureEditMode();
+  const previousPoints = clone(connection.points || []);
   connection.points = [];
+  appendSharedGroupConnectionOperation(connection, "connection.updated", {
+    changes: [{
+      field: "points",
+      before: previousPoints,
+      after: connection.points
+    }]
+  });
   renderConnections();
   scheduleSave();
   closeContextMenu();
@@ -19667,6 +20467,9 @@ function convertConnectionToAutoPath(connection) {
 
 function deleteConnection(connection) {
   ensureEditMode();
+  appendSharedGroupConnectionOperation(connection, "connection.deleted", {
+    connectionId: connection.id
+  });
   state.connections = state.connections.filter((item) => item.id !== connection.id);
   if (selectedConnectionId === connection.id) {
     selectedConnectionId = null;
@@ -19699,6 +20502,7 @@ function connectSelectedCards(cards = getSelectedCards()) {
   }
 
   state.connections.push(...newConnections);
+  newConnections.forEach((connection) => appendSharedGroupConnectionOperation(connection, "connection.created"));
   selectedConnectionId = newConnections[newConnections.length - 1].id;
   selectedIds.clear();
   render();
@@ -19869,6 +20673,15 @@ function renderCardContextMenu(card) {
       t(card.webInteractive ? "disableWebInteraction" : "enableWebInteraction"),
       () => setWebInteraction(card, !card.webInteractive)
     ));
+  }
+
+  if (card.kind === "group") {
+    if (isGroupShared(card)) {
+      mainActions.push(createContextButton(t("copySharedGroupId"), () => copySharedGroupId(card)));
+      mainActions.push(createContextButton(t("disableSharedGroup"), () => disableLocalSharedGroup(card)));
+    } else {
+      mainActions.push(createContextButton(t("makeSharedGroup"), () => enableLocalSharedGroup(card)));
+    }
   }
 
   if (card.kind === "comment") {

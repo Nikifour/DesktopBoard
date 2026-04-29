@@ -779,6 +779,25 @@ button:active {
   font-size: 13px;
 }
 
+.shared-group-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 20px;
+  border: 1px solid color-mix(in srgb, var(--card-header-text) 22%, transparent);
+  border-radius: 6px;
+  padding: 0 7px;
+  color: var(--card-header-text);
+  background: color-mix(in srgb, var(--card-header-text) 12%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.shared-group-badge[hidden] {
+  display: none;
+}
+
 .card-color {
   display: none;
 }
@@ -951,6 +970,90 @@ button:active {
 
 .code-text:focus {
   border-color: var(--card-button-text);
+}
+
+.chat-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.chat-messages {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.chat-empty {
+  color: color-mix(in srgb, var(--card-body-text) 58%, transparent);
+  font-size: 13px;
+}
+
+.chat-message {
+  display: grid;
+  gap: 4px;
+  max-width: 92%;
+  border: 1px solid color-mix(in srgb, var(--card-body-text) 10%, transparent);
+  border-radius: 8px;
+  padding: 7px 9px;
+  color: var(--card-body-text);
+  background: color-mix(in srgb, var(--card-body-color) 82%, #ffffff 18%);
+}
+
+.chat-message-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: color-mix(in srgb, var(--card-body-text) 62%, transparent);
+  font-size: 11px;
+}
+
+.chat-message-meta strong {
+  color: var(--card-body-text);
+}
+
+.chat-message-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.chat-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.chat-input {
+  min-width: 0;
+  min-height: 42px;
+  max-height: 86px;
+  resize: vertical;
+  border: 1px solid color-mix(in srgb, var(--card-body-text) 14%, transparent);
+  border-radius: 6px;
+  padding: 7px 9px;
+  outline: 0;
+  color: var(--card-body-text);
+  background: color-mix(in srgb, var(--card-body-color) 88%, #ffffff 12%);
+  font: inherit;
+  line-height: 1.35;
+}
+
+.chat-input:focus {
+  border-color: var(--card-button-text);
+}
+
+.chat-compose button {
+  min-height: 42px;
+  white-space: nowrap;
 }
 
 .table-card {
