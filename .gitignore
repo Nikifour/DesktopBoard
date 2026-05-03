@@ -2,4 +2,20 @@ node_modules/
 dist/
 out/
 *.log
+.codex-logs/
 .DS_Store
+supabase.local.json
+*.local.json
+src/web-config.json
+.env
+.env.*
+!.env.example
+!*.env.example
+.env.local
+supabase/.env.local
+supabase/.temp/
+
+# Local/private planning documents. Do not publish to GitHub or releases.
+.private/
+docs/PRICING_ECONOMICS.md
+PROJECT_CONTEXT.md
